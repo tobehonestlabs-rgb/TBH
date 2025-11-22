@@ -1,31 +1,68 @@
 'use client'
 
+import { useState } from 'react'
+
 export default function Header() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+
+  const menuItems = [
+    { name: 'Home', href: '#' },
+    { name: 'Manage Subscription', href: '#' },
+    { name: 'Press', href: '#' },
+    { name: 'Jobs', href: '#' },
+    { name: 'Investment', href: '#' },
+    { name: 'App Store', href: '#' },
+    { name: 'Google Play Store', href: '#' },
+  ]
+
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 glass-header">
-      <div className="container mx-auto px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="text-3xl font-bold text-white">TBH</span>
-          </div>
-          <nav className="hidden md:flex items-center gap-8">
-            <a href="#features" className="text-white/70 hover:text-white text-lg font-medium transition-colors">
-              Features
-            </a>
-            <a href="#how-it-works" className="text-white/70 hover:text-white text-lg font-medium transition-colors">
-              How It Works
-            </a>
-            <a href="#reviews" className="text-white/70 hover:text-white text-lg font-medium transition-colors">
-              Reviews
-            </a>
-          </nav>
-          <div className="flex items-center gap-3">
-            <button className="px-6 py-2.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full text-lg font-semibold hover:from-purple-600 hover:to-pink-600 transition-all">
-              Get Started
+    <>
+      <header className="fixed top-0 left-0 right-0 z-50 glass-header">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl font-bold text-white">TBH</span>
+            </div>
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="flex flex-col gap-1.5 p-2"
+              aria-label="Menu"
+            >
+              <span className={`w-6 h-0.5 bg-white transition-all ${isMenuOpen ? 'rotate-45 translate-y-2' : ''}`}></span>
+              <span className={`w-6 h-0.5 bg-white transition-all ${isMenuOpen ? 'opacity-0' : ''}`}></span>
+              <span className={`w-6 h-0.5 bg-white transition-all ${isMenuOpen ? '-rotate-45 -translate-y-2' : ''}`}></span>
             </button>
           </div>
         </div>
-      </div>
-    </header>
+      </header>
+
+      {/* Expanded Menu */}
+      {isMenuOpen && (
+        <div className="fixed top-0 left-0 right-0 z-40 glass-menu pt-20">
+          <div className="container mx-auto px-6 pb-8">
+            <nav className="flex flex-col gap-1">
+              {menuItems.map((item, index) => (
+                <a
+                  key={index}
+                  href={item.href}
+                  className="px-4 py-4 text-white text-xl font-medium hover:bg-white/5 rounded-lg transition-colors"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {item.name}
+                </a>
+              ))}
+            </nav>
+          </div>
+        </div>
+      )}
+
+      {/* Overlay */}
+      {isMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-30"
+          onClick={() => setIsMenuOpen(false)}
+        ></div>
+      )}
+    </>
   )
 }

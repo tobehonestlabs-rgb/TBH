@@ -2,10 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Global styles - iOS style, dark theme with vibrant colors */
+/* Global styles - iOS style, black & white theme */
 @layer base {
   body {
-    @apply bg-gray-900 text-white antialiased;
+    @apply bg-black text-white antialiased;
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', sans-serif;
     font-size: 17px;
     line-height: 1.47;
@@ -20,30 +20,34 @@
 }
 
 @layer utilities {
-  /* Glassmorphism utility classes - dark theme */
+  /* Glassmorphism utility classes */
   .glass {
-    @apply bg-gray-800/80 backdrop-blur-xl border border-white/10;
-    box-shadow: 0 4px 24px 0 rgba(0, 0, 0, 0.4);
+    @apply bg-white/10 backdrop-blur-xl border border-white/20;
+    box-shadow: 0 4px 24px 0 rgba(0, 0, 0, 0.5);
   }
 
   .glass-header {
-    @apply bg-gray-900/80 backdrop-blur-2xl border-b border-white/10;
-    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.1);
+    @apply bg-black/80 backdrop-blur-2xl border-b border-white/10;
+  }
+
+  .glass-menu {
+    @apply bg-black/95 backdrop-blur-2xl border-b border-white/10;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
   }
 
   .glass-card {
-    @apply bg-gray-800/60 backdrop-blur-lg border border-white/10 rounded-3xl;
-    box-shadow: 0 2px 16px 0 rgba(0, 0, 0, 0.3);
+    @apply bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl;
+    box-shadow: 0 2px 16px 0 rgba(0, 0, 0, 0.4);
   }
 }
 
-/* Custom scrollbar - dark theme */
+/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-gray-900;
+  @apply bg-black;
 }
 
 ::-webkit-scrollbar-thumb {
