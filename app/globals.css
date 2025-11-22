@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global styles for glassmorphism and animations */
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-white text-black antialiased;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+      sans-serif;
+  }
+}
+
+@layer utilities {
+  /* Glassmorphism utility classes */
+  .glass {
+    @apply bg-white/10 backdrop-blur-md border border-white/20;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+  }
+
+  .glass-strong {
+    @apply bg-white/20 backdrop-blur-lg border border-white/30;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.5);
+  }
+
+  .glass-card {
+    @apply glass rounded-2xl p-6 transition-all duration-300 hover:bg-white/15 hover:shadow-xl;
+  }
+
+  /* Rainbow gradient text */
+  .rainbow-text {
+    background: linear-gradient(
+      90deg,
+      #ff6b6b 0%,
+      #ff8e53 20%,
+      #ffd93d 40%,
+      #6bcb77 60%,
+      #4d96ff 80%,
+      #9b59b6 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    background-size: 200% auto;
+    animation: rainbow-shift 3s ease-in-out infinite;
+  }
+
+  @keyframes rainbow-shift {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  /* Rainbow border accent */
+  .rainbow-border {
+    position: relative;
+    background: linear-gradient(
+      90deg,
+      #ff6b6b,
+      #ff8e53,
+      #ffd93d,
+      #6bcb77,
+      #4d96ff,
+      #9b59b6
+    );
+    background-size: 200% auto;
+    animation: rainbow-shift 3s ease-in-out infinite;
+    padding: 2px;
+    border-radius: 12px;
+  }
+
+  .rainbow-border > * {
+    @apply bg-white rounded-[10px];
+  }
+
+  /* Smooth scroll */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Fade in on scroll */
+  .fade-in-on-scroll {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+  }
+
+  .fade-in-on-scroll.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-white;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-black/20 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-black/30;
+}
+
