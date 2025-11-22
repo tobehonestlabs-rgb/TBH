@@ -1,12 +1,7 @@
-# Netlify configuration for Next.js deployment
 [build]
   command = "npm run build"
-  publish = ".next"
+  publish = "out"
 
-[build.environment]
-  NODE_VERSION = "18"
-
-# Redirect rules for Next.js
 [[redirects]]
   from = "/*"
   to = "/index.html"

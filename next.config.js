@@ -3,10 +3,11 @@ const nextConfig = {
   reactStrictMode: true,
   images: {
     domains: ['images.unsplash.com', 'via.placeholder.com'],
-    unoptimized: false,
+    unoptimized: true, // Required for static export
   },
-  // Optimize for Netlify deployment
-  output: 'standalone',
+  // Static export for Netlify
+  output: 'export',
+  trailingSlash: true,
 }
 
 module.exports = nextConfig
