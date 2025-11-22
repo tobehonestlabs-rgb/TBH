@@ -35,13 +35,13 @@ export default function Reviews() {
   ]
 
   return (
-    <section id="reviews" className="py-24 bg-white">
+    <section id="reviews" className="py-24 bg-gradient-to-b from-white via-pink-50/30 to-white">
       <div className="container mx-auto px-6">
         <div className="max-w-6xl mx-auto">
           {/* Section Header */}
           <div className="text-center mb-20">
             <h2 className="text-6xl md:text-7xl font-bold mb-6 text-black">
-              What Users Say
+              What Users Say 💬
             </h2>
             <p className="text-xl text-black/60">
               Real stories from 100M+ users
@@ -81,7 +81,7 @@ export default function Reviews() {
           <div className="mt-16 text-center">
             <p className="text-2xl text-black/60">
               <span className="font-bold text-black text-3xl">4.9/5</span> from{' '}
-              <span className="font-bold text-black">2M+</span> reviews
+              <span className="font-bold text-black">2M+</span> reviews ⭐
             </p>
           </div>
         </div>

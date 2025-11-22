@@ -6,13 +6,13 @@ export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
   const menuItems = [
-    { name: 'Home', href: '#' },
-    { name: 'Manage Subscription', href: '#' },
-    { name: 'Press', href: '#' },
-    { name: 'Jobs', href: '#' },
-    { name: 'Investment', href: '#' },
-    { name: 'App Store', href: '#' },
-    { name: 'Google Play Store', href: '#' },
+    { name: 'Home', href: '#', emoji: '🏠' },
+    { name: 'Manage Subscription', href: '#', emoji: '💳' },
+    { name: 'Press', href: '#', emoji: '📰' },
+    { name: 'Jobs', href: '#', emoji: '💼' },
+    { name: 'Investment', href: '#', emoji: '📈' },
+    { name: 'App Store', href: '#', emoji: '📱' },
+    { name: 'Google Play Store', href: '#', emoji: '🤖' },
   ]
 
   return (
@@ -40,15 +40,16 @@ export default function Header() {
       {isMenuOpen && (
         <div className="fixed top-0 left-0 right-0 z-40 glass-menu pt-20">
           <div className="container mx-auto px-6 pb-8">
-            <nav className="flex flex-col gap-1">
+            <nav className="flex flex-col gap-1 glass rounded-2xl p-4">
               {menuItems.map((item, index) => (
                 <a
                   key={index}
                   href={item.href}
-                  className="px-4 py-4 text-white text-xl font-medium hover:bg-white/5 rounded-lg transition-colors"
+                  className="px-4 py-4 text-white text-xl font-medium hover:bg-white/10 rounded-lg transition-colors flex items-center gap-3"
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  {item.name}
+                  <span className="text-2xl">{item.emoji}</span>
+                  <span>{item.name}</span>
                 </a>
               ))}
             </nav>

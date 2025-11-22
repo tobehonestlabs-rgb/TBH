@@ -31,8 +31,8 @@
   }
 
   .glass-menu {
-    @apply bg-black/95 backdrop-blur-2xl border-b border-white/10;
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+    @apply bg-black/40 backdrop-blur-2xl border-b border-white/20;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6);
   }
 
   .glass-card {

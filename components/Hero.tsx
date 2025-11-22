@@ -12,13 +12,13 @@ export default function Hero() {
 
           {/* Tagline */}
           <p className="text-2xl md:text-3xl text-white/80 mb-12 font-light">
-            Anonymous messages, voices & photos
+            Anonymous messages, voices & photos 💬
           </p>
 
           {/* Stats */}
           <div className="mb-16">
             <p className="text-lg text-white/60">
-              Join <span className="font-semibold text-white">100M+</span> users worldwide
+              Join <span className="font-semibold text-white">100M+</span> users worldwide 🌍
             </p>
           </div>
 
@@ -35,7 +35,7 @@ export default function Hero() {
           {/* CTA Button */}
           <div className="flex justify-center">
             <button className="px-12 py-4 bg-white text-black rounded-full text-xl font-semibold hover:bg-white/90 transition-colors">
-              Get Started
+              Get Started ✨
             </button>
           </div>
         </div>
