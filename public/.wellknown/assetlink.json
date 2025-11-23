@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.tbhonest.app",
+      "sha256_cert_fingerprints": [
+        "D7:9F:A4:F2:D8:A4:61:1B:07:66:0B:E0:17:9C:B0:AC:BB:95:34:93:8B:CA:8A:98:E4:07:1B:73:E0:74:CF:07"
+      ]
+    }
+  }
+]
+
