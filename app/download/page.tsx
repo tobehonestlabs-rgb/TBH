@@ -4,8 +4,9 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 
 export default function DownloadPage() {
-  // GitLab raw APK URL - converts blob URL to raw URL for direct download
-  const APK_URL = "https://gitlab.com/tbh-labs/tbh-android/-/blob/b35b94c11f05c7ad934c9888224846114711ca85/app/release/app-release.apk"
+  // GitLab raw APK URL - uses branch name instead of commit hash to always get the latest version
+  // Change 'main' to your branch name if different (e.g., 'master', 'develop', etc.)
+  const APK_URL = "https://gitlab.com/tbh-labs/tbh-android/-/raw/main/app/release/app-release.apk"
 
   const handleDownload = () => {
     // Open the download link
