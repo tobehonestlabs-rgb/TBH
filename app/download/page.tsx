@@ -5,7 +5,7 @@ import Footer from '@/components/Footer'
 
 export default function DownloadPage() {
   // GitLab raw APK URL - converts blob URL to raw URL for direct download
-  const APK_URL = "https://gitlab.com/tbh-labs/tbh-android/-/raw/61b29183b0669b5ce4840f05486d707657766909/app/release/app-release.apk"
+  const APK_URL = "https://gitlab.com/tbh-labs/tbh-android/-/raw/b544fcfaa880f8785de69309cf3d3d8c45a351f0/app/release/app-release.apk"
 
   const handleDownload = () => {
     // Open the download link
