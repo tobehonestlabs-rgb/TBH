@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
         to_user: receiverId,
         type: 'text_message',
         from_user: "b4dd65ed-2282-45b4-bb5f-299a9767e3d5", // anonymous sender from web; adjust if you want a specific id
-        content: imageUrl!= null ? "[IMAGE]" +"("+imageUrl+")"+ message : message,
+        content: imageUrl!= null ? "[IMAGE]" +"("+imageUrl+")\n"+ message : message,
         media_url: imageUrl ?? '',
         message_id: messageId,
         created_at: createdAt,
