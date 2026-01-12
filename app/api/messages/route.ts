@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'User not found for this username' }, { status: 404 })
     }
 
-    const receiverId = user.id as string
+    const receiverId = user.user_id as string
 
     // 2) Optional image upload to Supabase Storage
     let imageUrl: string | null = null
