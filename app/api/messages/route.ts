@@ -26,12 +26,12 @@ export async function POST(req: NextRequest) {
     // 1) Look up receiverId from slug, like getUserID(receiver_slug) in Kotlin
     const { data: user, error: userError } = await supabaseAdmin
       .from(USERS_TABLE)
-      .select('id')
+      .select('user_id')
       .eq('slug', slug)
       .single()
 
     if (userError || !user) {
-      return NextResponse.json({ error: 'User not found for this slug' }, { status: 404 })
+      return NextResponse.json({ error: 'User not found for this username' }, { status: 404 })
     }
 
     const receiverId = user.id as string
