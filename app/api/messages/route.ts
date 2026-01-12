@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
-const BUCKET = process.env.SUPABASE_BUCKET || 'uploads'
+const BUCKET = process.env.SUPABASE_BUCKET || 'images'
 // This should match SupabaseKeys.messageTable in your Kotlin app
 const TABLE = process.env.SUPABASE_TABLE || 'messages'
 // Table where you resolve slug -> user id (equivalent of getUserID(receiver_slug))
-const USERS_TABLE = process.env.SUPABASE_USERS_TABLE || 'users'
+const USERS_TABLE = process.env.SUPABASE_USERS_TABLE || 'users_table'
 
 export async function POST(req: NextRequest) {
   try {
