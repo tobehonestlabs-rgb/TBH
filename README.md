@@ -20,7 +20,50 @@ git branch -M main
 git push -uf origin main
 ```
 
+<<<<<<< HEAD
 ## Integrate with your tools
+=======
+## Feedback & Admin Pages
+
+- `app/feedback/page.tsx`: page en français avec le questionnaire complet et une zone libre.
+- `app/admin/page.tsx`: boîte de réception pour lire les réponses et compter les téléchargements test.
+- `app/api/feedback/route.ts`: endpoints POST/GET connectés à Supabase.
+
+### Supabase (tables suggérées)
+
+- `feedback` (par défaut, overridable via `SUPABASE_FEEDBACK_TABLE`)
+  - `id` (uuid, primary key, default `uuid_generate_v4()`)
+  - `created_at` (timestamp, default `now()`)
+  - `comprehension`, `onboarding`, `friction_moment`, `main_emotion`, `action_trigger`
+  - `viral_loop`, `viral_reason`, `safety_comfort`, `safety_reason`, `sensitive_options`
+  - `payment_intent`, `verdict`, `verdict_reason`, `open_note`, `source`
+- `downloads` (overridable via `SUPABASE_DOWNLOADS_TABLE`)
+  - Minimal: `id` (uuid), `created_at` (timestamp). One row = un téléchargement.
+
+Env vars (déjà utilisées ailleurs) :
+
+```
+SUPABASE_URL=...
+SUPABASE_SERVICE_ROLE_KEY=...
+SUPABASE_FEEDBACK_TABLE=feedback
+SUPABASE_DOWNLOADS_TABLE=downloads
+```
+
+### API
+
+- `POST /api/feedback` — enregistre une réponse (JSON). Champs obligatoires : `comprehension`, `onboarding`, `viralLoop`, `safetyComfort`, `sensitiveOptions`, `verdict`. Champ libre : `openNote`.
+- `GET /api/feedback` — retourne `{ feedback, downloads }` (limité à 200 entrées, ordre décroissant).
+
+## Design Guide (web + React Native)
+
+- Palette : fond noir, texte blanc, accents verre (`glass`, `glass-card` dans `globals.css`).
+- Typo : SF Pro / iOS-like, taille base 17px, arrondis généreux.
+- Composants-clés : cartes verre, boutons pills (`rounded-full`, contraste fort), grands espacements verticaux.
+- Motion : micro-hover (-translate-y), opacité douce, pas de scroll-jank.
+- Pour React Native : reproduire les surfaces avec `rgba(255,255,255,0.06)` + `blurRadius` (ou `expo-blur`), utiliser `Pressable` avec feedback opacité, conserver les espacements (16/24/32). Structure : `SafeAreaView` > `ScrollView` > cartes arrondies > contrôles radio/checkbox custom (icônes + texte).
+
+## Customization
+>>>>>>> fb29336 (a test and admin page)
 
 - [ ] [Set up project integrations](https://gitlab.com/tbh-labs/TBH/-/settings/integrations)
 
