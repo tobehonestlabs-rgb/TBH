@@ -15,6 +15,7 @@ type SubmitState = 'idle' | 'loading' | 'success' | 'error'
 export default function FeedbackPage() {
   const [state, setState] = useState<SubmitState>('idle')
   const [error, setError] = useState<string | null>(null)
+  const [answers, setAnswers] = useState<Record<string, string>>({})
 
   const radioOptions = useMemo(
     () => ({
@@ -79,6 +80,8 @@ export default function FeedbackPage() {
                   name="comprehension"
                   options={radioOptions.comprehension}
                   required
+                  selectedValue={answers.comprehension}
+                  onSelect={(value) => setAnswers((prev) => ({ ...prev, comprehension: value }))}
                 />
 
                 <Question
@@ -86,6 +89,8 @@ export default function FeedbackPage() {
                   name="onboarding"
                   options={radioOptions.onboarding}
                   required
+                  selectedValue={answers.onboarding}
+                  onSelect={(value) => setAnswers((prev) => ({ ...prev, onboarding: value }))}
                 />
 
                 <TextQuestion
@@ -111,6 +116,8 @@ export default function FeedbackPage() {
                   name="viralLoop"
                   options={radioOptions.viralLoop}
                   required
+                  selectedValue={answers.viralLoop}
+                  onSelect={(value) => setAnswers((prev) => ({ ...prev, viralLoop: value }))}
                 />
 
                 <TextQuestion
@@ -124,6 +131,8 @@ export default function FeedbackPage() {
                   name="safetyComfort"
                   options={radioOptions.safetyComfort}
                   required
+                  selectedValue={answers.safetyComfort}
+                  onSelect={(value) => setAnswers((prev) => ({ ...prev, safetyComfort: value }))}
                 />
 
                 <TextQuestion
@@ -137,6 +146,8 @@ export default function FeedbackPage() {
                   name="sensitiveOptions"
                   options={radioOptions.sensitiveOptions}
                   required
+                  selectedValue={answers.sensitiveOptions}
+                  onSelect={(value) => setAnswers((prev) => ({ ...prev, sensitiveOptions: value }))}
                 />
 
                 <TextQuestion
@@ -150,6 +161,8 @@ export default function FeedbackPage() {
                   name="verdict"
                   options={radioOptions.verdict}
                   required
+                  selectedValue={answers.verdict}
+                  onSelect={(value) => setAnswers((prev) => ({ ...prev, verdict: value }))}
                 />
 
                 <TextQuestion
@@ -209,24 +222,39 @@ function Question({
   name,
   options,
   required,
+  selectedValue,
+  onSelect,
 }: {
   label: string
   name: string
   options: string[]
   required?: boolean
+  selectedValue?: string
+  onSelect: (value: string) => void
 }) {
   return (
     <div className="space-y-3">
       <p className="text-lg font-semibold">{label}</p>
       <div className="grid md:grid-cols-3 gap-3">
         {options.map((option) => (
-          <label key={option} className={radioBase}>
-            <span className="text-white">{option}</span>
+          <label
+            key={option}
+            className={`${radioBase} ${
+              selectedValue === option
+                ? 'bg-white text-black border-white shadow-lg shadow-white/20'
+                : 'text-white'
+            }`}
+          >
+            <span className={selectedValue === option ? 'text-black font-semibold' : 'text-white'}>
+              {option}
+            </span>
             <input
               type="radio"
               name={name}
               value={option}
               required={required}
+              checked={selectedValue === option}
+              onChange={() => onSelect(option)}
               className="h-4 w-4 accent-white"
             />
           </label>
