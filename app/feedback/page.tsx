@@ -256,11 +256,11 @@ function Question({
             key={option}
             className={`${radioBase} ${
               selectedValue === option
-                ? 'bg-white text-black border-white shadow-lg shadow-white/20'
+                ? '!bg-white !text-black !border-white shadow-lg shadow-white/20'
                 : 'text-white'
             }`}
           >
-            <span className={selectedValue === option ? 'text-black font-semibold' : 'text-white'}>
+            <span className={selectedValue === option ? '!text-black font-semibold' : 'text-white'}>
               {option}
             </span>
             <input
@@ -270,7 +270,7 @@ function Question({
               required={required}
               checked={selectedValue === option}
               onChange={() => onSelect(option)}
-              className="h-4 w-4 accent-white"
+              className={`h-4 w-4 ${selectedValue === option ? 'accent-black' : 'accent-white'}`}
             />
           </label>
         ))}
