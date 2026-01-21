@@ -45,7 +45,8 @@ export default function FeedbackPage() {
 
     if (!response.ok) {
       const data = await response.json().catch(() => ({}))
-      setError(data.error || "Impossible d’envoyer le feedback.")
+      const details = typeof data?.details === 'string' && data.details.trim() ? ` (${data.details})` : ''
+      setError((data.error || "Impossible d’envoyer le feedback.") + details)
       setState('error')
       return
     }

@@ -8,6 +8,8 @@ const TABLE = process.env.SUPABASE_TABLE || 'messages'
 // Table where you resolve slug -> user id (equivalent of getUserID(receiver_slug))
 const USERS_TABLE = process.env.SUPABASE_USERS_TABLE || 'users_table'
 
+
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
