@@ -15,24 +15,28 @@ export default function SendMessagePage() {
     setSuccess(null)
     setError(null)
 
-    const formData = new FormData(e.currentTarget)
-    formData.append('slug', slug)
+    try {
+      const formData = new FormData(e.currentTarget)
+      formData.append('slug', slug)
 
-    const response = await fetch('/api/messages', {
-      method: 'POST',
-      body: formData,
-    })
+      const response = await fetch('/api/messages', {
+        method: 'POST',
+        body: formData,
+      })
 
-    const data = await response.json()
+      const data = await response.json().catch(() => ({ error: 'Réponse invalide du serveur' }))
 
-    if (!response.ok) {
-      setError(data.error || 'Something went wrong. Please try again.')
-    } else {
-      setSuccess('Message sent anonymously! Thanks for your feedback.')
-      e.currentTarget.reset()
+      if (!response.ok) {
+        setError(data.error || 'Something went wrong. Please try again.')
+      } else {
+        setSuccess('Message sent anonymously! Thanks for your feedback.')
+        e.currentTarget.reset()
+      }
+    } catch (err: any) {
+      setError('Erreur réseau. Vérifie ta connexion et réessaye.')
+    } finally {
+      setIsSubmitting(false)
     }
-
-    setIsSubmitting(false)
   }
 
   return (

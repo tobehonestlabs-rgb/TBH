@@ -34,25 +34,39 @@ export default function FeedbackPage() {
     setState('loading')
     setError(null)
 
-    const formData = new FormData(e.currentTarget)
-    const payload = Object.fromEntries(formData.entries())
+    try {
+      const formData = new FormData(e.currentTarget)
+      const payload = Object.fromEntries(formData.entries())
 
-    const response = await fetch('/api/feedback', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
+      const response = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}))
-      const details = typeof data?.details === 'string' && data.details.trim() ? ` (${data.details})` : ''
-      setError((data.error || "Impossible d’envoyer le feedback.") + details)
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        const details = typeof data?.details === 'string' && data.details.trim() ? ` (${data.details})` : ''
+        setError((data.error || "Impossible d'envoyer le feedback.") + details)
+        setState('error')
+        return
+      }
+
+      e.currentTarget.reset()
+      setState('success')
+      // Reset form answers state
+      setAnswers({
+        comprehension: '',
+        onboarding: '',
+        viralLoop: '',
+        safetyComfort: '',
+        sensitiveOptions: '',
+        verdict: '',
+      })
+    } catch (err: any) {
+      setError("Erreur réseau. Vérifie ta connexion et réessaye.")
       setState('error')
-      return
     }
-
-    e.currentTarget.reset()
-    setState('success')
   }
 
   return (
