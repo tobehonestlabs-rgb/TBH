@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
-const FEEDBACK_TABLE = process.env.SUPABASE_FEEDBACK_TABLE || 'feedback'
+const FEEDBACK_TABLE = process.env.SUPABASE_FEEDBACK_TABLE || 'feedback_answers'
 const DOWNLOADS_TABLE = process.env.SUPABASE_DOWNLOADS_TABLE || 'downloads'
 
 type FeedbackPayload = {

@@ -37,7 +37,9 @@ export default function AdminPage() {
         const data = await response.json()
 
         if (!response.ok) {
-          throw new Error(data.error || 'Impossible de récupérer les feedbacks')
+          const details =
+            typeof data?.details === 'string' && data.details.trim() ? ` (${data.details})` : ''
+          throw new Error((data.error || 'Impossible de récupérer les feedbacks') + details)
         }
 
         setEntries(data.feedback || [])
