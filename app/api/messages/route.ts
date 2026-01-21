@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       const { error: uploadError } = await supabaseAdmin.storage
         .from(BUCKET)
         .upload(filePath, image, {
-          contentType: image.type || 'image/jpeg',
+          contentType: image.type || 'image/jpeg', 
           upsert: false,
         })
 
