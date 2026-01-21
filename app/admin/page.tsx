@@ -57,9 +57,11 @@ export default function AdminPage() {
 
   const orderedEntries = useMemo(
     () =>
-      [...entries].sort((a, b) =>
-        (a.created_at || '') < (b.created_at || '') ? 1 : -1
-      ),
+      [...entries].sort((a, b) => {
+        const aTime = a.created_at ? Date.parse(a.created_at) : 0
+        const bTime = b.created_at ? Date.parse(b.created_at) : 0
+        return bTime - aTime
+      }),
     [entries]
   )
 

@@ -46,6 +46,7 @@ Env vars (déjà utilisées ailleurs) :
 SUPABASE_URL=...
 SUPABASE_SERVICE_ROLE_KEY=...
 SUPABASE_FEEDBACK_TABLE=feedback
+SUPABASE_FEEDBACK_COLUMN=feedbacks
 SUPABASE_DOWNLOADS_TABLE=downloads
 ```
 

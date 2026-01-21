@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
 const FEEDBACK_TABLE = process.env.SUPABASE_FEEDBACK_TABLE || 'feedback_answers'
 const DOWNLOADS_TABLE = process.env.SUPABASE_DOWNLOADS_TABLE || 'downloads'
+const FEEDBACK_COLUMN = process.env.SUPABASE_FEEDBACK_COLUMN || 'feedbacks'
 
 type FeedbackPayload = {
   comprehension?: string
@@ -53,24 +54,24 @@ export async function POST(req: NextRequest) {
     const { data, error } = await supabaseAdmin
       .from(FEEDBACK_TABLE)
       .insert({
-        comprehension,
-        onboarding,
-        friction_moment: frictionMoment || '',
-        main_emotion: mainEmotion || '',
-        action_trigger: actionTrigger || '',
-        viral_loop: viralLoop,
-        viral_reason: viralReason || '',
-        safety_comfort: safetyComfort,
-        safety_reason: safetyReason || '',
-        sensitive_options: sensitiveOptions,
-        payment_intent: paymentIntent || '',
-        verdict,
-        verdict_reason: verdictReason || '',
-        open_note: openNote || '',
-        created_at: new Date().toISOString(),
-        source: 'web-feedback',
+        [FEEDBACK_COLUMN]: {
+          comprehension,
+          onboarding,
+          frictionMoment: frictionMoment || '',
+          mainEmotion: mainEmotion || '',
+          actionTrigger: actionTrigger || '',
+          viralLoop,
+          viralReason: viralReason || '',
+          safetyComfort,
+          safetyReason: safetyReason || '',
+          sensitiveOptions,
+          paymentIntent: paymentIntent || '',
+          verdict,
+          verdictReason: verdictReason || '',
+          openNote: openNote || '',
+        },
       })
-      .select('id')
+      .select('*')
       .single()
 
     if (error) {
@@ -89,7 +90,6 @@ export async function GET() {
       supabaseAdmin
         .from(FEEDBACK_TABLE)
         .select('*')
-        .order('created_at', { ascending: false })
         .limit(200),
       supabaseAdmin.from(DOWNLOADS_TABLE).select('*', { count: 'exact', head: true }),
     ])
@@ -100,10 +100,29 @@ export async function GET() {
 
     const downloads = downloadsError ? 0 : count ?? 0
 
-    return NextResponse.json({
-      feedback: data ?? [],
-      downloads,
+    const feedback = (data ?? []).map((row: any) => {
+      const payload = row?.[FEEDBACK_COLUMN] ?? {}
+      return {
+        id: row?.id ?? null,
+        created_at: row?.created_at ?? null,
+        comprehension: payload?.comprehension ?? '',
+        onboarding: payload?.onboarding ?? '',
+        friction_moment: payload?.frictionMoment ?? '',
+        main_emotion: payload?.mainEmotion ?? '',
+        action_trigger: payload?.actionTrigger ?? '',
+        viral_loop: payload?.viralLoop ?? '',
+        viral_reason: payload?.viralReason ?? '',
+        safety_comfort: payload?.safetyComfort ?? '',
+        safety_reason: payload?.safetyReason ?? '',
+        sensitive_options: payload?.sensitiveOptions ?? '',
+        payment_intent: payload?.paymentIntent ?? '',
+        verdict: payload?.verdict ?? '',
+        verdict_reason: payload?.verdictReason ?? '',
+        open_note: payload?.openNote ?? '',
+      }
     })
+
+    return NextResponse.json({ feedback, downloads })
   } catch (error: any) {
     return NextResponse.json({ error: 'Erreur inattendue', details: error?.message }, { status: 500 })
   }
