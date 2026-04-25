@@ -9,8 +9,8 @@ import CTA from '@/components/CTA'
 import Footer from '@/components/Footer'
 
 export default function Home() {
-  return ( 
-    <main className="min-h-screen">
+  return (
+    <main className="min-h-screen bg-black text-white">
       <Header />
       <Hero />
       <Features />
