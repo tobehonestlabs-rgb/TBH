@@ -2,41 +2,52 @@
 
 export default function Hero() {
   return (
-    <section className="relative min-h-screen flex items-center justify-center pt-20 bg-black">
-      <div className="container mx-auto px-6 text-center">
-        <div className="max-w-4xl mx-auto">
-          {/* Main Title */}
-          <h1 className="text-8xl md:text-9xl lg:text-[12rem] font-bold mb-8 tracking-tight text-white">
+    <section className="relative min-h-screen overflow-hidden pt-24 pb-20 bg-black">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.18),_transparent_20%),radial-gradient(circle_at_80%_30%,_rgba(236,72,153,0.16),_transparent_18%)] pointer-events-none" />
+      <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+
+      <div className="container mx-auto px-6 relative">
+        <div className="max-w-5xl mx-auto text-center">
+          <div className="inline-flex items-center justify-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-2 text-sm text-white/70 mb-8">
+            <span className="inline-flex h-2 w-2 rounded-full bg-cyan-400" />
+            Premium black experience — redesigned for night mode.
+          </div>
+
+          <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-tight text-white">
             TBH
+            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-fuchsia-400">anonymous feedback</span>
           </h1>
 
-          {/* Tagline */}
-          <p className="text-2xl md:text-3xl text-white/80 mb-12 font-light">
-            Anonymous messages, voices & photos 💬
+          <p className="mx-auto mt-8 max-w-3xl text-xl sm:text-2xl text-white/70 leading-relaxed">
+            Send anonymous messages, voice notes, and photo reactions in a sleek dark interface built to feel premium, private, and effortless.
           </p>
 
-          {/* Stats */}
-          <div className="mb-16">
-            <p className="text-lg text-white/60">
-              Join <span className="font-semibold text-white">100M+</span> users worldwide 🌍
-            </p>
-          </div>
-
-          {/* App Store Badges - PLACEHOLDERS */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-            <div className="w-48 h-14 bg-white/10 rounded-xl border border-white/20 flex items-center justify-center">
-              <span className="text-white/50 text-sm">App Store Badge</span>
-            </div>
-            <div className="w-48 h-14 bg-white/10 rounded-xl border border-white/20 flex items-center justify-center">
-              <span className="text-white/50 text-sm">Google Play Badge</span>
-            </div>
-          </div>
-
-          {/* CTA Button */}
-          <div className="flex justify-center">
-            <button className="px-12 py-4 bg-white text-black rounded-full text-xl font-semibold hover:bg-white/90 transition-colors">
-              Get Started ✨
+          <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <button className="inline-flex items-center justify-center rounded-full bg-white px-10 py-4 text-lg font-semibold text-black transition hover:bg-white/90">
+              Start Free
             </button>
+            <button className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/5 px-10 py-4 text-lg font-semibold text-white transition hover:bg-white/10">
+              See Demo
+            </button>
+          </div>
+
+          <div className="mt-16 grid grid-cols-2 sm:grid-cols-4 gap-4 text-left w-full max-w-3xl mx-auto">
+            <div className="rounded-3xl bg-white/5 border border-white/10 p-5">
+              <p className="text-sm uppercase tracking-[0.3em] text-white/40">Users</p>
+              <p className="mt-3 text-3xl font-bold text-white">100M+</p>
+            </div>
+            <div className="rounded-3xl bg-white/5 border border-white/10 p-5">
+              <p className="text-sm uppercase tracking-[0.3em] text-white/40">Anonymous</p>
+              <p className="mt-3 text-3xl font-bold text-white">100%</p>
+            </div>
+            <div className="rounded-3xl bg-white/5 border border-white/10 p-5">
+              <p className="text-sm uppercase tracking-[0.3em] text-white/40">Review</p>
+              <p className="mt-3 text-3xl font-bold text-white">4.9★</p>
+            </div>
+            <div className="rounded-3xl bg-white/5 border border-white/10 p-5">
+              <p className="text-sm uppercase tracking-[0.3em] text-white/40">Launch</p>
+              <p className="mt-3 text-3xl font-bold text-white">Now</p>
+            </div>
           </div>
         </div>
       </div>
