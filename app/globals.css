@@ -5,7 +5,7 @@
 /* Global styles - iOS style, black & white theme */
 @layer base {
   body {
-    @apply bg-black text-white antialiased;
+    @apply text-white antialiased;
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', sans-serif;
     font-size: 17px;
     line-height: 1.47;
