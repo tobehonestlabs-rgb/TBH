@@ -14,7 +14,7 @@ console.log('KEY:', process.env.NEXT_PUBLIC_SUPABASE_ROLE_KEY)
     const { error } = await supabaseClient.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `tbhonest.net/auth/callback`,
+        redirectTo: `https://tbhonest.net/auth/callback`,
       },
     })
     if (error) {
