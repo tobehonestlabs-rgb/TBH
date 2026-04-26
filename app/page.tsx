@@ -7,6 +7,8 @@ import { supabaseClient } from '@/lib/supabaseClient'
 export default function AuthPage() {
   const [loading, setLoading] = useState(false)
 console.log('URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
+console.log('KEY:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+console.log('KEY:', process.env.NEXT_PUBLIC_SUPABASE_ROLE_KEY)
   const handleGoogleLogin = async () => {
     setLoading(true)
     const { error } = await supabaseClient.auth.signInWithOAuth({
