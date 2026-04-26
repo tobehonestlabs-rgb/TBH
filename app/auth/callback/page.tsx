@@ -9,28 +9,20 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     const handleAuth = async () => {
-      // Give Supabase time to process the hash fragment
-      await new Promise(r => setTimeout(r, 500))
+      const code = new URLSearchParams(window.location.search).get('code')
+
+      if (code) {
+        await supabaseClient.auth.exchangeCodeForSession(code)
+      }
 
       const { data: { session } } = await supabaseClient.auth.getSession()
 
-      if (!session) {
-        // Try refreshing the session from the URL hash manually
-        const { data, error } = await supabaseClient.auth.refreshSession()
-        if (error || !data.session) {
-          router.replace('/')
-          return
-        }
-      }
-
-      const userId = session?.user.id ?? (await supabaseClient.auth.getSession()).data.session?.user.id
-
-      if (!userId) { router.replace('/'); return }
+      if (!session) { router.replace('/'); return }
 
       const { data: profile } = await supabaseClient
         .from('users_table')
         .select('user_id')
-        .eq('user_id', userId)
+        .eq('user_id', session.user.id)
         .single()
 
       router.replace(profile ? '/home' : '/onboarding')
@@ -42,10 +34,7 @@ export default function AuthCallbackPage() {
   return (
     <main className="min-h-screen bg-white flex flex-col items-center justify-center gap-4">
       <div className="w-8 h-8 border-2 border-black border-t-transparent rounded-full animate-spin" />
-      <p className="text-sm text-gray-400"
-        style={{ fontFamily: "'SF Pro Display', -apple-system, sans-serif" }}>
-        Signing you in...
-      </p>
+      <p className="text-sm text-gray-400">Signing you in...</p>
     </main>
   )
 }
