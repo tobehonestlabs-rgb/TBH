@@ -12,7 +12,7 @@ export default function AuthPage() {
     const { error } = await supabaseClient.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `http://192.168.1.9:3000/auth/callback`,
+        redirectTo: `tbhonest.net/auth/callback`,
       },
     })
     if (error) {
