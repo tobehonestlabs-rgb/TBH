@@ -75,7 +75,7 @@ export default function HomePage() {
       {/* ── Top Bar ── */}
         {/* ── Top Bar ── */}
          {/* ── Top Bar ── */}
-      <div className="flex items-center justify-between px-4 pt-12 pb-3 bg-white sticky top-0 z-20">
+      <div className="flex items-center justify-start px-4 pt-12 pb-3 bg-white sticky top-0 z-20">
 
         {/* Left: spacer */}
         <div className="flex-1 flex justify-start">
