@@ -220,13 +220,7 @@ export default function MessagesPage({ onUnreadChange }: Props) {
       </div>
 
       {/* Reveal CTA — pinned at bottom */}
-      <div className="absolute bottom-4 left-4 right-4">
-        <button
-          className="w-full py-4 rounded-[32px] text-white font-bold text-[15px] active:scale-95 transition-transform bg-[#0D0D0D]"
-        >
-          🔍 Discover who sent you messages
-        </button>
-      </div>
+      
     </div>
   )
 }
