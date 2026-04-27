@@ -239,13 +239,12 @@ export default function SharePage({ profile }: Props) {
   const [promptText, setPromptText] = useState('Send me an anonymous message')
   const [editingPrompt, setEditingPrompt] = useState(false)
   const [tempPrompt, setTempPrompt] = useState(promptText)
-    const [sharedPlatforms, setSharedPlatforms] = useState<string[]>([])
-  const shareProgress = sharedPlatforms.length / 3
   // Card picker disabled — kept for future use
   const [showCardPicker, setShowCardPicker] = useState(false)
   const [selectedCard, setSelectedCard] = useState<CardType>(ALL_CARD_TYPES[0])
   const [generating, setGenerating] = useState(false)
-
+  const [sharedPlatforms, setSharedPlatforms] = useState<string[]>([])
+  const shareProgress = sharedPlatforms.length / 3
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [selectedColor, setSelectedColor] = useState(CARD_COLORS[0])
   const [phraseIndex, setPhraseIndex] = useState(0)
@@ -289,32 +288,33 @@ export default function SharePage({ profile }: Props) {
     try {
       const logoUrl = `${window.location.origin}/assets/TBH_Title_Logo.svg`
       const blob = await generateShareCard(profile, promptText, cardType, logoUrl, selectedColor.stops, selectedColor.ring)
+      // On Android: share files directly — opens full app picker (IG, Snap, WA etc.)
+      // On desktop or when files not supported: share text link only
       const file = new File([blob], 'tbh-share.png', { type: 'image/png' })
-
-      // Try native share sheet first (works on Android Chrome + Safari iOS with HTTPS)
       const canShareFiles = navigator.canShare && navigator.canShare({ files: [file] })
-      if (navigator.share && canShareFiles) {
+
+      if (navigator.share) {
         try {
-          await navigator.share({ title: 'TBH', text: shareLink, files: [file] })
+          if (canShareFiles) {
+            // Full share with image — Android shows app picker directly
+            await navigator.share({ files: [file], title: 'TBH', text: shareLink })
+          } else {
+            // Fallback: share link only — still opens app picker on most devices
+            await navigator.share({ title: 'TBH — Anonymous Messages', text: shareLink, url: shareLink })
+          }
           return
         } catch (e: any) {
-          // User cancelled or share failed — fall through to object URL approach
           if (e?.name === 'AbortError') return
         }
       }
 
-      // Fallback: open image in new tab so user can long-press save + share manually
-      // This works on localhost where navigator.share is blocked
+      // Desktop fallback: open image in new tab
       const url = URL.createObjectURL(blob)
       const w = window.open(url, '_blank')
       if (!w) {
-        // If popup blocked, download instead
         const a = document.createElement('a')
-        a.href = url
-        a.download = 'tbh-share.png'
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
+        a.href = url; a.download = 'tbh-share.png'
+        document.body.appendChild(a); a.click(); document.body.removeChild(a)
       }
       setTimeout(() => URL.revokeObjectURL(url), 10000)
     } catch (e) { console.error('Share failed', e) }
@@ -361,7 +361,19 @@ export default function SharePage({ profile }: Props) {
   return (
     <div className="flex flex-col items-center px-7 pt-3 pb-10 gap-4 relative min-h-screen">
 
-      {/* ── Profile Card ── */}
+      {/* ── Profile Card — shimmer while loading ── */}
+      {!profile ? (
+        <div className="w-full rounded-[28px] overflow-hidden relative" style={{ height: '160px' }}>
+          <div className="absolute inset-0 bg-[#E8E8E8] rounded-[28px]" style={{ animation: 'shimmer 1.5s infinite linear', background: 'linear-gradient(90deg, #E8E8E8 25%, #F5F5F5 50%, #E8E8E8 75%)', backgroundSize: '200% 100%' }} />
+          <div className="relative z-10 flex flex-col justify-center h-full px-5 gap-3">
+            <div className="flex items-center gap-4">
+              <div className="w-[58px] h-[58px] rounded-full bg-[#D0D0D0]" style={{ animation: 'shimmer 1.5s infinite linear', background: 'linear-gradient(90deg, #D0D0D0 25%, #E0E0E0 50%, #D0D0D0 75%)', backgroundSize: '200% 100%' }} />
+              <div className="h-5 w-32 rounded-full bg-[#D0D0D0]" style={{ animation: 'shimmer 1.5s infinite linear', background: 'linear-gradient(90deg, #D0D0D0 25%, #E0E0E0 50%, #D0D0D0 75%)', backgroundSize: '200% 100%' }} />
+            </div>
+            <div className="h-8 w-56 rounded-[10px] bg-[#D0D0D0]" style={{ animation: 'shimmer 1.5s infinite linear', background: 'linear-gradient(90deg, #D0D0D0 25%, #E0E0E0 50%, #D0D0D0 75%)', backgroundSize: '200% 100%' }} />
+          </div>
+        </div>
+      ) : (
       <div className="w-full rounded-[28px] overflow-hidden relative" style={{ height: '160px' }}>
         {/* Blurred background */}
         {profile?.pfp && (
@@ -376,7 +388,7 @@ export default function SharePage({ profile }: Props) {
 
         {/* Settings button — top right */}
         <a
-          href="/settings"
+          href="/edit"
           className="absolute top-3 right-3 z-20 w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform"
           style={{ background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)' }}
         >
@@ -423,6 +435,7 @@ export default function SharePage({ profile }: Props) {
           </button>
         </div>
       </div>
+      )}
 
       {/* ── Share progress ── */}
       <div className="flex flex-col items-center gap-2">
@@ -550,64 +563,88 @@ export default function SharePage({ profile }: Props) {
             {/* Card preview */}
             <div className="flex justify-center mb-5 px-5">
               <div
-                className="rounded-[20px] overflow-hidden relative"
-                style={{
-                  width: '140px', height: '248px',
-                  background: `linear-gradient(160deg, ${selectedColor.stops[0]}, ${selectedColor.stops[selectedColor.stops.length-1]})`,
-                }}
+                className="rounded-[20px] overflow-hidden relative shadow-2xl"
+                style={{ width: '140px', height: '248px' }}
               >
-                <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.4))' }} />
+                {/* Blurred pfp background */}
+                {profile?.pfp && (
+                  <div className="absolute inset-0" style={{
+                    backgroundImage: `url(${profile.pfp})`,
+                    backgroundSize: 'cover', backgroundPosition: 'center',
+                    filter: 'blur(12px) brightness(0.35)', transform: 'scale(1.1)',
+                  }} />
+                )}
+                {/* Color gradient overlay — reduced opacity so bg shows */}
+                <div className="absolute inset-0" style={{
+                  background: `linear-gradient(160deg, ${selectedColor.stops[0]}cc, ${selectedColor.stops[selectedColor.stops.length-1]}cc)`,
+                }} />
+                {/* Bottom fade */}
+                <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.5))' }} />
+
+                {/* Logo bar */}
                 <div className="absolute top-3 left-0 right-0 flex justify-center">
-                  <div className="h-[5px] w-[40px] rounded-full bg-white/40" />
+                  <div className="h-[4px] w-[36px] rounded-full bg-white/50" />
                 </div>
-                <div className="absolute left-0 right-0 flex justify-center" style={{ top: '60px' }}>
-                  <div
-                    className="w-[56px] h-[56px] rounded-full overflow-hidden"
-                    style={{ border: `3px solid ${selectedColor.ring[0]}` }}
-                  >
+
+                {/* Profile pic */}
+                <div className="absolute left-0 right-0 flex justify-center" style={{ top: '40px' }}>
+                  <div className="w-[52px] h-[52px] rounded-full overflow-hidden"
+                    style={{ border: `2.5px solid ${selectedColor.ring[0]}`, boxShadow: `0 0 12px ${selectedColor.ring[0]}66` }}>
                     {profile?.pfp
                       ? <img src={profile.pfp} alt="" className="w-full h-full object-cover" />
-                      : <div className="w-full h-full bg-gray-600 flex items-center justify-center text-white font-bold">
+                      : <div className="w-full h-full bg-gray-600 flex items-center justify-center text-white font-bold text-lg">
                           {profile?.username?.[0]?.toUpperCase() ?? '?'}
                         </div>
                     }
                   </div>
                 </div>
-                <div className="absolute left-0 right-0 text-center" style={{ top: '126px' }}>
-                  <p className="text-white font-bold text-[11px]">@{profile?.username ?? 'you'}</p>
+
+                {/* Username */}
+                <div className="absolute left-0 right-0 text-center" style={{ top: '102px' }}>
+                  <p className="text-white font-bold text-[10px] tracking-wide">@{profile?.username ?? 'you'}</p>
                 </div>
-                <div className="absolute bottom-8 left-3 right-3">
-                  <div className="rounded-[6px] bg-white/15 px-2 py-1.5">
-                    <p className="text-white/80 text-center text-[7px]">Send me an anonymous message</p>
+
+                {/* Prompt pill */}
+                <div className="absolute left-2 right-2" style={{ top: '120px' }}>
+                  <div className="rounded-[5px] bg-white/12 px-2 py-1">
+                    <p className="text-white/75 text-center" style={{ fontSize: '6px', lineHeight: '9px' }}>
+                      Send me an anonymous message
+                    </p>
                   </div>
                 </div>
-                <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1">
-                  {[0,1,2].map(i => (
-                    <div key={i} className="h-[4px] w-[12px] rounded-[2px]"
-                      style={{ background: `linear-gradient(90deg, ${selectedColor.ring[0]}, ${selectedColor.ring[selectedColor.ring.length-1]})` }} />
-                  ))}
+
+                {/* Arrows SVG */}
+                <div className="absolute left-0 right-0 flex justify-center" style={{ bottom: '20px' }}>
+                  <img src="/assets/arrows.svg" alt="" className="w-10 h-4 object-contain" style={{ filter: 'brightness(0) invert(1) opacity(0.7)' }} />
+                </div>
+
+                {/* Link */}
+                <div className="absolute bottom-3 left-0 right-0 text-center">
+                  <p className="text-white/50" style={{ fontSize: '5px' }}>tbhonest.net/send/{profile?.slug}</p>
                 </div>
               </div>
             </div>
 
-            {/* Color swatches */}
-            <div className="flex flex-wrap gap-3 px-5 justify-center mb-5">
+            {/* Color swatches — pill buttons */}
+            <div className="flex flex-wrap gap-2 px-5 justify-center mb-5">
               {CARD_COLORS.map(color => (
                 <button
                   key={color.id}
                   onClick={() => setSelectedColor(color)}
-                  className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform"
+                  className="flex items-center gap-2 px-3 py-2 rounded-[20px] active:scale-95 transition-all"
+                  style={{
+                    background: selectedColor.id === color.id
+                      ? `linear-gradient(135deg, ${color.stops[0]}, ${color.stops[color.stops.length-1]})`
+                      : 'rgba(255,255,255,0.08)',
+                    border: selectedColor.id === color.id ? 'none' : '1px solid rgba(255,255,255,0.12)',
+                    boxShadow: selectedColor.id === color.id ? `0 4px 16px ${color.stops[0]}55` : 'none',
+                  }}
                 >
-                  <div
-                    className="w-10 h-10 rounded-full"
-                    style={{
-                      background: `linear-gradient(135deg, ${color.stops[0]}, ${color.stops[color.stops.length-1]})`,
-                      border: selectedColor.id === color.id ? '3px solid #FFF' : '3px solid transparent',
-                      boxShadow: selectedColor.id === color.id ? '0 0 0 2px #FF6B6B' : 'none',
-                    }}
-                  />
-                  <span className="text-[10px] font-semibold"
-                    style={{ color: selectedColor.id === color.id ? '#FFF' : '#888' }}>
+                  <div className="w-4 h-4 rounded-full flex-shrink-0"
+                    style={{ background: `linear-gradient(135deg, ${color.stops[0]}, ${color.stops[color.stops.length-1]})`,
+                    border: '1.5px solid rgba(255,255,255,0.3)' }} />
+                  <span className="text-[12px] font-semibold"
+                    style={{ color: selectedColor.id === color.id ? '#FFF' : 'rgba(255,255,255,0.6)' }}>
                     {color.label}
                   </span>
                 </button>
@@ -778,6 +815,10 @@ export default function SharePage({ profile }: Props) {
       )}
 
       <style jsx global>{`
+        @keyframes shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
         @keyframes liftShake {
           0%   { transform: translateY(0px)  rotate(0deg);    }
           8%   { transform: translateY(-7px) rotate(-1.5deg); }
