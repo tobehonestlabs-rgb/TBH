@@ -1,7 +1,7 @@
 'use client'
 
 import { FormEvent, useState, useEffect, useRef } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 
 const SUGGESTIONS = [
   "Tell them something you've never had the courage to say 👀",
@@ -14,6 +14,7 @@ const SUGGESTIONS = [
 
 export default function SendMessagePage() {
   const { slug } = useParams<{ slug: string }>()
+  const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -50,23 +51,31 @@ export default function SendMessagePage() {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!message.trim()) return
+    if (!message.trim() || isSubmitting) return
+    
     setIsSubmitting(true)
     setError(null)
+    
     try {
-      const formData = new FormData(e.currentTarget)
-      formData.append('slug', slug)
+      const formData = new FormData()
+      formData.append('message', message)
+      formData.append('slug', slug as string)
+      if (fileRef.current?.files?.[0]) {
+        formData.append('image', fileRef.current.files[0])
+      }
+
       const response = await fetch('/api/messages', { method: 'POST', body: formData })
-      const data = await response.json().catch(() => ({ error: 'Invalid server response' }))
+      const data = await response.json().catch(() => ({ error: 'Invalid response' }))
+      
       if (!response.ok) {
-        setError(data.error || 'Something went wrong.')
+        setError(data.error || 'Failed to send.')
       } else {
         setSuccess(true)
         setMessage('')
         setImagePreview(null)
       }
     } catch {
-      setError('Check your connection.')
+      setError('Connection error.')
     } finally {
       setIsSubmitting(false)
     }
@@ -81,7 +90,7 @@ export default function SendMessagePage() {
           <div style={{ padding: '32px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
             <p style={{ fontSize: '22px', fontWeight: '800', color: '#FFFFFF', margin: 0 }}>Before you send</p>
             <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {[{ emoji: '🚫', text: 'Harassment & bullying' }, { emoji: '⚠️', text: 'Harmful or violent content' }, { emoji: '🔞', text: 'Inappropriate sexual content' }, { emoji: '👶', text: 'Content involving minors' }].map(item => (
+              {[{ emoji: '🚫', text: 'Harassment & bullying' }, { emoji: '⚠️', text: 'Harmful or violent content' }, { emoji: '🔞', text: 'Inappropriate sexual content' }].map(item => (
                 <div key={item.text} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderRadius: '18px', background: 'rgba(255,255,255,0.05)' }}>
                   <span style={{ fontSize: '18px' }}>{item.emoji}</span>
                   <p style={{ fontSize: '14px', fontWeight: '600', color: 'rgba(255,255,255,0.85)', margin: 0 }}>{item.text}</p>
@@ -89,6 +98,7 @@ export default function SendMessagePage() {
               ))}
             </div>
             <button onClick={() => setAgreedToTerms(true)} style={{ width: '100%', padding: '18px', borderRadius: '99px', border: 'none', background: '#FF3CAC', color: 'white', fontSize: '16px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 8px 32px rgba(255,60,172,0.45)', transition: 'transform 0.12s ease', fontFamily: font }} onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.96)')} onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}>I agree, continue →</button>
+            <button onClick={() => router.back()} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.25)', fontSize: '13px', cursor: 'pointer', marginTop: '8px' }}>Leave</button>
           </div>
         </div>
       </main>
@@ -99,12 +109,12 @@ export default function SendMessagePage() {
     return (
       <main style={{ minHeight: '100svh', background: 'linear-gradient(180deg, #0D0D0D 45%, #FF3CAC 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', fontFamily: font, gap: '32px' }}>
         <img src="/assets/TBH_Title_Logo.svg" alt="TBH" style={{ height: '48px', filter: 'invert(1)' }} />
-        <div style={{ width: '100%', maxWidth: '360px', background: 'rgba(35,35,35,0.8)', backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)', borderRadius: '32px', padding: '40px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 40px 80px rgba(0,0,0,0.5)', animation: 'fadeUp 0.5s cubic-bezier(0.23, 1, 0.32, 1)' }}>
+        <div style={{ width: '100%', maxWidth: '360px', background: 'rgba(35,35,35,0.8)', backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)', borderRadius: '32px', padding: '40px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 40px 80px rgba(0,0,0,0.5)', animation: 'fadeUp 0.5s ease' }}>
           <span style={{ fontSize: '56px', marginBottom: '12px' }}>🎉</span>
           <p style={{ fontSize: '24px', fontWeight: '800', color: '#fff', margin: '0 0 4px' }}>Sent!</p>
-          <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.45)', textAlign: 'center' }}>Your message is on its way to <span style={{ color: '#FF3CAC', fontWeight: '700' }}>@{slug}</span></p>
+          <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.45)', textAlign: 'center' }}>Message on its way to <span style={{ color: '#FF3CAC', fontWeight: '700' }}>@{slug}</span></p>
         </div>
-        <button onClick={() => { setSuccess(false); setMessage('') }} style={{ width: '100%', maxWidth: '360px', padding: '20px', borderRadius: '99px', border: 'none', background: '#0D0D0D', color: 'white', fontSize: '16px', fontWeight: '800', cursor: 'pointer', fontFamily: font }}>Send another</button>
+        <button onClick={() => setSuccess(false)} style={{ width: '100%', maxWidth: '360px', padding: '20px', borderRadius: '99px', border: 'none', background: '#0D0D0D', color: 'white', fontSize: '16px', fontWeight: '800', cursor: 'pointer' }}>Send another</button>
       </main>
     )
   }
@@ -116,17 +126,16 @@ export default function SendMessagePage() {
         <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>anything anonymously</p>
       </div>
 
-      <form onSubmit={handleSubmit} style={{ width: '100%', maxWidth: '400px', background: 'rgba(30,30,30,0.8)', backdropFilter: 'blur(50px)', WebkitBackdropFilter: 'blur(50px)', borderRadius: '32px', padding: '24px', boxShadow: '0 32px 100px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <form id="message-form" onSubmit={handleSubmit} style={{ width: '100%', maxWidth: '400px', background: 'rgba(30,30,30,0.8)', backdropFilter: 'blur(50px)', WebkitBackdropFilter: 'blur(50px)', borderRadius: '32px', padding: '24px', boxShadow: '0 32px 100px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#FF3CAC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🤫</div>
           <p style={{ fontSize: '16px', fontWeight: '700', color: '#fff', margin: 0 }}>Message for <span style={{ color: '#FF3CAC' }}>@{slug}</span></p>
         </div>
 
-        <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.3)', margin: 0, minHeight: '38px', transition: 'opacity 0.4s ease', opacity: suggVisible ? 1 : 0 }}>{SUGGESTIONS[suggIndex]}</p>
+        <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.3)', minHeight: '38px', margin: 0, transition: 'opacity 0.4s ease', opacity: suggVisible ? 1 : 0 }}>{SUGGESTIONS[suggIndex]}</p>
 
         <div style={{ position: 'relative' }}>
           <textarea
-            name="message"
             required
             rows={5}
             maxLength={1000}
@@ -139,39 +148,59 @@ export default function SendMessagePage() {
         </div>
 
         <input ref={fileRef} type="file" accept="image/*" onChange={handleImageChange} style={{ display: 'none' }} />
+        
         {imagePreview ? (
           <div style={{ position: 'relative', width: '100%', height: '200px', borderRadius: '24px', overflow: 'hidden' }}>
             <img src={imagePreview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            <button type="button" onClick={() => setImagePreview(null)} style={{ position: 'absolute', top: '12px', right: '12px', width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: 'none', color: 'white' }}>✕</button>
+            <button type="button" onClick={() => {setImagePreview(null); if(fileRef.current) fileRef.current.value=''}} style={{ position: 'absolute', top: '12px', right: '12px', width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: 'none', color: 'white', cursor: 'pointer' }}>✕</button>
           </div>
         ) : (
-          <button type="button" onClick={() => fileRef.current?.click()} style={{ padding: '16px', borderRadius: '20px', border: 'none', background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)', fontSize: '14px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>📷 Add a photo</button>
+          <button 
+            type="button" 
+            onClick={() => fileRef.current?.click()} 
+            style={{ padding: '16px', borderRadius: '20px', border: 'none', background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)', fontSize: '14px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+            onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.97)')}
+            onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
+          >
+            📷 Add a photo
+          </button>
         )}
       </form>
 
       <div style={{ width: '100%', maxWidth: '400px', marginTop: '24px' }}>
         <button
-          onClick={() => document.querySelector('form')?.requestSubmit()}
+          type="submit"
+          form="message-form"
           disabled={isSubmitting || !message.trim()}
-          style={{ width: '100%', padding: '20px', borderRadius: '99px', border: 'none', background: message.trim() ? '#0D0D0D' : 'rgba(0,0,0,0.5)', color: 'white', fontSize: '18px', fontWeight: '800', transition: 'transform 0.12s ease', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}
+          style={{ width: '100%', padding: '20px', borderRadius: '99px', border: 'none', background: message.trim() ? '#0D0D0D' : 'rgba(0,0,0,0.5)', color: 'white', fontSize: '18px', fontWeight: '800', transition: 'transform 0.12s ease', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: message.trim() ? 'pointer' : 'default' }}
           onMouseDown={e => message.trim() && (e.currentTarget.style.transform = 'scale(0.96)')}
           onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
         >
           {isSubmitting ? (
-            <svg viewBox="0 0 50 50" style={{ width: '24px', height: '24px', animation: 'bouncy-spin 0.8s cubic-bezier(0.5, 0, 0.5, 1) infinite' }}>
-              <path d="M25 5A20 20 0 0 1 45 25" fill="none" stroke="white" strokeWidth="5" strokeLinecap="round" />
-            </svg>
-          ) : 'Envoyer!'}
+            <div className="loader-container">
+              <div className="ios-arc"></div>
+            </div>
+          ) : 'Envoyer! 🚀'}
         </button>
       </div>
 
       <style>{`
-        @keyframes bouncy-spin { 
-          0% { transform: rotate(0deg); }
-          50% { transform: rotate(180deg); }
-          100% { transform: rotate(360deg); }
+        .loader-container {
+          width: 24px; height: 24px; position: relative;
         }
-        * { -webkit-tap-highlight-color: transparent; }
+        .ios-arc {
+          width: 100%; height: 100%;
+          border-radius: 50%;
+          border: 3px solid transparent;
+          border-top: 3px solid #FFF;
+          border-right: 3px solid #FFF;
+          animation: ios-spin 0.9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+        @keyframes ios-spin {
+          0% { transform: rotate(0deg); opacity: 0.4; }
+          50% { transform: rotate(180deg); opacity: 1; }
+          100% { transform: rotate(360deg); opacity: 0.4; }
+        }
         textarea::placeholder { color: rgba(255,255,255,0.2); }
         @keyframes fadeUp { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
       `}</style>
