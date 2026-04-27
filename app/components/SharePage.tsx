@@ -239,12 +239,13 @@ export default function SharePage({ profile }: Props) {
   const [promptText, setPromptText] = useState('Send me an anonymous message')
   const [editingPrompt, setEditingPrompt] = useState(false)
   const [tempPrompt, setTempPrompt] = useState(promptText)
-  const [shareProgress] = useState(0)
+    const [sharedPlatforms, setSharedPlatforms] = useState<string[]>([])
+  const shareProgress = sharedPlatforms.length / 3
   // Card picker disabled — kept for future use
   const [showCardPicker, setShowCardPicker] = useState(false)
   const [selectedCard, setSelectedCard] = useState<CardType>(ALL_CARD_TYPES[0])
   const [generating, setGenerating] = useState(false)
-  const [sharedPlatforms, setSharedPlatforms] = useState<string[]>([])
+
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [selectedColor, setSelectedColor] = useState(CARD_COLORS[0])
   const [phraseIndex, setPhraseIndex] = useState(0)
@@ -360,68 +361,63 @@ export default function SharePage({ profile }: Props) {
   return (
     <div className="flex flex-col items-center px-7 pt-3 pb-10 gap-4 relative min-h-screen">
 
-      {/* ── Profile Card with proper blur ── */}
-      <div className="w-full rounded-[28px] overflow-hidden relative" style={{ height: '240px' }}>
-        {/* Blurred background layer */}
+      {/* ── Profile Card ── */}
+      <div className="w-full rounded-[28px] overflow-hidden relative" style={{ height: '160px' }}>
+        {/* Blurred background */}
         {profile?.pfp && (
-          <div
-            className="absolute inset-0 w-full h-full"
-            style={{
-              backgroundImage: `url(${profile.pfp})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              filter: 'blur(20px)',
-              transform: 'scale(1.15)',
-            }}
-          />
+          <div className="absolute inset-0 w-full h-full" style={{
+            backgroundImage: `url(${profile.pfp})`,
+            backgroundSize: 'cover', backgroundPosition: 'center',
+            filter: 'blur(20px)', transform: 'scale(1.15)',
+          }} />
         )}
-        {!profile?.pfp && (
-          <div className="absolute inset-0 bg-gray-800" />
-        )}
-        {/* Dark overlay */}
+        {!profile?.pfp && <div className="absolute inset-0 bg-gray-800" />}
         <div className="absolute inset-0 bg-black/55" />
-{/* Edit button — top right */}
+
+        {/* Settings button — top right */}
         <a
           href="/edit"
           className="absolute top-3 right-3 z-20 w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform"
           style={{ background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)' }}
         >
-          <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="3" stroke="white" strokeWidth="2"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="white" strokeWidth="2"/>
           </svg>
         </a>
-        {/* Content */}
-        <div className="relative z-10 flex flex-col items-center justify-center h-full gap-3 px-4">
-          <div className="relative w-[72px] h-[72px]">
-            <div
-              className="absolute inset-0 rounded-full"
-              style={{
-                padding: '3px',
+
+        {/* Content — horizontal layout */}
+        <div className="relative z-10 flex flex-col justify-center h-full px-5 gap-3">
+          {/* Row: pfp + username */}
+          <div className="flex items-center gap-4">
+            {/* Avatar */}
+            <div className="relative w-[58px] h-[58px] flex-shrink-0">
+              <div className="absolute inset-0 rounded-full" style={{
+                padding: '2.5px',
                 background: 'linear-gradient(135deg, #FF6B6B, #FFE66D, #6BCB77, #4D96FF)',
                 borderRadius: '50%',
-              }}
-            >
-              <div className="w-full h-full rounded-full overflow-hidden bg-gray-700">
-                {profile?.pfp ? (
-                  <img src={profile.pfp} alt="pfp" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full bg-gray-600 flex items-center justify-center text-white text-2xl">
-                    {profile?.username?.[0]?.toUpperCase() ?? '?'}
-                  </div>
-                )}
+              }}>
+                <div className="w-full h-full rounded-full overflow-hidden bg-gray-700">
+                  {profile?.pfp
+                    ? <img src={profile.pfp} alt="pfp" className="w-full h-full object-cover" />
+                    : <div className="w-full h-full bg-gray-600 flex items-center justify-center text-white text-xl font-bold">
+                        {profile?.username?.[0]?.toUpperCase() ?? '?'}
+                      </div>
+                  }
+                </div>
               </div>
             </div>
+            {/* Username */}
+            {profile?.username && (
+              <span className="text-white font-bold text-[20px] tracking-tight">@{profile.username}</span>
+            )}
           </div>
 
-          {profile?.username && (
-            <span className="text-white font-bold text-[18px]">@{profile.username}</span>
-          )}
-
+          {/* Prompt button — below the row */}
           <button
             onClick={() => { setTempPrompt(promptText); setEditingPrompt(true) }}
-            className="px-3 py-1.5 rounded-[10px] text-white text-[15px] font-medium text-center max-w-full"
-            style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)' }}
+            className="self-start px-4 py-2 rounded-[10px] text-white text-[14px] font-medium text-left"
+            style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', maxWidth: '85%' }}
           >
             {promptText}
           </button>
