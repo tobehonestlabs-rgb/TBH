@@ -56,14 +56,29 @@ const PHRASES = [
 ]
 
 const CARD_COLORS = [
-  { id: 'default',  label: 'Dark',    stops: ['#1a1a2e', '#16213e'],         ring: ['#FF6B6B','#FFE66D','#4D96FF'] },
-  { id: 'sunset',   label: 'Sunset',  stops: ['#FF6B6B', '#FF8E53'],         ring: ['#FF6B6B','#FFE66D','#FF8E53'] },
-  { id: 'ocean',    label: 'Ocean',   stops: ['#1CB5E0', '#000046'],         ring: ['#1CB5E0','#00C9FF','#4D96FF'] },
-  { id: 'purple',   label: 'Purple',  stops: ['#6A0572', '#ab17a8'],         ring: ['#ab17a8','#D768D7','#6A0572'] },
-  { id: 'forest',   label: 'Forest',  stops: ['#134E5E', '#71B280'],         ring: ['#71B280','#134E5E','#6BCB77'] },
-  { id: 'gold',     label: 'Gold',    stops: ['#F7971E', '#FFD200'],         ring: ['#FFD200','#F7971E','#FFE66D'] },
-  { id: 'rose',     label: 'Rose',    stops: ['#F953C6', '#B91D73'],         ring: ['#F953C6','#B91D73','#FF6B6B'] },
-  { id: 'midnight', label: 'Night',   stops: ['#0F0C29', '#302b63'],         ring: ['#302b63','#4D96FF','#0F0C29'] },
+  // Deep, aggressive red-orange (matches your new theme)
+  { id: 'magma', label: 'Magma', stops: ['#FF411D', '#550B00'], ring: ['#FF411D', '#FF8F1D', '#FFBF00'] },
+  
+  // High-end Cyberpunk Pink/Purple
+  { id: 'neon', label: 'Vibe', stops: ['#8A2BE2', '#000814'], ring: ['#8A2BE2', '#E0B0FF', '#4D96FF'] },
+  
+  // Tropical Electric Blue
+  { id: 'azure', label: 'Azure', stops: ['#00D2FF', '#000046'], ring: ['#00D2FF', '#3A7BD5', '#00F2FE'] },
+  
+  // Luxury Emerald/Gold
+  { id: 'emerald', label: 'Jungle', stops: ['#00B09B', '#111111'], ring: ['#00B09B', '#96C93D', '#00FF87'] },
+  
+  // Clean, Minimal Silver/Graphite
+  { id: 'titanium', label: 'Chrome', stops: ['#757F9A', '#1C1C1C'], ring: ['#FFFFFF', '#D7DDE8', '#757F9A'] },
+  
+  // Brightest "Viral" Yellow
+  { id: 'hyper', label: 'Volt', stops: ['#F7971E', '#FFD200'], ring: ['#FFD200', '#FFFFFF', '#FF8C00'] },
+  
+  // Soft Rose/Champagne
+  { id: 'bloom', label: 'Blush', stops: ['#F953C6', '#2A0845'], ring: ['#F953C6', '#FF9A9E', '#B91D73'] },
+  
+  // Deep Space Blue
+  { id: 'nebula', label: 'Cosmos', stops: ['#4facfe', '#000000'], ring: ['#4facfe', '#00f2fe', '#FFFFFF'] },
 ]
 
 // ── Share card generation using HTML5 Canvas ──────────────────────────────────
