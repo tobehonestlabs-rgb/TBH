@@ -329,11 +329,22 @@ export default function SharePage({ profile }: Props) {
       const blob = await generateShareCard(profile, promptText, selectedCard, logoUrl, selectedColor.stops, selectedColor.ring)
       const file = new File([blob], 'tbh-share.png', { type: 'image/png' })
 
-      // Try native share with files (opens IG/Snap/WA on Android/iOS with HTTPS)
+      const file = new File([blob], 'tbh-share.png', { type: 'image/png' })
       const canShareFiles = navigator.canShare && navigator.canShare({ files: [file] })
+
       if (navigator.share && canShareFiles) {
+        // Share with image file — Android shows full app picker (IG, Snap, WA etc.)
         try {
-          await navigator.share({ title: 'TBH', text: shareLink, files: [file] })
+          await navigator.share({ files: [file], title: 'TBH', text: shareLink })
+          setSharedPlatforms(prev => prev.includes(platformId) ? prev : [...prev, platformId])
+          return
+        } catch (e: any) {
+          if (e?.name === 'AbortError') return
+        }
+      } else if (navigator.share) {
+        // File sharing not supported — share link only, still opens app picker
+        try {
+          await navigator.share({ title: 'TBH — Anonymous Messages', url: shareLink })
           setSharedPlatforms(prev => prev.includes(platformId) ? prev : [...prev, platformId])
           return
         } catch (e: any) {
@@ -341,18 +352,15 @@ export default function SharePage({ profile }: Props) {
         }
       }
 
-      // Fallback: deep link to app with text, open card in new tab
+      // Desktop/fallback: platform-specific deep links
       const encodedLink = encodeURIComponent(shareLink)
       if (platformId === 'whatsapp') {
         window.open(`https://wa.me/?text=${encodedLink}`, '_blank')
-      } else if (platformId === 'instagram') {
-        window.open('https://www.instagram.com/', '_blank')
-      } else if (platformId === 'snapchat') {
-        window.open('https://www.snapchat.com/', '_blank')
+      } else {
+        const url = URL.createObjectURL(blob)
+        window.open(url, '_blank')
+        setTimeout(() => URL.revokeObjectURL(url), 15000)
       }
-      const url = URL.createObjectURL(blob)
-      window.open(url, '_blank')
-      setTimeout(() => URL.revokeObjectURL(url), 15000)
       setSharedPlatforms(prev => prev.includes(platformId) ? prev : [...prev, platformId])
     } catch (e) { console.error('Platform share failed', e) }
     finally { setGenerating(false) }
@@ -625,26 +633,31 @@ export default function SharePage({ profile }: Props) {
               </div>
             </div>
 
-            {/* Color swatches — pill buttons */}
-            <div className="flex flex-wrap gap-2 px-5 justify-center mb-5">
+            {/* Color swatches — horizontal scroll, large gradient circles */}
+            <div className="flex gap-4 px-5 mb-5 overflow-x-auto pb-1"
+              style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
               {CARD_COLORS.map(color => (
                 <button
                   key={color.id}
                   onClick={() => setSelectedColor(color)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-[20px] active:scale-95 transition-all"
-                  style={{
-                    background: selectedColor.id === color.id
-                      ? `linear-gradient(135deg, ${color.stops[0]}, ${color.stops[color.stops.length-1]})`
-                      : 'rgba(255,255,255,0.08)',
-                    border: selectedColor.id === color.id ? 'none' : '1px solid rgba(255,255,255,0.12)',
-                    boxShadow: selectedColor.id === color.id ? `0 4px 16px ${color.stops[0]}55` : 'none',
-                  }}
+                  className="flex flex-col items-center gap-2 flex-shrink-0 active:scale-90 transition-transform"
                 >
-                  <div className="w-4 h-4 rounded-full flex-shrink-0"
-                    style={{ background: `linear-gradient(135deg, ${color.stops[0]}, ${color.stops[color.stops.length-1]})`,
-                    border: '1.5px solid rgba(255,255,255,0.3)' }} />
-                  <span className="text-[12px] font-semibold"
-                    style={{ color: selectedColor.id === color.id ? '#FFF' : 'rgba(255,255,255,0.6)' }}>
+                  {/* Large gradient circle */}
+                  <div
+                    className="w-14 h-14 rounded-full"
+                    style={{
+                      background: `linear-gradient(135deg, ${color.stops[0]}, ${color.stops[color.stops.length-1]})`,
+                      boxShadow: selectedColor.id === color.id
+                        ? `0 0 0 3px #111, 0 0 0 5px ${color.stops[0]}, 0 8px 20px ${color.stops[0]}66`
+                        : '0 4px 12px rgba(0,0,0,0.3)',
+                      transform: selectedColor.id === color.id ? 'scale(1.12)' : 'scale(1)',
+                      transition: 'all 0.2s ease',
+                    }}
+                  />
+                  <span
+                    className="text-[11px] font-semibold"
+                    style={{ color: selectedColor.id === color.id ? '#FFF' : 'rgba(255,255,255,0.45)' }}
+                  >
                     {color.label}
                   </span>
                 </button>
