@@ -101,6 +101,7 @@ export default function SendMessagePage() {
   // ── Terms popup ──────────────────────────────────────────────────────────────
   if (!agreedToTerms) {
     return (
+
       <main style={{ minHeight: '100svh', background: themeGradient, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', fontFamily: font }}>
         <div style={{
           width: '100%', maxWidth: '360px',
@@ -144,8 +145,8 @@ export default function SendMessagePage() {
               {[
                 { emoji: '🚫', text: 'Harassment & bullying' },
                 { emoji: '⚠️', text: 'Harmful content' },
-                { emoji: '🔞', text: 'Inappropriate or sexual content' },
-                { emoji: '👶', text: 'Content involving minors' },
+                { emoji: '🔞', text: 'Inappropriate or sexual content involving minors' },
+                { emoji: '👺', text: 'No slur, Stay respectful' },
               ].map(item => (
                 <div key={item.text} style={{
                   display: 'flex', alignItems: 'center', gap: '12px',
@@ -187,6 +188,7 @@ export default function SendMessagePage() {
   // ── Success screen ───────────────────────────────────────────────────────────
   if (success) {
     return (
+       
       <main style={{
         minHeight: '100svh', background: themeGradient,
         display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -271,7 +273,7 @@ export default function SendMessagePage() {
         paddingTop: '56px', paddingBottom: '32px',
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px'
       }}>
-        <img src="/assets/TBH_Title_Logo.svg" alt="TBH" style={{ height: '44px', filter: 'invert(1)' }} />
+        <img src="/assets/TBH_Simple_Logo.svg" alt="TBH" style={{ height: '44px', filter: 'invert(1)' }} />
         <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>send anything anonymously</p>
       </div>
  
@@ -407,7 +409,7 @@ export default function SendMessagePage() {
         >
           {isSubmitting
             ? <div className="ios-arc" />
-            : '🔒 Send anonymously'
+            : 'Send anonymously'
           }
         </button>
       </div>
@@ -435,6 +437,34 @@ export default function SendMessagePage() {
         </button>
       </div>
  
+         {/* Floating emojis */}
+      {[
+        { src: '/assets/poop.svg',    size: 52, x: 8,  y: 12, rot: -15, dur: 7.2, delay: 0   },
+        { src: '/assets/hot.svg',     size: 64, x: 78, y: 8,  rot: 12,  dur: 8.5, delay: 1.2 },
+        { src: '/assets/nerd.svg',    size: 48, x: 88, y: 38, rot: -8,  dur: 6.8, delay: 0.5 },
+        { src: '/assets/Deamon.svg',  size: 70, x: 5,  y: 55, rot: 18,  dur: 9.1, delay: 2.1 },
+        { src: '/assets/Excited.svg', size: 56, x: 82, y: 68, rot: -20, dur: 7.6, delay: 0.8 },
+        { src: '/assets/skull.svg',   size: 44, x: 15, y: 80, rot: 10,  dur: 8.0, delay: 1.7 },
+        { src: '/assets/hot.svg',     size: 38, x: 60, y: 85, rot: -12, dur: 6.5, delay: 3.0 },
+        { src: '/assets/poop.svg',    size: 42, x: 45, y: 5,  rot: 22,  dur: 7.9, delay: 2.5 },
+      ].map((e, i) => (
+        <div
+          key={i}
+          style={{
+            position: 'fixed',
+            left: `${e.x}%`,
+            top: `${e.y}%`,
+            transform: `rotate(${e.rot}deg)`,
+            pointerEvents: 'none',
+            zIndex: 0,
+            opacity: 0.18,
+            animation: `floaty ${e.dur}s ease-in-out ${e.delay}s infinite`,
+          }}
+        >
+          <img src={e.src} alt="" style={{ width: `${e.size}px`, height: `${e.size}px`, display: 'block' }} />
+        </div>
+      ))}
+
       <style>{`
         .ios-arc {
           width: 24px; height: 24px; border-radius: 50%;
@@ -443,19 +473,24 @@ export default function SendMessagePage() {
           animation: ios-spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
         }
         @keyframes ios-spin {
-          0% { transform: rotate(0deg); opacity: 0.3; }
-          50% { transform: rotate(180deg); opacity: 1; }
+          0%   { transform: rotate(0deg);   opacity: 0.3; }
+          50%  { transform: rotate(180deg); opacity: 1;   }
           100% { transform: rotate(360deg); opacity: 0.3; }
         }
-        textarea::placeholder { color: rgba(255,255,255,0.2); }
+        @keyframes floaty {
+          0%, 100% { transform: translateY(0px);   }
+          50%       { transform: translateY(-14px); }
+        }
         @keyframes fadeUp {
           from { opacity: 0; transform: translateY(30px); }
-          to { opacity: 1; transform: translateY(0); }
+          to   { opacity: 1; transform: translateY(0);    }
         }
+        textarea::placeholder { color: rgba(255,255,255,0.2); }
       `}</style>
     </main>
   )
 }
+
 /*
 git add  .
  git commit -m "run "
