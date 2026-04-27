@@ -329,7 +329,7 @@ export default function SharePage({ profile }: Props) {
       const blob = await generateShareCard(profile, promptText, selectedCard, logoUrl, selectedColor.stops, selectedColor.ring)
       const file = new File([blob], 'tbh-share.png', { type: 'image/png' })
 
-      const file = new File([blob], 'tbh-share.png', { type: 'image/png' })
+      
       const canShareFiles = navigator.canShare && navigator.canShare({ files: [file] })
 
       if (navigator.share && canShareFiles) {
