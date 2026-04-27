@@ -121,7 +121,7 @@ export default function MessagesPage({ onUnreadChange }: Props) {
   if (messages.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full pt-24 gap-3">
-        <span className="text-5xl">📩</span>
+      <img src="/assets/BrokenHeart.svg" alt="" style={{ width: '56px', height: '56px' }} />
         <p className="text-[18px] font-bold text-[#888]">No messages yet</p>
         <p className="text-[13px] text-[#AAA]">Share your link to receive some!</p>
       </div>
