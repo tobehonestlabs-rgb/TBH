@@ -37,29 +37,33 @@ export default function MessagesPage({ onUnreadChange }: Props) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    let channel: ReturnType<typeof supabaseClient.channel> | null = null
-    let mounted = true
+    let mounted = true;
+    let channelInstance: ReturnType<typeof supabaseClient.channel> | null = null;
 
-    const load = async () => {
-      const { data: { session } } = await supabaseClient.auth.getSession()
-      if (!session || !mounted) return
+    const setup = async () => {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session || !mounted) return;
 
-      const { data } = await supabaseClient
+      const { data, error } = await supabaseClient
         .from('messages')
         .select('*')
         .eq('to_user', session.user.id)
-        .order('created_at', { ascending: false })
+        .order('created_at', { ascending: false });
 
-      if (mounted && data) {
-        setMessages(data)
-        onUnreadChange(data.some(m => !m.isOpened))
+      if (mounted) {
+        if (error) {
+          console.error("Error fetching messages:", error);
+        } else if (data) {
+          setMessages(data);
+          onUnreadChange(data.some(m => !m.isOpened));
+        }
+        setLoading(false);
       }
-      if (mounted) setLoading(false)
 
-      // Unique channel name to avoid conflicts
-      const channelName = `messages-inbox-${session.user.id}-${Date.now()}`
-      channel = supabaseClient
-        .channel(channelName)
+      const channelName = `messages-inbox-${session.user.id}`;
+      channelInstance = supabaseClient.channel(channelName);
+
+      channelInstance
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
@@ -67,29 +71,36 @@ export default function MessagesPage({ onUnreadChange }: Props) {
           filter: `to_user=eq.${session.user.id}`,
         }, (payload) => {
           if (mounted) {
-            setMessages(prev => [payload.new as Message, ...prev])
-            onUnreadChange(true)
+            setMessages(prev => [payload.new as Message, ...prev]);
+            onUnreadChange(true);
           }
         })
-        .subscribe()
-    }
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED' && !mounted && channelInstance) {
+            supabaseClient.removeChannel(channelInstance);
+          }
+        });
+    };
 
-    load()
+    setup();
 
     return () => {
-      mounted = false
-      if (channel) supabaseClient.removeChannel(channel)
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+      mounted = false;
+      if (channelInstance) {
+        const isConnected = supabaseClient.realtime.isConnected();
+        if (isConnected) {
+          supabaseClient.removeChannel(channelInstance).catch(() => {});
+        }
+      }
+    };
+  }, [onUnreadChange]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleMessageClick = async (msg: Message) => {
-    // Mark as opened
     if (!msg.isOpened) {
       await supabaseClient
         .from('messages')
         .update({ isOpened: true })
         .eq('message_id', msg.message_id)
-
       setMessages(prev =>
         prev.map(m => m.message_id === msg.message_id ? { ...m, isOpened: true } : m)
       )
@@ -118,82 +129,104 @@ export default function MessagesPage({ onUnreadChange }: Props) {
   }
 
   return (
-    <div className="flex flex-col h-full relative" style={{ height: 'calc(100vh - 120px)' }}>
-      {/* Scrollable message list */}
-      <div className="flex-1 overflow-y-auto pt-2 pb-24">
-      {messages.map(msg => {
-        const isImage = msg.content?.startsWith('[IMAGE](')
-        const imageUrl = isImage
-          ? msg.content.substring(7, msg.content.indexOf(')'))
-          : null
-        const preview = isImage ? '📷 Photo' : msg.content?.slice(0, 80)
+    // ── CHANGE 1: contained scrollable box, transparent scrollbar ──
+    <div className="relative flex flex-col" style={{ height: 'calc(100vh - 120px)' }}>
+      <div
+        className="flex-1 overflow-y-auto pt-2 pb-28"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
+        <style>{`div::-webkit-scrollbar { display: none; }`}</style>
 
-        return (
-          <button
-            key={msg.message_id}
-            onClick={() => handleMessageClick(msg)}
-            className="relative w-full text-left mx-4 my-[5px] rounded-[20px] bg-white active:scale-[0.97] transition-transform"
-            style={{
-              width: 'calc(100% - 32px)',
-              boxShadow: msg.isOpened
-                ? '0 2px 8px rgba(0,0,0,0.06)'
-                : '0 6px 20px rgba(0,0,0,0.10)',
-            }}
-          >
-            <div className="flex items-center gap-3 p-[14px]">
-              {/* Left icon */}
-              <div
-                className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 text-xl"
-                style={{ background: msg.isOpened ? '#E5E5E5' : '#0D0D0D' }}
-              >
-                {msg.isOpened ? '✉️' : '📩'}
-              </div>
+        {messages.map(msg => {
+          const isImage = msg.content?.startsWith('[IMAGE](')
+          const imageUrl = isImage
+            ? msg.content.match(/\[IMAGE\]\(([^)]+)\)/)?.[1] ?? null
+            : null
+          const preview = isImage
+            ? msg.content.substring(msg.content.indexOf(')') + 2)
+            : msg.content ?? ''
 
-              {/* Content */}
-              <div className="flex-1 min-w-0">
-                {!msg.isOpened ? (
-                  <>
-                    <p className="text-[16px] font-bold" style={{
-                      background: 'linear-gradient(90deg, #FF6B6B, #4D96FF)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                    }}>New message</p>
-                    <p className="text-[12px] text-[#888]">
-                      {isImage ? '📷 Photo' : 'Tap to read'}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-[15px] font-medium text-[#0D0D0D] truncate">{preview}</p>
-                    <p className="text-[11px] text-[#AAA]">{timeAgo(msg.created_at)}</p>
-                  </>
-                )}
-              </div>
+          return (
+            <button
+              key={msg.message_id}
+              onClick={() => handleMessageClick(msg)}
+              className="relative w-full text-left mx-4 my-[5px] rounded-[20px] bg-white active:scale-[0.97] transition-transform"
+              style={{
+                width: 'calc(100% - 32px)',
+                boxShadow: msg.isOpened
+                  ? '0 2px 8px rgba(0,0,0,0.06)'
+                  : '0 6px 20px rgba(0,0,0,0.10)',
+              }}
+            >
+              <div className="flex items-center gap-3 p-[14px]">
 
-              {/* Right: image thumb or chevron */}
-              {isImage && imageUrl ? (
-                <div className="w-[52px] h-[52px] rounded-[12px] overflow-hidden bg-[#EEE] flex-shrink-0">
+                {/* Left icon — CHANGE 2: gradient bg for unread, SVG icon */}
+                <div
+                  className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{
+                    background: msg.isOpened
+                      ? '#E5E5E5'
+                      : 'linear-gradient(135deg, #FF6B6B, #4D96FF)',
+                  }}
+                >
                   <img
-                    src={imageUrl}
-                    alt=""
-                    className="w-full h-full object-cover"
-                    style={{ filter: msg.isOpened ? 'none' : 'blur(8px)' }}
+                    src="/assets/Love_Letter.svg"
+                    className="w-6 h-6 object-contain"
+                    style={{ filter: msg.isOpened ? 'none' : 'brightness(0) invert(1)' }}
                   />
                 </div>
-              ) : (
-                <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
-                  <path d="M9 18l6-6-6-6" stroke="#CCC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              )}
-            </div>
 
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  {!msg.isOpened ? (
+                    <>
+                      <p className="text-[16px] font-bold" style={{
+                        background: 'linear-gradient(90deg, #FF6B6B, #4D96FF)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                      }}>New message</p>
+                      <p className="text-[12px] text-[#888]">
+                        {isImage ? '📷 Photo' : 'Tap to read'}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-[15px] font-medium text-[#0D0D0D] truncate">{preview}</p>
+                      <p className="text-[11px] text-[#AAA]">{timeAgo(msg.created_at)}</p>
+                    </>
+                  )}
+                </div>
 
-          </button>
-        )
-      })}
+                {/* Right: image thumb or chevron */}
+                {isImage && imageUrl ? (
+                  <div className="w-[52px] h-[52px] rounded-[12px] overflow-hidden bg-[#EEE] flex-shrink-0">
+                    <img
+                      src={imageUrl}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      style={{ filter: msg.isOpened ? 'none' : 'blur(10px)' }}
+                    />
+                  </div>
+                ) : (
+                  <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+                    <path d="M9 18l6-6-6-6" stroke="#CCC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </div>
+              {/* CHANGE 3: accent bar removed — was causing the rainbow line */}
+            </button>
+          )
+        })}
+      </div>
 
-     
-  </div>
+      {/* Reveal CTA — pinned at bottom */}
+      <div className="absolute bottom-4 left-4 right-4">
+        <button
+          className="w-full py-4 rounded-[32px] text-white font-bold text-[15px] active:scale-95 transition-transform bg-[#0D0D0D]"
+        >
+          🔍 Discover who sent you messages
+        </button>
+      </div>
     </div>
   )
 }
