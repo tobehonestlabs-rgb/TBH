@@ -285,7 +285,7 @@ export default function SendMessagePage() {
                 <img src={recipient.pfp} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
             )}
-            <span style={{ fontSize: '44px' }}>🎉</span>
+           <img src="/assets/Party.svg" alt="" style={{ width: '56px', height: '56px' }} />
             <p style={{ fontSize: '24px', fontWeight: '800', color: '#fff', margin: '4px 0 0' }}>Sent!</p>
             <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', textAlign: 'center', margin: 0 }}>
               Your anonymous message to{' '}
@@ -294,23 +294,37 @@ export default function SendMessagePage() {
             </p>
 
             {/* Live count */}
-            <div style={{
-              marginTop: '12px', padding: '10px 20px', borderRadius: '99px',
-              background: 'rgba(255,63,29,0.15)', border: '1px solid rgba(255,63,29,0.3)',
-              display: 'flex', alignItems: 'center', gap: '8px',
-            }}>
-              <span style={{ fontSize: '10px', color: accentColor }}>🔴</span>
-              <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)', margin: 0 }}>
-                <span
-                  key={countAnimKey}
-                  className="countpop"
-                  style={{ fontWeight: '800', color: '#fff', display: 'inline-block' }}
-                >
-                  {liveCount.toLocaleString()}
-                </span>
-                {' '}people are receiving messages right now
-              </p>
-            </div>
+           <div style={{ marginTop: '16px', textAlign: 'center' }}>
+  <p style={{ 
+    fontSize: '14px', 
+    color: 'rgba(255,255,255,0.6)', // Subtle white for the main text
+    margin: 0,
+    letterSpacing: '-0.01em'
+  }}>
+    <span
+      key={countAnimKey}
+      className="countpop"
+      style={{ 
+        fontWeight: '800', 
+        color: '#FFFFFF', // Pure white and bold for the number
+        display: 'inline-block' 
+      }}
+    >
+      {liveCount.toLocaleString()}
+    </span>
+    {' '} people are receiving messages right now
+  </p>
+
+  <style>{`
+    .countpop {
+      animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    @keyframes popIn {
+      0% { transform: scale(0.8); opacity: 0.5; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+  `}</style>
+</div>
           </div>
 
           {/* Buttons */}
@@ -365,7 +379,7 @@ export default function SendMessagePage() {
         {/* Header */}
         <div style={{ paddingTop: '56px', paddingBottom: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
           <img src="/assets/TBH_Simple_Logo.svg" alt="TBH" style={{ height: '44px', filter: 'invert(1)' }} />
-          <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>send anything anonymously</p>
+          <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.55)', margin: 0 }}>send anything anonymously</p>
         </div>
 
         {/* Message card */}
