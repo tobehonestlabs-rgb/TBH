@@ -376,7 +376,7 @@ export default function SharePage({ profile }: Props) {
 
         {/* Settings button — top right */}
         <a
-          href="/edit"
+          href="/settings"
           className="absolute top-3 right-3 z-20 w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform"
           style={{ background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)' }}
         >
