@@ -65,7 +65,15 @@ console.log('KEY:', process.env.NEXT_PUBLIC_SUPABASE_ROLE_KEY)
                 width={20}
                 height={20}
               />
-              <span>Continue with Google</span>
+              
+              <span style={{ 
+  fontWeight: '900', // Maximum weight for that heavy "impact" look
+  color: '#FFFFFF',
+  letterSpacing: '-0.02em', // Slightly tighter to make the bold text look more premium
+  display: 'inline-block' 
+}}>
+  Continue with Google
+</span>
             </>
           )}
         </button>
