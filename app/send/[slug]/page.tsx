@@ -97,45 +97,93 @@ export default function SendMessagePage() {
       setIsSubmitting(false)
     }
   }
- // ── THE FULL WARNING POPUP ──────────────────────────────────────────────────
+ 
+  // ── Terms popup ──────────────────────────────────────────────────────────────
   if (!agreedToTerms) {
     return (
-      <main style={{ minHeight: '100svh', background: themeGradient, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', fontFamily: font }}>
-        <div style={{ width: '100%', maxWidth: '380px', background: 'rgba(28,28,28,0.9)', backdropFilter: 'blur(30px)', WebkitBackdropFilter: 'blur(30px)', borderRadius: '32px', overflow: 'hidden', boxShadow: '0 40px 100px rgba(0,0,0,0.8)', transform: popupVisible ? 'translateY(0) scale(1)' : 'translateY(40px) scale(0.95)', opacity: popupVisible ? 1 : 0, transition: 'transform 0.5s cubic-bezier(0.2, 1, 0.3, 1), opacity 0.4s ease' }}>
-          <div style={{ padding: '32px 24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={{ textAlign: 'center' }}>
-              <p style={{ fontSize: '24px', fontWeight: '800', color: '#FFFFFF', margin: '0 0 8px' }}>Safety Guidelines</p>
-              <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>To keep TBH a positive space, please follow these rules:</p>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      <main style={{ minHeight: '100svh', background: themeGradient, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', fontFamily: font }}>
+        <div style={{
+          width: '100%', maxWidth: '360px',
+          background: 'rgba(35,35,35,0.85)',
+          backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)',
+          borderRadius: '32px', overflow: 'hidden',
+          boxShadow: '0 40px 100px rgba(0,0,0,0.7)',
+          transform: popupVisible ? 'translateY(0) scale(1)' : 'translateY(40px) scale(0.95)',
+          opacity: popupVisible ? 1 : 0,
+          transition: 'transform 0.6s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.4s ease'
+        }}>
+          <div style={{ padding: '32px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+ 
+            {/* Recipient profile pic in popup */}
+            {recipient && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <div style={{
+                  width: '72px', height: '72px', borderRadius: '50%', overflow: 'hidden',
+                  border: `3px solid ${accentColor}`,
+                  background: '#333',
+                }}>
+                  {recipient.pfp
+                    ? <img src={recipient.pfp} alt={recipient.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '28px', fontWeight: '800' }}>
+                        {recipient.username[0]?.toUpperCase()}
+                      </div>
+                  }
+                </div>
+                <p style={{ fontSize: '15px', fontWeight: '700', color: 'rgba(255,255,255,0.8)', margin: 0 }}>
+                  @{recipient.username}
+                </p>
+              </div>
+            )}
+ 
+            <p style={{ fontSize: '22px', fontWeight: '800', color: '#FFFFFF', margin: 0 }}>Before you send</p>
+            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', margin: 0, textAlign: 'center' }}>
+              These are strictly prohibited on TBH
+            </p>
+ 
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {[
-                { emoji: '🚫', text: 'No Harassment or Cyber-Bullying' },
-                { emoji: '🔞', text: 'No Nudity or Sexual Content' },
-                { emoji: '⚠️', text: 'No Hate Speech or Threats' },
-                { emoji: '🛡️', text: 'No Exploitation of Minors' },
-                { emoji: '💊', text: 'No Illegal Acts or Drug Promotion' }
+                { emoji: '🚫', text: 'Harassment & bullying' },
+                { emoji: '⚠️', text: 'Harmful content' },
+                { emoji: '🔞', text: 'Inappropriate or sexual content' },
+                { emoji: '👶', text: 'Content involving minors' },
               ].map(item => (
-                <div key={item.text} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '12px 16px', borderRadius: '20px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.03)' }}>
+                <div key={item.text} style={{
+                  display: 'flex', alignItems: 'center', gap: '12px',
+                  padding: '14px 16px', borderRadius: '18px',
+                  background: 'rgba(255,255,255,0.05)'
+                }}>
                   <span style={{ fontSize: '18px' }}>{item.emoji}</span>
-                  <p style={{ fontSize: '14px', fontWeight: '600', color: 'rgba(255,255,255,0.8)', margin: 0 }}>{item.text}</p>
+                  <p style={{ fontSize: '14px', fontWeight: '600', color: 'rgba(255,255,255,0.85)', margin: 0 }}>{item.text}</p>
                 </div>
               ))}
             </div>
-
-            <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <button onClick={() => setAgreedToTerms(true)} style={{ width: '100%', padding: '20px', borderRadius: '99px', border: 'none', background: '#FFFFFF', color: '#000', fontSize: '16px', fontWeight: '800', cursor: 'pointer', transition: 'transform 0.1s ease' }} onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.97)')} onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}>I understand & agree</button>
-              
-              <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '16px' }}>
-                <a href="/terms" style={{ color: 'rgba(255,255,255,0.25)', fontSize: '12px', textDecoration: 'none' }}>Terms</a>
-                <a href="/privacy" style={{ color: 'rgba(255,255,255,0.25)', fontSize: '12px', textDecoration: 'none' }}>Privacy</a>
-              </div>
-            </div>
+ 
+            <button
+              onClick={() => setAgreedToTerms(true)}
+              style={{
+                width: '100%', padding: '18px', borderRadius: '99px',
+                border: 'none', background: accentColor, color: 'white',
+                fontSize: '16px', fontWeight: '800', cursor: 'pointer',
+                boxShadow: `0 8px 32px rgba(255,65,29,0.35)`,
+                transition: 'transform 0.12s ease', fontFamily: font, marginTop: '8px'
+              }}
+              onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.96)')}
+              onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
+              onTouchStart={e => (e.currentTarget.style.transform = 'scale(0.96)')}
+              onTouchEnd={e => (e.currentTarget.style.transform = 'scale(1)')}
+            >
+              I agree, continue →
+            </button>
+ 
+            <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)', textAlign: 'center', margin: 0 }}>
+              Violations may result in permanent ban
+            </p>
           </div>
         </div>
       </main>
     )
   }
+ 
   // ── Success screen ───────────────────────────────────────────────────────────
   if (success) {
     return (
