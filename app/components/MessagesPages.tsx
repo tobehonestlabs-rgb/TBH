@@ -36,68 +36,51 @@ export default function MessagesPage({ onUnreadChange }: Props) {
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(true)
 
-useEffect(() => {
-  let mounted = true;
-  let channelInstance: ReturnType<typeof supabaseClient.channel> | null = null;
+  useEffect(() => {
+    let channel: ReturnType<typeof supabaseClient.channel> | null = null
+    let mounted = true
 
-  const setup = async () => {
-    // 1. Get Session
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session || !mounted) return;
+    const load = async () => {
+      const { data: { session } } = await supabaseClient.auth.getSession()
+      if (!session || !mounted) return
 
-    // 2. FETCH EXISTING MESSAGES (This is what was missing!)
-    const { data, error } = await supabaseClient
-      .from('messages')
-      .select('*')
-      .eq('to_user', session.user.id)
-      .order('created_at', { ascending: false });
+      const { data } = await supabaseClient
+        .from('messages')
+        .select('*')
+        .eq('to_user', session.user.id)
+        .order('created_at', { ascending: false })
 
-    if (mounted) {
-      if (error) {
-        console.error("Error fetching messages:", error);
-      } else if (data) {
-        setMessages(data);
-        onUnreadChange(data.some(m => !m.isOpened));
+      if (mounted && data) {
+        setMessages(data)
+        onUnreadChange(data.some(m => !m.isOpened))
       }
-      // STOP THE LOADING SPINNER
-      setLoading(false);
+      if (mounted) setLoading(false)
+
+      // Unique channel name to avoid conflicts
+      const channelName = `messages-inbox-${session.user.id}-${Date.now()}`
+      channel = supabaseClient
+        .channel(channelName)
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `to_user=eq.${session.user.id}`,
+        }, (payload) => {
+          if (mounted) {
+            setMessages(prev => [payload.new as Message, ...prev])
+            onUnreadChange(true)
+          }
+        })
+        .subscribe()
     }
 
-    // 3. Setup Realtime for new incoming messages
-    const channelName = `messages-inbox-${session.user.id}`;
-    channelInstance = supabaseClient.channel(channelName);
+    load()
 
-    channelInstance
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
-        filter: `to_user=eq.${session.user.id}`,
-      }, (payload) => {
-        if (mounted) {
-          setMessages(prev => [payload.new as Message, ...prev]);
-          onUnreadChange(true);
-        }
-      })
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED' && !mounted && channelInstance) {
-          supabaseClient.removeChannel(channelInstance);
-        }
-      });
-  };
-
-  setup();
-
-  return () => {
-    mounted = false;
-    if (channelInstance) {
-      const isConnected = supabaseClient.realtime.isConnected();
-      if (isConnected) {
-        supabaseClient.removeChannel(channelInstance).catch(() => {});
-      }
+    return () => {
+      mounted = false
+      if (channel) supabaseClient.removeChannel(channel)
     }
-  };
-}, [onUnreadChange]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleMessageClick = async (msg: Message) => {
     // Mark as opened
@@ -135,21 +118,21 @@ useEffect(() => {
   }
 
   return (
-    <div className="flex flex-col pt-2 pb-32">
+    <div className="flex flex-col h-full relative" style={{ height: 'calc(100vh - 120px)' }}>
+      {/* Scrollable message list */}
+      <div className="flex-1 overflow-y-auto pt-2 pb-24">
       {messages.map(msg => {
         const isImage = msg.content?.startsWith('[IMAGE](')
         const imageUrl = isImage
-  ? msg.content.match(/\[IMAGE\]\(([^)]+)\)/)?.[1] ?? null
-  : null
-        const preview = isImage
-    ? msg.content.substring(msg.content.indexOf(')') + 2)
-    : msg.content ?? ''
+          ? msg.content.substring(7, msg.content.indexOf(')'))
+          : null
+        const preview = isImage ? '📷 Photo' : msg.content?.slice(0, 80)
 
         return (
           <button
             key={msg.message_id}
             onClick={() => handleMessageClick(msg)}
-            className="w-full text-left mx-4 my-[5px] rounded-[20px] bg-white active:scale-[0.97] transition-transform"
+            className="relative w-full text-left mx-4 my-[5px] rounded-[20px] bg-white active:scale-[0.97] transition-transform"
             style={{
               width: 'calc(100% - 32px)',
               boxShadow: msg.isOpened
@@ -163,11 +146,7 @@ useEffect(() => {
                 className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 text-xl"
                 style={{ background: msg.isOpened ? '#E5E5E5' : '#0D0D0D' }}
               >
-                <img
-              src={'/assets/Love_Letter.svg'}
-              
-              className="w-6 h-6 object-contain"
-            />
+                {msg.isOpened ? '✉️' : '📩'}
               </div>
 
               {/* Content */}
@@ -198,7 +177,7 @@ useEffect(() => {
                     src={imageUrl}
                     alt=""
                     className="w-full h-full object-cover"
-                    style={{ filter: msg.isOpened ?  'none' : 'blur(10px)', }}
+                    style={{ filter: msg.isOpened ? 'none' : 'blur(8px)' }}
                   />
                 </div>
               ) : (
@@ -208,19 +187,13 @@ useEffect(() => {
               )}
             </div>
 
-            {/* Unread accent bar */}
-            {!msg.isOpened && (
-              <div
-                className="absolute left-0 top-0 w-1 h-full rounded-l-[20px]"
-                style={{ background: 'linear-gradient(180deg, #FF6B6B, #4D96FF)' }}
-              />
-            )}
+
           </button>
         )
       })}
 
-      {/* Reveal CTA */}
-      
+     
+  </div>
     </div>
   )
 }
