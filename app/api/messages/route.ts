@@ -3,12 +3,8 @@ import { randomUUID } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
 const BUCKET = process.env.NEXT_PUBLIC_SUPABASE_BUCKET || 'images'
-// This should match SupabaseKeys.messageTable in your Kotlin app
 const TABLE = process.env.NEXT_PUBLIC_SUPABASE_TABLE || 'messages'
-// Table where you resolve slug -> user id (equivalent of getUserID(receiver_slug))
 const USERS_TABLE = process.env.NEXT_PUBLIC_SUPABASE_USERS_TABLE || 'users_table'
-
-
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,7 +21,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
 
-    // 1) Look up receiverId from slug, like getUserID(receiver_slug) in Kotlin
+    // Extract IP server-side from headers
+    const ipAddress =
+      req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      req.headers.get('x-real-ip') ||
+      req.headers.get('cf-connecting-ip') ||
+      null
+
+    // 1) Look up receiverId from slug
     const { data: user, error: userError } = await supabaseAdmin
       .from(USERS_TABLE)
       .select('user_id')
@@ -38,7 +41,7 @@ export async function POST(req: NextRequest) {
 
     const receiverId = user.user_id as string
 
-    // 2) Optional image upload to Supabase Storage
+    // 2) Optional image upload
     let imageUrl: string | null = null
 
     if (image && image.size > 0) {
@@ -48,7 +51,7 @@ export async function POST(req: NextRequest) {
       const { error: uploadError } = await supabaseAdmin.storage
         .from(BUCKET)
         .upload(filePath, image, {
-          contentType: image.type || 'image/jpeg', 
+          contentType: image.type || 'image/jpeg',
           upsert: false,
         })
 
@@ -60,7 +63,7 @@ export async function POST(req: NextRequest) {
       imageUrl = publicUrl.publicUrl
     }
 
-    // 3) Insert into the same message table schema as your Kotlin client
+    // 3) Insert with ip_address
     const messageId = randomUUID().slice(0, 12)
     const createdAt = new Date().toISOString()
 
@@ -69,15 +72,13 @@ export async function POST(req: NextRequest) {
       .insert({
         to_user: receiverId,
         type: 'text_message',
-        from_user: "b4dd65ed-2282-45b4-bb5f-299a9767e3d5", // anonymous sender from web; adjust if you want a specific id
-        content: imageUrl!= null ? "[IMAGE]" +"("+imageUrl+")\n"+ message : message,
+        from_user: 'b4dd65ed-2282-45b4-bb5f-299a9767e3d5',
+        content: imageUrl != null ? '[IMAGE](' + imageUrl + ')\n' + message : message,
         media_url: imageUrl ?? '',
         message_id: messageId,
         created_at: createdAt,
+        ip_address: ipAddress,
       })
-
-
-
 
     if (insertError) {
       return NextResponse.json({ error: 'Database insert failed', details: insertError.message }, { status: 500 })
@@ -88,4 +89,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unexpected error', details: error?.message }, { status: 500 })
   }
 }
-
