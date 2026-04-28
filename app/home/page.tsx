@@ -1,13 +1,14 @@
 'use client'
-
+ 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
 import SharePage from '@/app/components/SharePage'
 import MessagesPage from '@/app/components/MessagesPages'
 import ChatPage from '@/app/components/ChatPage'
-
-
+import ShareModal from '@/app/components/ShareModal'
+ 
+ 
 export type UserProfile = {
   user_id: string
   username: string | null
@@ -21,6 +22,7 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState(0)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [hasUnread, setHasUnread] = useState(false)
+  const [showHelpModal, setShowHelpModal] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
  
   const tabs = ['Share', 'Messages', 'Chat']
@@ -74,12 +76,12 @@ export default function HomePage() {
     >
       
       <div className="flex items-center justify-start px-4 pt-12 pb-3 bg-white sticky top-0 z-20">
-
+ 
         {/* Left: spacer */}
         <div className="flex-1 flex justify-start">
           <div className="w-9 h-9" />
         </div>
-
+ 
         {/* Center: label + indicator — clickable to cycle tabs */}
         <div
           className="flex flex-col items-center gap-2 cursor-pointer"
@@ -101,7 +103,7 @@ export default function HomePage() {
             )}
           </div>
         </div>
-
+ 
         {/* Right: refresh button */}
         <div className="flex-1 flex justify-end">
           <button
@@ -129,7 +131,7 @@ export default function HomePage() {
         >
           <div className="relative overflow-hidden" style={{ width: '33.333%', flexShrink: 0, height: '100%' }}>
             <div className="h-full overflow-y-auto">
-              <SharePage profile={profile} />
+              <SharePage profile={profile} onShowHelp={() => setShowHelpModal(true)} />
             </div>
           </div>
           <div className="relative overflow-hidden" style={{ width: '33.333%', flexShrink: 0, height: '100%' }}>
@@ -144,6 +146,20 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+ 
+      {/* ── ShareModal — rendered at root level so it centers over the full viewport ── */}
+      {showHelpModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6"
+          onClick={() => setShowHelpModal(false)}
+        >
+          {/* Stop click propagation so tapping the modal itself doesn't close it */}
+          <div onClick={e => e.stopPropagation()}>
+            <ShareModal isOpen={showHelpModal} onClose={() => setShowHelpModal(false)} />
+          </div>
+        </div>
+      )}
+ 
     </main>
   )
 }
