@@ -670,42 +670,30 @@ const handleSendReply = async () => {
         <div className="flex-1" />
 
         {/* ── Bottom buttons ── */}
-        <div className="px-5 pb-10 flex flex-col gap-3">
-          <div className="flex gap-3">
-            <button
-              onClick={() => setShowReply(true)}
-              className="flex-1 py-4 rounded-[32px] flex items-center justify-center gap-2 font-semibold text-[15px] text-white active:scale-95 transition-transform"
-              style={{ background: 'rgba(255,255,255,0.12)' }}
-            >
-              <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
-                <path d="M9 17H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-4l-4 4v-4z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              Reply
-            </button>
+       {/* ── Bottom buttons ── */}
+<div className="px-5 pb-10 flex flex-col gap-3">
+  <div className="flex gap-3">
+    <button
+      onClick={() => setShowReply(true)}
+      className="flex-1 py-4 rounded-[32px] font-bold text-[15px] text-white active:scale-95 transition-transform"
+      style={{ background: 'rgba(255,255,255,0.12)' }}
+    >
+      Reply
+    </button>
 
-            <button
-              onClick={handleShareMessage}
-              disabled={sharing}
-              className="flex-1 py-4 rounded-[32px] flex items-center justify-center gap-2 font-semibold text-[15px] text-white active:scale-95 transition-transform disabled:opacity-60"
-              style={{ background: 'linear-gradient(135deg, #FF6B6B, #FF431D)' }}
-            >
-              {sharing ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <>
-                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
-                    <circle cx="18" cy="5" r="3" stroke="white" strokeWidth="2"/>
-                    <circle cx="6" cy="12" r="3" stroke="white" strokeWidth="2"/>
-                    <circle cx="18" cy="19" r="3" stroke="white" strokeWidth="2"/>
-                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" stroke="white" strokeWidth="2"/>
-                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" stroke="white" strokeWidth="2"/>
-                  </svg>
-                  Share
-                </>
-              )}
-            </button>
-          </div>
-        </div>
+    <button
+      onClick={handleShareMessage}
+      disabled={sharing}
+      className="flex-1 py-4 rounded-[32px] font-bold text-[15px] text-white active:scale-95 transition-transform disabled:opacity-60"
+      style={{ background: 'linear-gradient(135deg, #FF6B6B, #FF431D)' }}
+    >
+      {sharing ? (
+        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
+      ) : 'Share'}
+    </button>
+  </div>
+</div>
+
       </div>
 
       {/* ── Fullscreen image viewer ── */}
