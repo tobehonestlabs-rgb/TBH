@@ -53,7 +53,6 @@ function FloatingEmojis() {
   )
 }
 
-// ─── Canvas helpers ───────────────────────────────────────────────────────────
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
@@ -397,49 +396,6 @@ async function generateMessageCard(
   })
 }
 
-// ── Share helper — preserves user gesture by using .then() chain ──────────────
-function shareGenerated(
-  generateFn: () => Promise<Blob>,
-  shareLink: string,
-  onStart: () => void,
-  onEnd: () => void,
-  onDone?: () => void,
-) {
-  onStart()
-  generateFn()
-    .then(async (blob) => {
-      const file = new File([blob], 'tbh.png', { type: 'image/png' })
-      const canShareFiles = navigator.canShare?.({ files: [file] }) ?? false
-
-      if (navigator.share && canShareFiles) {
-        try {
-          await navigator.share({ files: [file], title: 'TBH', text: shareLink })
-          onDone?.()
-          return
-        } catch (e: any) { if (e?.name === 'AbortError') return }
-      }
-      if (navigator.share) {
-        try {
-          await navigator.share({ title: 'TBH', url: shareLink })
-          onDone?.()
-          return
-        } catch (e: any) { if (e?.name === 'AbortError') return }
-      }
-      // Desktop fallback
-      const url = URL.createObjectURL(blob)
-      const w = window.open(url, '_blank')
-      if (!w) {
-        const a = document.createElement('a')
-        a.href = url; a.download = 'tbh.png'
-        document.body.appendChild(a); a.click(); document.body.removeChild(a)
-      }
-      setTimeout(() => URL.revokeObjectURL(url), 15000)
-      onDone?.()
-    })
-    .catch(e => console.error('Share failed', e))
-    .finally(() => onEnd())
-}
-
 export default function ReadMessageScreen() {
   const router = useRouter()
   const params = useParams()
@@ -490,26 +446,67 @@ export default function ReadMessageScreen() {
     ? message!.content.substring(message!.content.indexOf(')') + 1).trimStart()
     : message?.content ?? ''
 
-  const handleShareMessage = () => {
+  // ── Share — must be async directly on click handler to preserve user gesture
+  const handleShareMessage = async () => {
     if (!message || sharing) return
-    shareGenerated(
-      () => generateMessageCard(textContent, imageUrl, logoSrc, userPfp),
-      userLink,
-      () => setSharing(true),
-      () => setSharing(false),
-    )
+    setSharing(true)
+    try {
+      const blob = await generateMessageCard(textContent, imageUrl, logoSrc, userPfp)
+      const file = new File([blob], 'tbh.png', { type: 'image/png' })
+
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], text: userLink })
+        return
+      }
+      if (navigator.share) {
+        await navigator.share({ url: userLink, text: userLink })
+        return
+      }
+      // Desktop fallback: download
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = 'tbh.png'
+      document.body.appendChild(a); a.click(); document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 10000)
+    } catch (e: any) {
+      if (e?.name !== 'AbortError') console.error('Share failed', e)
+    } finally {
+      setSharing(false)
+    }
   }
 
-  const handleSendReply = () => {
+  const handleSendReply = async () => {
     if (!replyText.trim() || replySending) return
+    setReplySending(true)
     const currentReply = replyText
-    shareGenerated(
-      () => generateReplyCard(textContent, currentReply, imageUrl, logoSrc, userPfp),
-      userLink,
-      () => setReplySending(true),
-      () => setReplySending(false),
-      () => { setShowReply(false); setReplyText('') },
-    )
+    try {
+      const blob = await generateReplyCard(textContent, currentReply, imageUrl, logoSrc, userPfp)
+      const file = new File([blob], 'tbh.png', { type: 'image/png' })
+
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], text: userLink })
+        setShowReply(false)
+        setReplyText('')
+        return
+      }
+      if (navigator.share) {
+        await navigator.share({ url: userLink, text: userLink })
+        setShowReply(false)
+        setReplyText('')
+        return
+      }
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = 'tbh.png'
+      document.body.appendChild(a); a.click(); document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 10000)
+      setShowReply(false)
+      setReplyText('')
+    } catch (e: any) {
+      if (e?.name !== 'AbortError') console.error('Reply share failed', e)
+    } finally {
+      setReplySending(false)
+    }
   }
 
   if (loading) {
@@ -533,7 +530,7 @@ export default function ReadMessageScreen() {
     <main className="min-h-screen flex flex-col relative overflow-hidden" style={{ fontFamily: font }}>
       <style>{GLOBAL_STYLES}</style>
 
-      {/* ── Background: blurred pfp ── */}
+      {/* Background: blurred pfp */}
       <div className="absolute inset-0 z-0">
         {userPfp ? (
           <div style={{
@@ -549,12 +546,12 @@ export default function ReadMessageScreen() {
         <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.45)' }} />
       </div>
 
-      {/* ── Floating emojis behind UI ── */}
+      {/* Floating emojis */}
       <div className="absolute inset-0 z-[1] overflow-hidden">
         <FloatingEmojis />
       </div>
 
-      {/* ── Content ── */}
+      {/* Content */}
       <div className="relative z-10 flex flex-col min-h-screen">
 
         {/* Top bar */}
@@ -572,7 +569,7 @@ export default function ReadMessageScreen() {
 
         <div className="flex-1" />
 
-        {/* ── Message card ── */}
+        {/* Message card */}
         <div className="px-5 mb-6">
           <div style={{
             background: 'rgba(20,20,20,0.75)',
@@ -581,8 +578,6 @@ export default function ReadMessageScreen() {
             borderRadius: '28px',
             padding: '24px',
           }}>
-
-            {/* Image row */}
             {isImageMessage && imageUrl && (
               <>
                 <button
@@ -623,7 +618,6 @@ export default function ReadMessageScreen() {
               </>
             )}
 
-            {/* Message text */}
             {textContent && (
               <p
                 className="w-full text-center font-semibold text-white"
@@ -644,7 +638,7 @@ export default function ReadMessageScreen() {
 
         <div className="flex-1" />
 
-        {/* ── Bottom buttons ── */}
+        {/* Bottom buttons */}
         <div className="px-5 pb-10 flex flex-col gap-3">
           <div className="flex gap-3">
             <button
@@ -654,22 +648,22 @@ export default function ReadMessageScreen() {
             >
               Reply
             </button>
-
             <button
               onClick={handleShareMessage}
               disabled={sharing}
-              className="flex-1 py-4 rounded-[32px] font-bold text-[15px] text-white active:scale-95 transition-transform disabled:opacity-60"
+              className="flex-1 py-4 rounded-[32px] font-bold text-[15px] text-white active:scale-95 transition-transform disabled:opacity-60 flex items-center justify-center"
               style={{ background: 'linear-gradient(135deg, #FF6B6B, #FF431D)' }}
             >
-              {sharing ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
-              ) : 'Share'}
+              {sharing
+                ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                : 'Share'
+              }
             </button>
           </div>
         </div>
       </div>
 
-      {/* ── Fullscreen image viewer ── */}
+      {/* Fullscreen image viewer */}
       {showFullscreen && imageUrl && (
         <div className="fixed inset-0 z-50 bg-black flex flex-col">
           <div className="flex items-center justify-between px-4 pt-12 pb-4">
@@ -698,13 +692,11 @@ export default function ReadMessageScreen() {
         </div>
       )}
 
-      {/* ── Reply bottom sheet ── */}
+      {/* Reply bottom sheet */}
       {showReply && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowReply(false)} />
-
           <div className="relative z-10 rounded-t-[32px] overflow-hidden" style={{ maxHeight: '85vh' }}>
-
             {userPfp && (
               <div style={{
                 position: 'absolute', inset: 0,
@@ -715,7 +707,6 @@ export default function ReadMessageScreen() {
               }} />
             )}
             <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.55)' }} />
-
             <div className="absolute inset-0 overflow-hidden">
               <FloatingEmojis />
             </div>
@@ -724,19 +715,16 @@ export default function ReadMessageScreen() {
               <div className="flex justify-center pt-3 pb-5">
                 <div className="w-10 h-[4px] rounded-full" style={{ background: 'rgba(255,255,255,0.25)' }} />
               </div>
-
               <div className="px-5">
                 <p className="text-center font-bold text-[16px] text-white mb-1">Reply publicly</p>
                 <p className="text-center text-[12px] mb-5" style={{ color: 'rgba(255,255,255,0.45)' }}>
                   Your reply will be shared as a story card
                 </p>
-
                 <div className="rounded-[14px] p-3 mb-4" style={{ background: 'rgba(255,255,255,0.08)' }}>
                   <p className="text-[13px] line-clamp-2" style={{ color: 'rgba(255,255,255,0.6)' }}>
                     {(imageUrl ? '📷 ' : '') + (textContent || '')}
                   </p>
                 </div>
-
                 <div className="flex items-end gap-3">
                   <textarea
                     value={replyText}
@@ -756,13 +744,10 @@ export default function ReadMessageScreen() {
                     className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 active:scale-90 transition-transform"
                     style={{ background: replyText.trim() ? 'linear-gradient(135deg, #FF6B6B, #FF431D)' : 'rgba(255,255,255,0.15)' }}
                   >
-                    {replySending ? (
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
-                        <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    )}
+                    {replySending
+                      ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      : <span style={{ fontSize: '13px', fontWeight: '800', color: 'white' }}>Go</span>
+                    }
                   </button>
                 </div>
               </div>
