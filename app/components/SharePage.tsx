@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { UserProfile } from '@/app/home/page'
+import ShareModal from '@/app/components/ShareModal'
 
 type Props = { profile: UserProfile | null }
 
@@ -860,7 +861,11 @@ const handlePlatformShare = async (platformId: string) => {
           </div>
         </div>
       )}
-
+{/* The Help Modal */}
+      <ShareModal 
+        isOpen={showHelpModal} 
+        onClose={() => setShowHelpModal(false)} 
+      />
       {/* ── Copied toast ── */}
       {copied && (
         <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
@@ -875,6 +880,7 @@ const handlePlatformShare = async (platformId: string) => {
           </div>
         </div>
       )}
+      
 
       <style jsx global>{`
         @keyframes shimmer {
