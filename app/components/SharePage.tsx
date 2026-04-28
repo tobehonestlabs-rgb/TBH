@@ -348,7 +348,7 @@ const handlePlatformShare = async (platformId: string) => {
     const file = new File([blob], 'tbh-share.png', { type: 'image/png' })
     
     const shareTitle = "TBH: Anonymous"
-    const shareText = `Send me an anonymous photo/message! 🤫🔥\n\n${shareLink}`
+    const shareText = `Send me an anonymous photo/message! 🤫🔥`
 
     // 1. CLIPBOARD BACKUP (The "Safety Net")
     // If WhatsApp drops the caption, the link is already in their hand to Paste
