@@ -98,57 +98,42 @@ async function generateShareCard(
     canvas.width = W; canvas.height = H
     const ctx = canvas.getContext('2d')!
 
-    // 1. Load profile pic with cache-busting for iOS
+    // 1. Load profile pic
     let pfpImg: HTMLImageElement | null = null
     if (profile.pfp) {
       pfpImg = await loadImage(profile.pfp).catch(() => null)
     }
 
-    // 2. Background — Main Gradient
+    // 2. Background — color gradient always, pfp blurred on top
     const bgGrad = ctx.createLinearGradient(0, 0, W, H)
     bgGrad.addColorStop(0, colorStops[0])
     bgGrad.addColorStop(1, colorStops[colorStops.length - 1])
     ctx.fillStyle = bgGrad
     ctx.fillRect(0, 0, W, H)
 
-    // Background Blur Fix for iOS (Downsampling Method)
     if (pfpImg) {
       ctx.save()
-      
-      // Create a small temporary canvas for the blur effect
-      const blurCanvas = document.createElement('canvas')
-      const scale = 0.1 // Downscale to 10% for the blur effect
-      blurCanvas.width = W * scale
-      blurCanvas.height = H * scale
-      const bCtx = blurCanvas.getContext('2d')!
-      
-      // Draw the image onto the small canvas
-      bCtx.drawImage(pfpImg, 0, 0, blurCanvas.width, blurCanvas.height)
-      
-      // Draw it back onto the main canvas, scaled up (this forces hardware-accelerated blur)
-      ctx.globalAlpha = 0.3 // Adjusts brightness/transparency
-      ctx.imageSmoothingEnabled = true // Essential for the blur effect
-      ctx.drawImage(blurCanvas, 0, 0, blurCanvas.width, blurCanvas.height, -100, -100, W + 200, H + 200)
-      
+      ctx.filter = 'blur(40px) brightness(0.25)'
+      ctx.drawImage(pfpImg, -60, -60, W + 120, H + 120)
+      ctx.filter = 'none'
       ctx.restore()
     }
-
-    // Dark overlay for text readability
+    // Dark overlay
     ctx.fillStyle = 'rgba(0,0,0,0.45)'
     ctx.fillRect(0, 0, W, H)
 
-    // Color-tinted Vignette
+    // Vignette tinted to color
     const vignette = ctx.createLinearGradient(0, H * 0.5, 0, H)
     vignette.addColorStop(0, 'transparent')
-    vignette.addColorStop(1, colorStops[colorStops.length - 1] + '77')
+    vignette.addColorStop(1, colorStops[colorStops.length - 1] + '55')
     ctx.fillStyle = vignette
     ctx.fillRect(0, 0, W, H)
 
     // 3. Logo
     const logo = await loadImage(logoUrl).catch(() => null)
     if (logo) {
-      const lw = 220, lh = lw * logo.height / logo.width
-      ctx.drawImage(logo, (W - lw) / 2, 90, lw, lh)
+      const lw = 200, lh = lw * logo.height / logo.width
+      ctx.drawImage(logo, (W - lw) / 2, 80, lw, lh)
     }
 
     // 4. Card type title
@@ -156,88 +141,85 @@ async function generateShareCard(
     ctx.font = 'bold 110px -apple-system, BlinkMacSystemFont, sans-serif'
     ctx.textAlign = 'center'
     ctx.shadowColor = 'rgba(0,0,0,0.8)'
-    ctx.shadowBlur = 25
+    ctx.shadowBlur = 20
     const titleLines = cardType.title.split('\n')
     titleLines.forEach((line, i) => {
-      ctx.fillText(line, W / 2, 360 + i * 130)
+      ctx.fillText(line, W / 2, 340 + i * 130)
     })
     ctx.shadowBlur = 0
 
     // 5. Gradient ring + profile pic
-    const ringY = 360 + titleLines.length * 130 + 70
+    const ringY = 340 + titleLines.length * 130 + 60
     const ringR = 210
     const cx = W / 2, cy = ringY + ringR
 
-    const ringGrad = ctx.createLinearGradient(0, ringY, 0, ringY + (ringR * 2))
+    const ringGrad = ctx.createLinearGradient(0, 0, W, H)
     ringColors.forEach((c, i) => ringGrad.addColorStop(i / Math.max(ringColors.length - 1, 1), c))
-    
     ctx.beginPath()
     ctx.arc(cx, cy, ringR, 0, Math.PI * 2)
     ctx.strokeStyle = ringGrad
-    ctx.lineWidth = 24
+    ctx.lineWidth = 22
     ctx.stroke()
 
     if (pfpImg) {
       ctx.save()
       ctx.beginPath()
-      ctx.arc(cx, cy, ringR - 12, 0, Math.PI * 2)
+      ctx.arc(cx, cy, ringR - 14, 0, Math.PI * 2)
       ctx.clip()
-      const pfpS = (ringR - 12) * 2
+      const pfpS = (ringR - 14) * 2
       ctx.drawImage(pfpImg, cx - pfpS / 2, cy - pfpS / 2, pfpS, pfpS)
       ctx.restore()
     }
 
     // 6. Username
     ctx.fillStyle = '#FFFFFF'
-    ctx.font = 'bold 76px -apple-system, BlinkMacSystemFont, sans-serif'
+    ctx.font = 'bold 72px -apple-system, BlinkMacSystemFont, sans-serif'
     ctx.textAlign = 'center'
-    ctx.shadowColor = 'rgba(0,0,0,0.5)'
-    ctx.shadowBlur = 15
-    ctx.fillText(`@${profile.username ?? ''}`, W / 2, cy + ringR + 100)
+    ctx.shadowColor = 'rgba(0,0,0,0.6)'
+    ctx.shadowBlur = 12
+    ctx.fillText(`@${profile.username ?? ''}`, W / 2, cy + ringR + 90)
     ctx.shadowBlur = 0
 
     // 7. Prompt pill
     const prompt = cardType.promptOverride ?? promptText
-    ctx.font = '600 54px -apple-system, BlinkMacSystemFont, sans-serif'
-    const pillPadX = 52, pillPadY = 32
-    const maxPillW = W * 0.82
+    ctx.font = '52px -apple-system, BlinkMacSystemFont, sans-serif'
+    const pillPadX = 48, pillPadY = 28
+    const maxPillW = W * 0.78
     const wrappedPrompt = wrapCanvasText(ctx, prompt, maxPillW - pillPadX * 2)
-    const lineH = 68
+    const lineH = 64
     const pillH = wrappedPrompt.length * lineH + pillPadY * 2
     const pillW = maxPillW
     const pillX = (W - pillW) / 2
-    const pillY = cy + ringR + 140
+    const pillY = cy + ringR + 120
 
-    ctx.fillStyle = 'rgba(255,255,255,0.12)'
-    roundRect(ctx, pillX, pillY, pillW, pillH, 32)
+    ctx.fillStyle = 'rgba(255,255,255,0.15)'
+    roundRect(ctx, pillX, pillY, pillW, pillH, 28)
     ctx.fill()
 
     ctx.fillStyle = '#FFFFFF'
     ctx.textAlign = 'center'
     wrappedPrompt.forEach((line, i) => {
-      ctx.fillText(line, W / 2, pillY + pillPadY + lineH * i + 48)
+      ctx.fillText(line, W / 2, pillY + pillPadY + lineH * i + 44)
     })
 
-    // 8. Bottom Link
-    const linkY = H - 120
-    ctx.fillStyle = 'rgba(255,255,255,0.5)'
-    ctx.font = '500 42px -apple-system, BlinkMacSystemFont, sans-serif'
+    // 8. Link
+    const linkY = pillY + pillH + 60
+    ctx.fillStyle = 'rgba(255,255,255,0.6)'
+    ctx.font = '40px -apple-system, BlinkMacSystemFont, sans-serif'
     ctx.textAlign = 'center'
-    ctx.fillText(`tbhonest.net/send/${profile.slug}`, W / 2, linkY)
+    ctx.fillText(`tbhonest.net/send/${profile.slug}`, W / 2, linkY + 40)
 
     canvas.toBlob(b => resolve(b!), 'image/png', 1.0)
   })
 }
 
-// Optimized loader with cache-busting
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.crossOrigin = 'anonymous'
-    const cacheBuster = src.includes('?') ? `&v=${Date.now()}` : `?v=${Date.now()}`;
     img.onload = () => resolve(img)
     img.onerror = reject
-    img.src = src + cacheBuster
+    img.src = src
   })
 }
 
