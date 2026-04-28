@@ -80,7 +80,7 @@ const handleFinish = async () => {
       const ipRes = await fetch('https://api.ipify.org?format=json')
       const ipData = await ipRes.json()
       ipAddress = ipData.ip ?? null
-    } catch {
+    } catch {  
       // Non-blocking — if it fails, just skip it
     }
 
