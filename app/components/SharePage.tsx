@@ -865,7 +865,7 @@ const handlePlatformShare = async (platformId: string) => {
 {/* The Help Modal */}
  // ✅ Only render when showHelpModal is true
 {showHelpModal && (
-  <div className="absolute inset-0 z-50 flex items-start justify-center bg-black/40 px-6 pt-32">
+  <div className="absolute inset-0 z-50 flex items-start justify-start bg-black/40 px-6 pt-32">
     <ShareModal isOpen={showHelpModal} onClose={() => setShowHelpModal(false)} />
   </div>
 )}
