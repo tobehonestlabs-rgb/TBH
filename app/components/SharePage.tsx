@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { UserProfile } from '@/app/home/page'
 import ShareModal from '@/app/components/ShareModal'
 
-type Props = { profile: UserProfile | null }
+type Props = { profile: UserProfile | null; onShowHelp: () => void }
 
 type CardType = {
   id: string
@@ -252,7 +252,7 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
-export default function SharePage({ profile }: Props) {
+export default function SharePage({ profile, onShowHelp }: Props) {
   const [copied, setCopied] = useState(false)
   const [promptText, setPromptText] = useState('Send me an anonymous photo/message')
   const [editingPrompt, setEditingPrompt] = useState(false)
@@ -268,6 +268,8 @@ export default function SharePage({ profile }: Props) {
   const [phraseIndex, setPhraseIndex] = useState(0)
   const [phraseVisible, setPhraseVisible] = useState(true)
 const [showHelpModal, setShowHelpModal] = useState(false)
+
+
   const shareLink = profile?.slug
     ? `${typeof window !== 'undefined' ? window.location.origin : 'https://tbhonest.net'}/send/${profile.slug}`
     : ''
