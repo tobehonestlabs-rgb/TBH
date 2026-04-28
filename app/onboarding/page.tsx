@@ -51,65 +51,69 @@ export default function OnboardingPage() {
   }
 
   // ── Step 2: Upload photo + finalize profile ────────────────────────────────
-  const handleFinish = async () => {
-    setLoading(true)
-    setError(null)
+const handleFinish = async () => {
+  setLoading(true)
+  setError(null)
 
-    try {
-      const { data: { user } } = await supabaseClient.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
+  try {
+    const { data: { user } } = await supabaseClient.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
 
-      let pfpUrl = ''
+    let pfpUrl = ''
 
-      // Upload profile picture if selected
-      if (imageFile) {
-        const fileExt = imageFile.name.split('.').pop()
-        const fileName = `${user.id}_${Date.now()}_pfp.${fileExt}`
-        const { error: uploadError } = await supabaseClient.storage
-          .from('avatars') // your bucket name
-          .upload(fileName, imageFile, { upsert: true })
-
-        if (uploadError) throw uploadError
-
-        const { data: urlData } = supabaseClient.storage
-          .from('avatars')
-          .getPublicUrl(fileName)
-
-        pfpUrl = urlData.publicUrl
-      }
-
-      const slug = generateSlug(username.trim())
-      const now = new Date().toISOString()
-
-      // Insert into users table
-      const { error: insertError } = await supabaseClient.from('users_table').insert({
-        user_id: user.id,
-        username: username.trim(),
-        email: user.email,
-        slug,
-        birthdate: birthYear,
-        pfp: pfpUrl || null,
-        created_at: now,
-        active_subscription: false,
-      })
-
-      if (insertError) throw insertError
-
-      // Insert into links table
-      await supabaseClient.from('links').insert({
-        user_id: user.id,
-        dynamic_link: `tbhonest.net/send/${slug}`,
-        created_at: now,
-      })
-
-      router.push('/home')
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Something went wrong.')
-    } finally {
-      setLoading(false)
+    if (imageFile) {
+      const fileExt = imageFile.name.split('.').pop()
+      const fileName = `${user.id}_${Date.now()}_pfp.${fileExt}`
+      const { error: uploadError } = await supabaseClient.storage
+        .from('avatars')
+        .upload(fileName, imageFile, { upsert: true })
+      if (uploadError) throw uploadError
+      const { data: urlData } = supabaseClient.storage
+        .from('avatars')
+        .getPublicUrl(fileName)
+      pfpUrl = urlData.publicUrl
     }
-  }
 
+    // Fetch IP address
+    let ipAddress: string | null = null
+    try {
+      const ipRes = await fetch('https://api.ipify.org?format=json')
+      const ipData = await ipRes.json()
+      ipAddress = ipData.ip ?? null
+    } catch {
+      // Non-blocking — if it fails, just skip it
+    }
+
+    const slug = generateSlug(username.trim())
+    const now = new Date().toISOString()
+
+    const { error: insertError } = await supabaseClient.from('users_table').insert({
+      user_id: user.id,
+      username: username.trim(),
+      email: user.email,
+      slug,
+      birthdate: birthYear,
+      pfp: pfpUrl || null,
+      created_at: now,
+      active_subscription: false,
+      user_ip_address: ipAddress,
+    })
+
+    if (insertError) throw insertError
+
+    await supabaseClient.from('links').insert({
+      user_id: user.id,
+      dynamic_link: `tbhonest.net/send/${slug}`,
+      created_at: now,
+    })
+
+    router.push('/home')
+  } catch (e: unknown) {
+    setError(e instanceof Error ? e.message : 'Something went wrong.')
+  } finally {
+    setLoading(false)
+  }
+}
   // ── Image picker ───────────────────────────────────────────────────────────
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
