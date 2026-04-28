@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
@@ -343,8 +344,7 @@ async function generateMessageCard(
     if (imageUrl) {
       const img = await loadImage(imageUrl).catch(() => null)
       if (img) {
-        const imgS = 860
-        const imgY = 450
+        const imgS = 860, imgY = 450
         ctx.save()
         roundRect(ctx, (W - imgS) / 2, imgY, imgS, imgS, 48)
         ctx.clip()
@@ -377,9 +377,7 @@ async function generateMessageCard(
         const totalH = lines.length * fontSize * 1.25
         if (totalH < H - 600) {
           const startY = H / 2 - totalH / 2 + fontSize * 0.8
-          lines.forEach((line, i) =>
-            ctx.fillText(line, W / 2, startY + i * fontSize * 1.25)
-          )
+          lines.forEach((line, i) => ctx.fillText(line, W / 2, startY + i * fontSize * 1.25))
           break
         }
         fontSize -= 8
@@ -413,8 +411,12 @@ export default function ReadMessageScreen() {
   const [replySending, setReplySending] = useState(false)
   const [sharing, setSharing] = useState(false)
 
-  const font = "'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif"
+  // Pre-generated blobs — ready before user taps to preserve iOS gesture
+  const [messageCardBlob, setMessageCardBlob] = useState<Blob | null>(null)
+  const [cardGenerating, setCardGenerating] = useState(false)
+  const [replyCardBlob, setReplyCardBlob] = useState<Blob | null>(null)
 
+  const font = "'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif"
   const logoSrc = typeof window !== 'undefined'
     ? `${window.location.origin}/assets/TBH_Title_Logo.svg`
     : '/assets/TBH_Title_Logo.svg'
@@ -446,24 +448,43 @@ export default function ReadMessageScreen() {
     ? message!.content.substring(message!.content.indexOf(')') + 1).trimStart()
     : message?.content ?? ''
 
-  // ── Share — must be async directly on click handler to preserve user gesture
+  // Pre-generate message card as soon as data is ready
+  useEffect(() => {
+    if (!message) return
+    setCardGenerating(true)
+    generateMessageCard(textContent, imageUrl, logoSrc, userPfp)
+      .then(blob => setMessageCardBlob(blob))
+      .catch(console.error)
+      .finally(() => setCardGenerating(false))
+  }, [message, userPfp])
+
+  // Pre-generate reply card, debounced 600ms after typing stops
+  useEffect(() => {
+    if (!showReply || !replyText.trim()) { setReplyCardBlob(null); return }
+    const t = setTimeout(() => {
+      generateReplyCard(textContent, replyText, imageUrl, logoSrc, userPfp)
+        .then(blob => setReplyCardBlob(blob))
+        .catch(console.error)
+    }, 600)
+    return () => clearTimeout(t)
+  }, [replyText, showReply])
+
+  // Share message — blob is pre-ready, gesture preserved
   const handleShareMessage = async () => {
-    if (!message || sharing) return
+    if (!message || sharing || !messageCardBlob) return
     setSharing(true)
     try {
-      const blob = await generateMessageCard(textContent, imageUrl, logoSrc, userPfp)
-      const file = new File([blob], 'tbh.png', { type: 'image/png' })
-
+      const file = new File([messageCardBlob], 'tbh.png', { type: 'image/png' })
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], text: userLink })
         return
       }
       if (navigator.share) {
-        await navigator.share({ url: userLink, text: userLink })
+        await navigator.share({ url: userLink })
         return
       }
-      // Desktop fallback: download
-      const url = URL.createObjectURL(blob)
+      // Desktop fallback
+      const url = URL.createObjectURL(messageCardBlob)
       const a = document.createElement('a')
       a.href = url; a.download = 'tbh.png'
       document.body.appendChild(a); a.click(); document.body.removeChild(a)
@@ -475,33 +496,28 @@ export default function ReadMessageScreen() {
     }
   }
 
+  // Share reply — blob is pre-ready, gesture preserved
   const handleSendReply = async () => {
-    if (!replyText.trim() || replySending) return
+    if (!replyText.trim() || replySending || !replyCardBlob) return
     setReplySending(true)
-    const currentReply = replyText
     try {
-      const blob = await generateReplyCard(textContent, currentReply, imageUrl, logoSrc, userPfp)
-      const file = new File([blob], 'tbh.png', { type: 'image/png' })
-
+      const file = new File([replyCardBlob], 'tbh.png', { type: 'image/png' })
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], text: userLink })
-        setShowReply(false)
-        setReplyText('')
+        setShowReply(false); setReplyText(''); setReplyCardBlob(null)
         return
       }
       if (navigator.share) {
-        await navigator.share({ url: userLink, text: userLink })
-        setShowReply(false)
-        setReplyText('')
+        await navigator.share({ url: userLink })
+        setShowReply(false); setReplyText(''); setReplyCardBlob(null)
         return
       }
-      const url = URL.createObjectURL(blob)
+      const url = URL.createObjectURL(replyCardBlob)
       const a = document.createElement('a')
       a.href = url; a.download = 'tbh.png'
       document.body.appendChild(a); a.click(); document.body.removeChild(a)
       setTimeout(() => URL.revokeObjectURL(url), 10000)
-      setShowReply(false)
-      setReplyText('')
+      setShowReply(false); setReplyText(''); setReplyCardBlob(null)
     } catch (e: any) {
       if (e?.name !== 'AbortError') console.error('Reply share failed', e)
     } finally {
@@ -650,11 +666,11 @@ export default function ReadMessageScreen() {
             </button>
             <button
               onClick={handleShareMessage}
-              disabled={sharing}
+              disabled={sharing || cardGenerating || !messageCardBlob}
               className="flex-1 py-4 rounded-[32px] font-bold text-[15px] text-white active:scale-95 transition-transform disabled:opacity-60 flex items-center justify-center"
               style={{ background: 'linear-gradient(135deg, #FF6B6B, #FF431D)' }}
             >
-              {sharing
+              {(sharing || cardGenerating)
                 ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 : 'Share'
               }
@@ -740,7 +756,7 @@ export default function ReadMessageScreen() {
                   />
                   <button
                     onClick={handleSendReply}
-                    disabled={!replyText.trim() || replySending}
+                    disabled={!replyText.trim() || replySending || !replyCardBlob}
                     className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 active:scale-90 transition-transform"
                     style={{ background: replyText.trim() ? 'linear-gradient(135deg, #FF6B6B, #FF431D)' : 'rgba(255,255,255,0.15)' }}
                   >
@@ -750,6 +766,12 @@ export default function ReadMessageScreen() {
                     }
                   </button>
                 </div>
+                {/* Show generating indicator below textarea */}
+                {replyText.trim() && !replyCardBlob && (
+                  <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', marginTop: '8px', textAlign: 'center' }}>
+                    Preparing card...
+                  </p>
+                )}
               </div>
             </div>
           </div>
