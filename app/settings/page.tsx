@@ -114,8 +114,8 @@ export default function SettingsPage() {
             <SettingsRow
               icon={<img src="/assets/social_media_icons/X.svg" className="w-5 h-5 object-contain" />}
               label="X"
-              sublabel="@tbhonest"
-              onClick={() => window.open('https://instagram.com/tbhonest', '_blank')}
+              sublabel="@tbh_studio"
+              onClick={() => window.open('https://x.com/tbh_studio', '_blank')}
               divider
             />
           </div>

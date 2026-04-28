@@ -2,9 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { UserProfile } from '@/app/home/page'
-import ShareModal from '@/app/components/ShareModal'
-
-type Props = { profile: UserProfile | null; onShowHelp: () => void }
+import Link from 'next/link'
+type Props = { profile: UserProfile | null }
 
 type CardType = {
   id: string
@@ -252,7 +251,7 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
-export default function SharePage({ profile, onShowHelp }: Props) {
+export default function SharePage({ profile }: Props) {
   const [copied, setCopied] = useState(false)
   const [promptText, setPromptText] = useState('Send me an anonymous photo/message')
   const [editingPrompt, setEditingPrompt] = useState(false)
@@ -268,8 +267,6 @@ export default function SharePage({ profile, onShowHelp }: Props) {
   const [phraseIndex, setPhraseIndex] = useState(0)
   const [phraseVisible, setPhraseVisible] = useState(true)
 const [showHelpModal, setShowHelpModal] = useState(false)
-
-
   const shareLink = profile?.slug
     ? `${typeof window !== 'undefined' ? window.location.origin : 'https://tbhonest.net'}/send/${profile.slug}`
     : ''
@@ -485,11 +482,7 @@ const handlePlatformShare = async (platformId: string) => {
 
         </div>
         {/* NEW: Help Link */}
-   
-      </div>
-      )}
-        {/* NEW: Help Link */}
- <button 
+    <button 
       onClick={() => setShowHelpModal(true)}
       className="self-center flex items-center gap-1.5 py-1 text-[13px] font-bold text-gray-400 hover:text-black active:scale-95 transition-all"
     >
@@ -498,6 +491,9 @@ const handlePlatformShare = async (platformId: string) => {
       </svg>
       How to post my link?
     </button>
+      </div>
+      )}
+
       {/* ── Share progress ── */}
       <div className="flex flex-col items-center gap-2">
         <div className="relative w-[90px] h-[90px] flex items-center justify-center">
@@ -864,16 +860,18 @@ const handlePlatformShare = async (platformId: string) => {
           </div>
         </div>
       )}
-{/* The Help Modal */}
-{showHelpModal && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6">
-    <ShareModal
-      isOpen={showHelpModal} 
-      onClose={() => setShowHelpModal(false)} 
-    />
-  </div>
-)}
-      
+
+
+<Link href="/guide" className="self-center">
+  <button 
+    className="flex items-center gap-1.5 py-1 text-[13px] font-bold text-gray-400 hover:text-black active:scale-95 transition-all"
+  >
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg>
+    How to post my link?
+  </button>
+</Link>
       {/* ── Copied toast ── */}
       {copied && (
         <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
