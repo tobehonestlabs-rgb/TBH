@@ -452,7 +452,7 @@ const handlePlatformShare = async (platformId: string) => {
             <div className="relative w-[58px] h-[58px] flex-shrink-0">
               <div className="absolute inset-0 rounded-full" style={{
                 padding: '2.5px',
-                background: 'linear-gradient(135deg, #FF6B6B, #FFE66D, #6BCB77, #4D96FF)',
+                background: 'linear-gradient(135deg, #FF6B6B, #ff4b15, #e654ae, #ff4d4d)',
                 borderRadius: '50%',
               }}>
                 <div className="w-full h-full rounded-full overflow-hidden bg-gray-700">
