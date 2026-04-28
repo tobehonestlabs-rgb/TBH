@@ -298,64 +298,71 @@ export default function SharePage({ profile }: Props) {
     } catch (e) { console.error('Copy failed', e) }
   }
 
-  const handleShareCard = async (cardType: CardType) => {
+ const handleShareCard = async (cardType: CardType) => {
   if (!profile) return
   setGenerating(true)
   setShowCardPicker(false)
   setShowColorPicker(false)
+  
   try {
     const logoUrl = `${window.location.origin}/assets/TBH_Title_Logo.svg`
     const blob = await generateShareCard(profile, promptText, cardType, logoUrl, selectedColor.stops, selectedColor.ring)
     const file = new File([blob], 'tbh-share.png', { type: 'image/png' })
 
-    // Files-only share — triggers the OS app picker (no text mixed in)
-    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+    // THE FIX: We also include text/url in the general "Share" button 
+    // because many users select WhatsApp from the generic OS picker too.
+    const shareData = {
+      files: [file],
+      title: "TBH",
+      text: `Send me an anonymous message! 🤫🔥\n\n${shareLink}`,
+      url: shareLink // Added as a secondary catch for Android
+    }
+
+    if (navigator.share && navigator.canShare?.(shareData)) {
       try {
-        await navigator.share({ files: [file] })
+        await navigator.share(shareData)
         return
       } catch (e: any) {
         if (e?.name === 'AbortError') return
       }
     }
 
-    // Desktop fallback
+    // Desktop/Fallback
     const url = URL.createObjectURL(blob)
-    const w = window.open(url, '_blank')
-    if (!w) {
-      const a = document.createElement('a')
-      a.href = url; a.download = 'tbh-share.png'
-      document.body.appendChild(a); a.click(); document.body.removeChild(a)
-    }
+    const a = document.createElement('a')
+    a.href = url; a.download = 'tbh-share.png'
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
     setTimeout(() => URL.revokeObjectURL(url), 10000)
   } catch (e) { console.error('Share failed', e) }
   finally { setGenerating(false) }
 }
+
 const handlePlatformShare = async (platformId: string) => {
   if (!profile || generating) return
   setGenerating(true)
   
   try {
     const logoUrl = `${window.location.origin}/assets/TBH_Title_Logo.svg`
-    const blob = await generateShareCard(
-      profile, 
-      promptText, 
-      selectedCard, 
-      logoUrl, 
-      selectedColor.stops, 
-      selectedColor.ring
-    )
+    const blob = await generateShareCard(profile, promptText, selectedCard, logoUrl, selectedColor.stops, selectedColor.ring)
     const file = new File([blob], 'tbh-share.png', { type: 'image/png' })
     
-    // The "Hook" text for the caption
-    const shareTitle = "TBH: Anonymous Messages"
+    const shareTitle = "TBH: Anonymous"
     const shareText = `Send me an anonymous photo/message! 🤫🔥\n\n${shareLink}`
 
-    // 1. UNIVERSAL NATIVE SHARE (iOS/Android)
-    // We bundle files, title, and text into one object for the OS to handle
+    // 1. CLIPBOARD BACKUP (The "Safety Net")
+    // If WhatsApp drops the caption, the link is already in their hand to Paste
+    try {
+      await navigator.clipboard.writeText(shareLink)
+    } catch (err) {
+      console.warn("Clipboard backup failed")
+    }
+
+    // 2. UNIVERSAL NATIVE SHARE
     const shareData = {
       files: [file],
       title: shareTitle,
       text: shareText,
+      url: shareLink // Critical for WhatsApp on some Android builds
     }
 
     if (navigator.share && navigator.canShare?.(shareData)) {
@@ -364,36 +371,28 @@ const handlePlatformShare = async (platformId: string) => {
         setSharedPlatforms(prev => prev.includes(platformId) ? prev : [...prev, platformId])
         return 
       } catch (e: any) {
-        // If user just cancelled the share sheet, stop here
         if (e?.name === 'AbortError') return
-        console.error("Native share failed, trying fallback...")
       }
     }
 
-    // 2. PLATFORM-SPECIFIC FALLBACKS (Desktop or older browsers)
-    const encodedText = encodeURIComponent(shareText)
-    const encodedLink = encodeURIComponent(shareLink)
-
+    // 3. HARD FALLBACKS (If Native Share fails or user is on Desktop)
     if (platformId === 'instagram') {
-      // Instagram fallback: Download the image and try to open the app
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
-      a.href = url
-      a.download = 'tbh-share.png'
-      document.body.appendChild(a)
+      a.href = url; a.download = 'tbh-share.png'
       a.click()
-      document.body.removeChild(a)
       setTimeout(() => { 
         URL.revokeObjectURL(url)
         window.open('instagram://camera', '_blank') 
       }, 800)
 
     } else if (platformId === 'snapchat') {
-      // Snapchat deep link with attachment
-      window.open(`snapchat://creativekit/preview?attachmentUrl=${encodedLink}`, '_blank')
+      const snapUrl = `snapchat://creativekit/preview?attachmentUrl=${encodeURIComponent(shareLink)}`
+      window.open(snapUrl, '_blank')
 
     } else if (platformId === 'whatsapp') {
-      // WhatsApp fallback: Can't send image via link, so we send the viral text + link
+      // Direct text fallback - guaranteed to send the link
+      const encodedText = encodeURIComponent(shareText)
       window.open(`https://wa.me/?text=${encodedText}`, '_blank')
     }
 
