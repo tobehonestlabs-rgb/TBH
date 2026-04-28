@@ -53,6 +53,8 @@ const PHRASES = [
   'Is there someone who can send you a pic?',
   'You might discover something in a picture, send your link.',
   'What kind of things people can show in pictures.',
+  'Ask people to send you a pic of their room', 
+  'try to know how '
 ]
 
 const CARD_COLORS = [
@@ -328,73 +330,79 @@ export default function SharePage({ profile }: Props) {
   } catch (e) { console.error('Share failed', e) }
   finally { setGenerating(false) }
 }
-
 const handlePlatformShare = async (platformId: string) => {
   if (!profile || generating) return
   setGenerating(true)
+  
   try {
     const logoUrl = `${window.location.origin}/assets/TBH_Title_Logo.svg`
-    const blob = await generateShareCard(profile, promptText, selectedCard, logoUrl, selectedColor.stops, selectedColor.ring)
+    const blob = await generateShareCard(
+      profile, 
+      promptText, 
+      selectedCard, 
+      logoUrl, 
+      selectedColor.stops, 
+      selectedColor.ring
+    )
     const file = new File([blob], 'tbh-share.png', { type: 'image/png' })
+    
+    // The "Hook" text for the caption
+    const shareTitle = "TBH: Anonymous Messages"
+    const shareText = `Send me an anonymous message! 🤫🔥\n\n${shareLink}`
+
+    // 1. UNIVERSAL NATIVE SHARE (iOS/Android)
+    // We bundle files, title, and text into one object for the OS to handle
+    const shareData = {
+      files: [file],
+      title: shareTitle,
+      text: shareText,
+    }
+
+    if (navigator.share && navigator.canShare?.(shareData)) {
+      try {
+        await navigator.share(shareData)
+        setSharedPlatforms(prev => prev.includes(platformId) ? prev : [...prev, platformId])
+        return 
+      } catch (e: any) {
+        // If user just cancelled the share sheet, stop here
+        if (e?.name === 'AbortError') return
+        console.error("Native share failed, trying fallback...")
+      }
+    }
+
+    // 2. PLATFORM-SPECIFIC FALLBACKS (Desktop or older browsers)
+    const encodedText = encodeURIComponent(shareText)
     const encodedLink = encodeURIComponent(shareLink)
 
     if (platformId === 'instagram') {
-      // Instagram doesn't support URL schemes for feed posts on web.
-      // Best we can do: save image then open Instagram so user pastes into story/post.
-      // On Android with file sharing, this will open Instagram directly in the picker.
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        try {
-          await navigator.share({ files: [file] })
-          setSharedPlatforms(prev => prev.includes(platformId) ? prev : [...prev, platformId])
-          return
-        } catch (e: any) {
-          if (e?.name === 'AbortError') return
-        }
-      }
-      // Fallback: download + open instagram
+      // Instagram fallback: Download the image and try to open the app
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
-      a.href = url; a.download = 'tbh-share.png'
-      document.body.appendChild(a); a.click(); document.body.removeChild(a)
-      setTimeout(() => { URL.revokeObjectURL(url); window.open('instagram://', '_blank') }, 800)
+      a.href = url
+      a.download = 'tbh-share.png'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => { 
+        URL.revokeObjectURL(url)
+        window.open('instagram://camera', '_blank') 
+      }, 800)
 
     } else if (platformId === 'snapchat') {
-      // Snapchat deep link: opens composer with a sticker/attachment URL
-      // snapchat://send?attachmentUrl=... opens Snap composer directly
-      const snapUrl = `https://www.snapchat.com/scan?attachmentUrl=${encodedLink}`
-      // Try native share with file first (Android opens Snapchat in picker)
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        try {
-          await navigator.share({ files: [file] })
-          setSharedPlatforms(prev => prev.includes(platformId) ? prev : [...prev, platformId])
-          return
-        } catch (e: any) {
-          if (e?.name === 'AbortError') return
-        }
-      }
-      // Fallback: Snapchat deep link
-      window.open(`snapchat://creativekit/preview?image=${encodedLink}`, '_blank')
-      setTimeout(() => window.open(snapUrl, '_blank'), 300)
+      // Snapchat deep link with attachment
+      window.open(`snapchat://creativekit/preview?attachmentUrl=${encodedLink}`, '_blank')
 
     } else if (platformId === 'whatsapp') {
-      // WhatsApp: direct share with image file (Android) or link fallback
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        try {
-          await navigator.share({ files: [file] })
-          setSharedPlatforms(prev => prev.includes(platformId) ? prev : [...prev, platformId])
-          return
-        } catch (e: any) {
-          if (e?.name === 'AbortError') return
-        }
-      }
-      // Fallback: WhatsApp deep link with text
-      window.open(`whatsapp://send?text=${encodedLink}`, '_blank')
-      setTimeout(() => window.open(`https://wa.me/?text=${encodedLink}`, '_blank'), 300)
+      // WhatsApp fallback: Can't send image via link, so we send the viral text + link
+      window.open(`https://wa.me/?text=${encodedText}`, '_blank')
     }
 
     setSharedPlatforms(prev => prev.includes(platformId) ? prev : [...prev, platformId])
-  } catch (e) { console.error('Platform share failed', e) }
-  finally { setGenerating(false) }
+  } catch (e) { 
+    console.error('Platform share failed', e) 
+  } finally { 
+    setGenerating(false) 
+  }
 }
 
   return (
