@@ -486,6 +486,7 @@ const handlePlatformShare = async (platformId: string) => {
    
       </div>
       )}
+        {/* NEW: Help Link */}
  <button 
       onClick={() => setShowHelpModal(true)}
       className="self-center flex items-center gap-1.5 py-1 text-[13px] font-bold text-gray-400 hover:text-black active:scale-95 transition-all"
