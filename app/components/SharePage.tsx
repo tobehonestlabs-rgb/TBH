@@ -266,7 +266,7 @@ export default function SharePage({ profile }: Props) {
   const [selectedColor, setSelectedColor] = useState(CARD_COLORS[0])
   const [phraseIndex, setPhraseIndex] = useState(0)
   const [phraseVisible, setPhraseVisible] = useState(true)
-
+const [showHelpModal, setShowHelpModal] = useState(false)
   const shareLink = profile?.slug
     ? `${typeof window !== 'undefined' ? window.location.origin : 'https://tbhonest.net'}/send/${profile.slug}`
     : ''
@@ -479,7 +479,18 @@ const handlePlatformShare = async (platformId: string) => {
           >
             {promptText}
           </button>
+
         </div>
+        {/* NEW: Help Link */}
+    <button 
+      onClick={() => setShowHelpModal(true)}
+      className="self-center flex items-center gap-1.5 py-1 text-[13px] font-bold text-gray-400 hover:text-black active:scale-95 transition-all"
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+      How to post my link?
+    </button>
       </div>
       )}
 
