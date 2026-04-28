@@ -863,10 +863,17 @@ const handlePlatformShare = async (platformId: string) => {
         </div>
       )}
 {/* The Help Modal */}
-      <ShareModal 
+<div 
+className="absolute inset-0 z-50 flex flex-col justify-end"
+>
+   
+  <ShareModal
+      
         isOpen={showHelpModal} 
         onClose={() => setShowHelpModal(false)} 
       />
+</div>
+      
       {/* ── Copied toast ── */}
       {copied && (
         <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
