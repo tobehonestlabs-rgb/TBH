@@ -423,18 +423,44 @@ async function generateMessageCard(
     canvas.toBlob(b => resolve(b!), 'image/png', 1.0)
   })
 }
-async function shareBlob(blob: Blob) {
+// Replace shareBlob with this:
+async function shareBlob(blob: Blob, shareLink?: string) {
   const file = new File([blob], 'tbh.png', { type: 'image/png' })
-  if (navigator.share && navigator.canShare?.({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file] })
-      return
-    } catch (e: any) {
-      if (e?.name === 'AbortError') return
+
+  // Try sharing file + text together (works on Android, WhatsApp gets both image + link)
+  if (navigator.share) {
+    // Try with file first
+    if (navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          text: shareLink ?? '',
+        })
+        return
+      } catch (e: any) {
+        if (e?.name === 'AbortError') return
+        // fall through to text-only share
+      }
+    }
+    // Fallback: share link as text only (no file)
+    if (shareLink) {
+      try {
+        await navigator.share({ text: shareLink, url: shareLink })
+        return
+      } catch (e: any) {
+        if (e?.name === 'AbortError') return
+      }
     }
   }
+
+  // Last resort: download the image
   const url = URL.createObjectURL(blob)
-  window.open(url, '_blank')
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'tbh.png'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
   setTimeout(() => URL.revokeObjectURL(url), 15000)
 }
 
@@ -488,26 +514,28 @@ export default function ReadMessageScreen() {
     ? message!.content.substring(message!.content.indexOf(')') + 1).trimStart()
     : message?.content ?? ''
 
-  const handleShareMessage = async () => {
+const handleShareMessage = async () => {
   if (!message || sharing) return
   setSharing(true)
   try {
     const blob = await generateMessageCard(textContent, imageUrl, logoSrc, userPfp)
-    await shareBlob(blob)
+    await shareBlob(blob, userLink)
   } finally { setSharing(false) }
 }
 
-
- const handleSendReply = async () => {
+const handleSendReply = async () => {
   if (!replyText.trim() || replySending) return
   setReplySending(true)
   try {
     const blob = await generateReplyCard(textContent, replyText, imageUrl, logoSrc, userPfp)
-    await shareBlob(blob)
+    await shareBlob(blob, userLink)
     setShowReply(false)
     setReplyText('')
   } finally { setReplySending(false) }
 }
+
+
+
 
   if (loading) {
     return (
