@@ -72,9 +72,7 @@ export default function HomePage() {
       className="min-h-screen bg-white flex flex-col overflow-hidden"
       style={{ fontFamily: "'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif" }}
     >
-      {/* ── Top Bar ── */}
-        {/* ── Top Bar ── */}
-         {/* ── Top Bar ── */}
+      
       <div className="flex items-center justify-start px-4 pt-12 pb-3 bg-white sticky top-0 z-20">
 
         {/* Left: spacer */}
