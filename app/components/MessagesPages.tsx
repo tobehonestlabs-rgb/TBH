@@ -166,21 +166,26 @@ export default function MessagesPage({ onUnreadChange }: Props) {
                   style={{
                     background: msg.isOpened
                       ? '#E5E5E5'
-                      : 'linear-gradient(135deg, #FF6B6B, #4D96FF)',
+                      : 'linear-gradient(135deg, #cf5454, #ff4da6)',
                   }}
                 >
+                  {msg.isOpened ? (
                   <img
-                    src="/assets/Love_Letter.svg"
+                    src= "/assets/Love_Letter.svg"
                     className="w-6 h-6 object-contain"
-                    style={{ filter: msg.isOpened ? 'none' : 'brightness(0) invert(1)' }}
-                  />
+                    style={{ filter:  'none' }}
+                  />) : (<img
+                    src= "/assets/R.svg"
+                    className="w-6 h-6 object-contain"
+                    style={{ filter:  'none' }}
+                  />)}
                 </div>
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
                   {!msg.isOpened ? (
                     <>
-                      <p className="text-[16px] font-bold" style={{
+                      <  p className="text-[16px] font-bold" style={{
                         background: 'linear-gradient(90deg, #FF6B6B, #4D96FF)',
                         WebkitBackgroundClip: 'text',
                         WebkitTextFillColor: 'transparent',
