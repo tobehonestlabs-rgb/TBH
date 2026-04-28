@@ -16,10 +16,10 @@ type CardType = {
 
 const ALL_CARD_TYPES: CardType[] = [
   {
-    id: 'confession', emoji: '🤫', title: 'CONFESSION',
+    id: 'confession', emoji: '🤫', title: 'BLOW ME UP',
     subtitle: "Tell me something you don't dare say out loud",
     description: 'Anonymous confessions',
-    promptOverride: 'Send me an anonymous confession 🤫'
+    promptOverride: 'Send me an anonymous Photo/message 🤫'
   },
   {
     id: 'be_honest', emoji: '👀', title: 'BE HONEST',
