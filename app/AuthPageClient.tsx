@@ -2,16 +2,20 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { supabaseClient } from '@/lib/supabaseClient'
+import { createBrowserClient } from '@supabase/ssr' // Use the SSR-compatible client
 
-export default function AuthPage() {
+export default function AuthPageClient() {
   const [loading, setLoading] = useState(false)
-console.log('URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
-console.log('KEY:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-console.log('KEY:', process.env.NEXT_PUBLIC_SUPABASE_ROLE_KEY)
+
+  // Initialize the browser client here
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
   const handleGoogleLogin = async () => {
     setLoading(true)
-    const { error } = await supabaseClient.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: `https://tbhonest.net/auth/callback`,
@@ -67,13 +71,13 @@ console.log('KEY:', process.env.NEXT_PUBLIC_SUPABASE_ROLE_KEY)
               />
               
               <span style={{ 
-  fontWeight: '900', // Maximum weight for that heavy "impact" look
-  color: '#FFFFFF',
-  letterSpacing: '-0.02em', // Slightly tighter to make the bold text look more premium
-  display: 'inline-block' 
-}}>
-  Continue with Google
-</span>
+                fontWeight: '900',
+                color: '#FFFFFF',
+                letterSpacing: '-0.02em',
+                display: 'inline-block' 
+              }}>
+                Continue with Google
+              </span>
             </>
           )}
         </button>
