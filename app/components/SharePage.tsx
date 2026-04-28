@@ -54,7 +54,8 @@ const PHRASES = [
   'You might discover something in a picture, send your link.',
   'What kind of things people can show in pictures.',
   'Ask people to send you a pic of their room', 
-  'try to know how '
+  'try to know how people see you', 
+  'Dare people to make you laugh with memes'
 ]
 
 const CARD_COLORS = [
@@ -181,7 +182,7 @@ async function generateShareCard(
     ctx.shadowBlur = 0
 
     // 7. Prompt pill
-    const prompt = cardType.promptOverride ?? promptText
+    const prompt = promptText
     ctx.font = '52px -apple-system, BlinkMacSystemFont, sans-serif'
     const pillPadX = 48, pillPadY = 28
     const maxPillW = W * 0.78
