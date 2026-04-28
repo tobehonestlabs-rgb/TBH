@@ -96,6 +96,7 @@ async function generateReplyCard(
   replyText: string,
   imageUrl: string | null,
   logoSrc: string,
+  userPfp: string | null,
 ): Promise<Blob> {
   return new Promise(async (resolve) => {
     const W = 1080, H = 1920
@@ -103,101 +104,181 @@ async function generateReplyCard(
     canvas.width = W; canvas.height = H
     const ctx = canvas.getContext('2d')!
 
-    ctx.fillStyle = '#0A0A0C'
+    // 1. Blurred pfp background
+    let pfpImg: HTMLImageElement | null = null
+    if (userPfp) pfpImg = await loadImage(userPfp).catch(() => null)
+
+    if (pfpImg) {
+      ctx.save()
+      ctx.filter = 'blur(48px) brightness(0.3) saturate(1.4)'
+      ctx.drawImage(pfpImg, -80, -80, W + 160, H + 160)
+      ctx.filter = 'none'
+      ctx.restore()
+    } else {
+      ctx.fillStyle = '#0A0A0C'
+      ctx.fillRect(0, 0, W, H)
+    }
+
+    // 2. Dark overlay
+    ctx.fillStyle = 'rgba(0,0,0,0.52)'
     ctx.fillRect(0, 0, W, H)
 
-    const g1 = ctx.createRadialGradient(W, 0, 0, W, 0, W * 0.8)
-    g1.addColorStop(0, 'rgba(255,107,107,0.15)')
-    g1.addColorStop(1, 'transparent')
-    ctx.fillStyle = g1; ctx.fillRect(0, 0, W, H)
+    // 3. Subtle radial vignette
+    const vignette = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.85)
+    vignette.addColorStop(0, 'transparent')
+    vignette.addColorStop(1, 'rgba(0,0,0,0.4)')
+    ctx.fillStyle = vignette
+    ctx.fillRect(0, 0, W, H)
 
-    const g2 = ctx.createRadialGradient(0, H, 0, 0, H, W * 0.7)
-    g2.addColorStop(0, 'rgba(77,150,255,0.12)')
-    g2.addColorStop(1, 'transparent')
-    ctx.fillStyle = g2; ctx.fillRect(0, 0, W, H)
+    // 4. Floating emoji SVGs
+    const emojiPositions = [
+      { src: '/assets/poop.svg',    size: 180, x: 60,  y: 120,  rot: -15, opacity: 0.18 },
+      { src: '/assets/hot.svg',     size: 220, x: 780, y: 80,   rot: 12,  opacity: 0.18 },
+      { src: '/assets/nerd.svg',    size: 160, x: 860, y: 600,  rot: -8,  opacity: 0.15 },
+      { src: '/assets/Deamon.svg',  size: 240, x: 40,  y: 900,  rot: 18,  opacity: 0.18 },
+      { src: '/assets/Excited.svg', size: 190, x: 800, y: 1200, rot: -20, opacity: 0.15 },
+      { src: '/assets/Skull.svg',   size: 160, x: 100, y: 1500, rot: 10,  opacity: 0.15 },
+    ]
+    for (const e of emojiPositions) {
+      const img = await loadImage(e.src).catch(() => null)
+      if (!img) continue
+      ctx.save()
+      ctx.globalAlpha = e.opacity
+      ctx.translate(e.x + e.size / 2, e.y + e.size / 2)
+      ctx.rotate((e.rot * Math.PI) / 180)
+      ctx.drawImage(img, -e.size / 2, -e.size / 2, e.size, e.size)
+      ctx.restore()
+    }
+    ctx.globalAlpha = 1
 
+    // 5. Logo — white tinted
     const logo = await loadImage(logoSrc).catch(() => null)
     if (logo) {
-      const lw = 180, lh = Math.round(lw * logo.height / logo.width)
-      ctx.drawImage(logo, (W - lw) / 2, 80, lw, lh)
+      const lw = 200, lh = Math.round(lw * logo.height / logo.width)
+      const offscreen = document.createElement('canvas')
+      offscreen.width = lw; offscreen.height = lh
+      const oc = offscreen.getContext('2d')!
+      oc.drawImage(logo, 0, 0, lw, lh)
+      oc.globalCompositeOperation = 'source-in'
+      oc.fillStyle = '#FFFFFF'
+      oc.fillRect(0, 0, lw, lh)
+      ctx.globalAlpha = 0.9
+      ctx.drawImage(offscreen, (W - lw) / 2, 90, lw, lh)
+      ctx.globalAlpha = 1
     }
 
     const hPad = 72, boxW = W - hPad * 2, innerPad = 48
-    let y = 280
+    let y = 320
 
+    // 6. Load message image if present
     let msgImg: HTMLImageElement | null = null
     if (imageUrl) msgImg = await loadImage(imageUrl).catch(() => null)
 
+    // 7. Measure sender box
     ctx.font = '52px -apple-system, sans-serif'
     const msgLines = wrapText(ctx, messageText || '', boxW - innerPad * 2)
-    const msgLineH = 66
+    const msgLineH = 68
     const imgH = msgImg ? Math.round((boxW - innerPad * 2) * 0.6) : 0
-    const senderBoxH = innerPad + 56 + 16 + imgH + (imgH && messageText ? 24 : 0) + msgLines.length * msgLineH + innerPad
+    const senderBoxH = innerPad + 60 + 20 + imgH + (imgH && messageText ? 28 : 0) + msgLines.length * msgLineH + innerPad
 
+    // 8. Sender box — frosted glass
     ctx.fillStyle = 'rgba(255,255,255,0.10)'
-    roundRect(ctx, hPad, y, boxW, senderBoxH, 36)
+    roundRect(ctx, hPad, y, boxW, senderBoxH, 40)
     ctx.fill()
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)'
+    ctx.lineWidth = 2
+    roundRect(ctx, hPad, y, boxW, senderBoxH, 40)
+    ctx.stroke()
 
-    ctx.font = 'bold 38px -apple-system, sans-serif'
-    const anonText = '🔒 ANONYMOUS'
-    const anonW = ctx.measureText(anonText).width + 40
-    ctx.fillStyle = 'rgba(0,0,0,0.3)'
-    roundRect(ctx, hPad + innerPad, y + innerPad, anonW, 52, 26)
+    // 9. Anon pill
+    ctx.font = 'bold 40px -apple-system, sans-serif'
+    const anonText = '🔒  ANONYMOUS'
+    const anonW = ctx.measureText(anonText).width + 48
+    ctx.fillStyle = 'rgba(255,255,255,0.08)'
+    roundRect(ctx, hPad + innerPad, y + innerPad, anonW, 56, 28)
     ctx.fill()
-    ctx.fillStyle = 'rgba(255,255,255,0.7)'
-    ctx.fillText(anonText, hPad + innerPad + 20, y + innerPad + 36)
+    ctx.fillStyle = 'rgba(255,255,255,0.65)'
+    ctx.textAlign = 'left'
+    ctx.fillText(anonText, hPad + innerPad + 24, y + innerPad + 40)
 
-    let contentY = y + innerPad + 52 + 20
+    let contentY = y + innerPad + 56 + 24
 
+    // 10. Message image
     if (msgImg) {
       ctx.save()
-      roundRect(ctx, hPad + innerPad, contentY, boxW - innerPad * 2, imgH, 20)
+      roundRect(ctx, hPad + innerPad, contentY, boxW - innerPad * 2, imgH, 24)
       ctx.clip()
       ctx.drawImage(msgImg, hPad + innerPad, contentY, boxW - innerPad * 2, imgH)
       ctx.restore()
-      contentY += imgH + (messageText ? 24 : 0)
+      contentY += imgH + (messageText ? 28 : 0)
     }
 
+    // 11. Message text — white
     if (messageText) {
       ctx.font = '52px -apple-system, sans-serif'
       ctx.fillStyle = '#FFFFFF'
+      ctx.textAlign = 'left'
       msgLines.forEach((line, i) => {
         ctx.fillText(line, hPad + innerPad, contentY + msgLineH * i + 48)
       })
     }
 
-    y += senderBoxH + 48
+    y += senderBoxH + 52
 
+    // 12. Reply box — frosted with accent glow
     ctx.font = 'bold 68px -apple-system, sans-serif'
     const replyLines = wrapText(ctx, replyText, boxW - innerPad * 2)
-    const replyLineH = 82
-    const replyBoxH = innerPad + 52 + 24 + replyLines.length * replyLineH + innerPad
+    const replyLineH = 86
+    const replyBoxH = innerPad + 60 + 28 + replyLines.length * replyLineH + innerPad
 
-    const rg = ctx.createLinearGradient(0, 0, W, H)
-    rg.addColorStop(0, 'rgba(255,107,107,0.7)')
-    rg.addColorStop(1, 'rgba(77,150,255,0.65)')
-    ctx.fillStyle = rg
-    roundRect(ctx, hPad, y, boxW, replyBoxH, 36)
+    // Glow behind reply box
+    ctx.save()
+    ctx.shadowColor = 'rgba(255,107,107,0.4)'
+    ctx.shadowBlur = 60
+    ctx.fillStyle = 'rgba(255,107,107,0.01)'
+    roundRect(ctx, hPad, y, boxW, replyBoxH, 40)
     ctx.fill()
+    ctx.restore()
 
-    ctx.font = 'bold 38px -apple-system, sans-serif'
-    ctx.fillStyle = 'rgba(255,255,255,0.8)'
-    ctx.fillText('ME', hPad + innerPad, y + innerPad + 38)
+    // Reply box fill
+    ctx.fillStyle = 'rgba(255,255,255,0.13)'
+    roundRect(ctx, hPad, y, boxW, replyBoxH, 40)
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(255,107,107,0.35)'
+    ctx.lineWidth = 2
+    roundRect(ctx, hPad, y, boxW, replyBoxH, 40)
+    ctx.stroke()
 
+    // "ME" label
+    ctx.font = 'bold 40px -apple-system, sans-serif'
+    ctx.fillStyle = 'rgba(255,107,107,0.9)'
+    ctx.textAlign = 'left'
+    ctx.fillText('ME', hPad + innerPad, y + innerPad + 42)
+
+    // Reply text
     ctx.font = 'bold 68px -apple-system, sans-serif'
     ctx.fillStyle = '#FFFFFF'
+    ctx.shadowColor = 'rgba(0,0,0,0.3)'
+    ctx.shadowBlur = 8
     replyLines.forEach((line, i) => {
-      ctx.fillText(line, hPad + innerPad, y + innerPad + 52 + 24 + replyLineH * i + 60)
+      ctx.fillText(line, hPad + innerPad, y + innerPad + 60 + 28 + replyLineH * i + 60)
     })
+    ctx.shadowBlur = 0
+
+    // 13. Bottom link
+    ctx.font = '40px -apple-system, sans-serif'
+    ctx.fillStyle = 'rgba(255,255,255,0.35)'
+    ctx.textAlign = 'center'
+    ctx.fillText('tbhonest.net', W / 2, H - 80)
 
     canvas.toBlob(b => resolve(b!), 'image/png', 1.0)
   })
 }
-
 async function generateMessageCard(
   messageText: string,
   imageUrl: string | null,
   logoSrc: string,
+  userPfp: string | null,
 ): Promise<Blob> {
   return new Promise(async (resolve) => {
     const W = 1080, H = 1920
@@ -205,60 +286,143 @@ async function generateMessageCard(
     canvas.width = W; canvas.height = H
     const ctx = canvas.getContext('2d')!
 
-    const bg = ctx.createRadialGradient(0, 0, 0, W * 0.5, H * 0.5, Math.hypot(W, H))
-    bg.addColorStop(0, '#FF6B6B')
-    bg.addColorStop(0.5, '#FFE66D')
-    bg.addColorStop(1, '#4D96FF')
-    ctx.fillStyle = bg
-    ctx.fillRect(0, 0, W, H)
+    // 1. Blurred pfp background
+    let pfpImg: HTMLImageElement | null = null
+    if (userPfp) pfpImg = await loadImage(userPfp).catch(() => null)
 
-    const logo = await loadImage(logoSrc).catch(() => null)
-    if (logo) {
-      const lw = 200, lh = Math.round(lw * logo.height / logo.width)
-      ctx.drawImage(logo, (W - lw) / 2, 80, lw, lh)
+    if (pfpImg) {
+      ctx.save()
+      ctx.filter = 'blur(48px) brightness(0.3) saturate(1.4)'
+      ctx.drawImage(pfpImg, -80, -80, W + 160, H + 160)
+      ctx.filter = 'none'
+      ctx.restore()
+    } else {
+      ctx.fillStyle = '#0D0D0D'
+      ctx.fillRect(0, 0, W, H)
     }
 
+    // 2. Dark overlay for readability
+    ctx.fillStyle = 'rgba(0,0,0,0.5)'
+    ctx.fillRect(0, 0, W, H)
+
+    // 3. Subtle gradient vignette
+    const vignette = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.85)
+    vignette.addColorStop(0, 'transparent')
+    vignette.addColorStop(1, 'rgba(0,0,0,0.4)')
+    ctx.fillStyle = vignette
+    ctx.fillRect(0, 0, W, H)
+
+    // 4. Floating emoji SVGs — rasterize a few at fixed positions
+    const emojiPositions = [
+      { src: '/assets/poop.svg',    size: 180, x: 60,  y: 120,  rot: -15, opacity: 0.18 },
+      { src: '/assets/hot.svg',     size: 220, x: 780, y: 80,   rot: 12,  opacity: 0.18 },
+      { src: '/assets/nerd.svg',    size: 160, x: 860, y: 600,  rot: -8,  opacity: 0.15 },
+      { src: '/assets/Deamon.svg',  size: 240, x: 40,  y: 900,  rot: 18,  opacity: 0.18 },
+      { src: '/assets/Excited.svg', size: 190, x: 800, y: 1200, rot: -20, opacity: 0.15 },
+      { src: '/assets/Skull.svg',   size: 160, x: 100, y: 1500, rot: 10,  opacity: 0.15 },
+    ]
+    for (const e of emojiPositions) {
+      const img = await loadImage(e.src).catch(() => null)
+      if (!img) continue
+      ctx.save()
+      ctx.globalAlpha = e.opacity
+      ctx.translate(e.x + e.size / 2, e.y + e.size / 2)
+      ctx.rotate((e.rot * Math.PI) / 180)
+      ctx.drawImage(img, -e.size / 2, -e.size / 2, e.size, e.size)
+      ctx.restore()
+    }
+    ctx.globalAlpha = 1
+
+    // 5. Logo — white, centered at top
+    const logo = await loadImage(logoSrc).catch(() => null)
+    if (logo) {
+      const lw = 220, lh = Math.round(lw * logo.height / logo.width)
+      // Tint white
+      const offscreen = document.createElement('canvas')
+      offscreen.width = lw; offscreen.height = lh
+      const oc = offscreen.getContext('2d')!
+      oc.drawImage(logo, 0, 0, lw, lh)
+      oc.globalCompositeOperation = 'source-in'
+      oc.fillStyle = '#FFFFFF'
+      oc.fillRect(0, 0, lw, lh)
+      ctx.globalAlpha = 0.9
+      ctx.drawImage(offscreen, (W - lw) / 2, 100, lw, lh)
+      ctx.globalAlpha = 1
+    }
+
+    // 6. Anonymous pill
+    ctx.font = 'bold 44px -apple-system, sans-serif'
+    const pillText = '🔒  Anonymous message'
+    const pillW = ctx.measureText(pillText).width + 64
+    const pillH = 72
+    const pillX = (W - pillW) / 2
+    const pillY = 320
+    ctx.fillStyle = 'rgba(255,255,255,0.12)'
+    roundRect(ctx, pillX, pillY, pillW, pillH, pillH / 2)
+    ctx.fill()
+    ctx.fillStyle = 'rgba(255,255,255,0.7)'
+    ctx.textAlign = 'center'
+    ctx.fillText(pillText, W / 2, pillY + 48)
+
+    // 7. Main content
     if (imageUrl) {
       const img = await loadImage(imageUrl).catch(() => null)
       if (img) {
-        const imgS = 800
+        const imgS = 860
+        const imgY = 450
         ctx.save()
-        roundRect(ctx, (W - imgS) / 2, 350, imgS, imgS, 24)
+        roundRect(ctx, (W - imgS) / 2, imgY, imgS, imgS, 48)
         ctx.clip()
-        ctx.drawImage(img, (W - imgS) / 2, 350, imgS, imgS)
+        ctx.drawImage(img, (W - imgS) / 2, imgY, imgS, imgS)
         ctx.restore()
+        // Subtle image border
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)'
+        ctx.lineWidth = 3
+        roundRect(ctx, (W - imgS) / 2, imgY, imgS, imgS, 48)
+        ctx.stroke()
       }
       if (messageText) {
-        ctx.font = 'bold 70px -apple-system, sans-serif'
+        ctx.font = 'bold 72px -apple-system, sans-serif'
         ctx.fillStyle = '#FFFFFF'
         ctx.textAlign = 'center'
-        ctx.shadowColor = 'rgba(0,0,0,0.4)'
-        ctx.shadowBlur = 16
-        const lines = wrapText(ctx, messageText, W - 160)
-        lines.forEach((line, i) => ctx.fillText(line, W / 2, 1250 + i * 90))
+        ctx.shadowColor = 'rgba(0,0,0,0.6)'
+        ctx.shadowBlur = 20
+        const lines = wrapText(ctx, messageText, W - 180)
+        lines.forEach((line, i) => ctx.fillText(line, W / 2, 1390 + i * 96))
+        ctx.shadowBlur = 0
       }
     } else {
+      // Big centered text with auto-size
       ctx.textAlign = 'center'
       ctx.fillStyle = '#FFFFFF'
-      ctx.shadowColor = 'rgba(0,0,0,0.3)'
-      ctx.shadowBlur = 24
-      let fontSize = 200
-      while (fontSize > 40) {
+      ctx.shadowColor = 'rgba(0,0,0,0.5)'
+      ctx.shadowBlur = 28
+      let fontSize = 210
+      while (fontSize > 48) {
         ctx.font = `bold ${fontSize}px -apple-system, sans-serif`
-        const lines = wrapText(ctx, messageText, W - 160)
-        const totalH = lines.length * fontSize * 1.2
-        if (totalH < H - 400) {
-          lines.forEach((line, i) => ctx.fillText(line, W / 2, H / 2 - totalH / 2 + i * fontSize * 1.2 + fontSize))
+        const lines = wrapText(ctx, messageText, W - 180)
+        const totalH = lines.length * fontSize * 1.25
+        if (totalH < H - 600) {
+          const startY = H / 2 - totalH / 2 + fontSize * 0.8
+          lines.forEach((line, i) =>
+            ctx.fillText(line, W / 2, startY + i * fontSize * 1.25)
+          )
           break
         }
         fontSize -= 8
       }
+      ctx.shadowBlur = 0
     }
+
+    // 8. Bottom link pill
+    ctx.font = '40px -apple-system, sans-serif'
+    ctx.fillStyle = 'rgba(255,255,255,0.4)'
+    ctx.textAlign = 'center'
+    ctx.fillText('tbhonest.net', W / 2, H - 80)
 
     canvas.toBlob(b => resolve(b!), 'image/png', 1.0)
   })
 }
-
 async function shareBlob(blob: Blob) {
   const file = new File([blob], 'tbh.png', { type: 'image/png' })
   if (navigator.share && navigator.canShare?.({ files: [file] })) {
@@ -325,24 +489,25 @@ export default function ReadMessageScreen() {
     : message?.content ?? ''
 
   const handleShareMessage = async () => {
-    if (!message || sharing) return
-    setSharing(true)
-    try {
-      const blob = await generateMessageCard(textContent, imageUrl, logoSrc)
-      await shareBlob(blob)
-    } finally { setSharing(false) }
-  }
+  if (!message || sharing) return
+  setSharing(true)
+  try {
+    const blob = await generateMessageCard(textContent, imageUrl, logoSrc, userPfp)
+    await shareBlob(blob)
+  } finally { setSharing(false) }
+}
 
-  const handleSendReply = async () => {
-    if (!replyText.trim() || replySending) return
-    setReplySending(true)
-    try {
-      const blob = await generateReplyCard(textContent, replyText, imageUrl, logoSrc)
-      await shareBlob(blob)
-      setShowReply(false)
-      setReplyText('')
-    } finally { setReplySending(false) }
-  }
+
+ const handleSendReply = async () => {
+  if (!replyText.trim() || replySending) return
+  setReplySending(true)
+  try {
+    const blob = await generateReplyCard(textContent, replyText, imageUrl, logoSrc, userPfp)
+    await shareBlob(blob)
+    setShowReply(false)
+    setReplyText('')
+  } finally { setReplySending(false) }
+}
 
   if (loading) {
     return (
