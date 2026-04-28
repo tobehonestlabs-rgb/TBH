@@ -483,7 +483,10 @@ const handlePlatformShare = async (platformId: string) => {
 
         </div>
         {/* NEW: Help Link */}
-    <button 
+   
+      </div>
+      )}
+ <button 
       onClick={() => setShowHelpModal(true)}
       className="self-center flex items-center gap-1.5 py-1 text-[13px] font-bold text-gray-400 hover:text-black active:scale-95 transition-all"
     >
@@ -492,9 +495,6 @@ const handlePlatformShare = async (platformId: string) => {
       </svg>
       How to post my link?
     </button>
-      </div>
-      )}
-
       {/* ── Share progress ── */}
       <div className="flex flex-col items-center gap-2">
         <div className="relative w-[90px] h-[90px] flex items-center justify-center">
