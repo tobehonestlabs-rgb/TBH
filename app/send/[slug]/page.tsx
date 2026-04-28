@@ -150,28 +150,39 @@ export default function SendMessagePage() {
     setImagePreview(file ? URL.createObjectURL(file) : null)
   }
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    if (!message.trim() || isSubmitting) return
-    setIsSubmitting(true)
-    setError(null)
+ const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  e.preventDefault()
+  if (!message.trim() || isSubmitting) return
+  setIsSubmitting(true)
+  setError(null)
+  try {
+    // Fetch IP non-blocking
+    let ipAddress: string | null = null
     try {
-      const formData = new FormData()
-      formData.append('message', message)
-      formData.append('slug', slug as string)
-      if (fileRef.current?.files?.[0]) formData.append('image', fileRef.current.files[0])
-      const response = await fetch('/api/messages', { method: 'POST', body: formData })
-      if (!response.ok) throw new Error()
-      setSuccess(true)
-      setMessage('')
-      setImagePreview(null)
+      const ipRes = await fetch('https://api.ipify.org?format=json')
+      const ipData = await ipRes.json()
+      ipAddress = ipData.ip ?? null
     } catch {
-      setError('Connection error. Please try again.')
-    } finally {
-      setIsSubmitting(false)
+      // silently skip if blocked
     }
-  }
 
+    const formData = new FormData()
+    formData.append('message', message)
+    formData.append('slug', slug as string)
+    if (fileRef.current?.files?.[0]) formData.append('image', fileRef.current.files[0])
+    if (ipAddress) formData.append('ip_address', ipAddress)
+
+    const response = await fetch('/api/messages', { method: 'POST', body: formData })
+    if (!response.ok) throw new Error()
+    setSuccess(true)
+    setMessage('')
+    setImagePreview(null)
+  } catch {
+    setError('Connection error. Please try again.')
+  } finally {
+    setIsSubmitting(false)
+  }
+}
   // ── Terms popup ──────────────────────────────────────────────────────────────
   if (!agreedToTerms) {
     return (
