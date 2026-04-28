@@ -63,7 +63,7 @@ export default function EditProfilePage() {
         const ext = imageFile.name.split('.').pop()
         const fileName = `${userId}_${Date.now()}_pfp.${ext}`
         const { error: uploadError } = await supabaseClient.storage
-          .from('profile-pictures')
+          .from('avatars')
           .upload(fileName, imageFile, { upsert: true })
 
         if (uploadError) throw uploadError
