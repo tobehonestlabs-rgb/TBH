@@ -90,9 +90,9 @@ export default function AuthPageClient() {
           }}
         >
           By continuing, you agree to our{' '}
-          <a href="/terms" className="underline text-gray-500">Terms of Use</a>{' '}
+          <a href="/legal" className="underline text-gray-500">Terms of Use</a>{' '}
           and{' '}
-          <a href="/privacy" className="underline text-gray-500">Privacy Policy</a>.
+          <a href="/legal" className="underline text-gray-500">Privacy Policy</a>.
         </p>
       </div>
 
