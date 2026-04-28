@@ -253,7 +253,7 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function SharePage({ profile }: Props) {
   const [copied, setCopied] = useState(false)
-  const [promptText, setPromptText] = useState('Send me an anonymous message')
+  const [promptText, setPromptText] = useState('Send me an anonymous photo/message')
   const [editingPrompt, setEditingPrompt] = useState(false)
   const [tempPrompt, setTempPrompt] = useState(promptText)
   // Card picker disabled — kept for future use
@@ -348,7 +348,7 @@ const handlePlatformShare = async (platformId: string) => {
     
     // The "Hook" text for the caption
     const shareTitle = "TBH: Anonymous Messages"
-    const shareText = `Send me an anonymous message! 🤫🔥\n\n${shareLink}`
+    const shareText = `Send me an anonymous photo/message! 🤫🔥\n\n${shareLink}`
 
     // 1. UNIVERSAL NATIVE SHARE (iOS/Android)
     // We bundle files, title, and text into one object for the OS to handle
