@@ -98,14 +98,7 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* ── Community section ── */}
-        <div>
-          <p className="text-[12px] font-semibold text-[#888] uppercase tracking-wider px-1 mb-2">Community</p>
-          <div className="bg-white rounded-[20px] overflow-hidden shadow-sm">
-           
-           
-          </div>
-        </div>
+      
 
         {/* ── Social section ── */}
         <div>
