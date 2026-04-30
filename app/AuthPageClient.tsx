@@ -165,7 +165,7 @@ export default function AuthPageClient() {
         {/* Headline */}
         <div style={{ animation: 'fadeSlideUp 0.5s ease 0.1s forwards', opacity: 0 }} className="text-center mb-8">
           <h1 style={{ fontSize: '26px', fontWeight: '900', color: '#0D0D0D', letterSpacing: '-0.03em', lineHeight: 1.15, margin: 0 }}>
-            Anything,<br />anonymously.
+            Join,<br />the fun.
           </h1>
           <p style={{ fontSize: '14px', color: '#888', marginTop: '8px', fontWeight: '500' }}>
             Send & receive honest messages,<br />confessions, and more.
