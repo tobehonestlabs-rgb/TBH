@@ -7,11 +7,17 @@ const TABLE = process.env.NEXT_PUBLIC_SUPABASE_TABLE || 'messages'
 const USERS_TABLE = process.env.NEXT_PUBLIC_SUPABASE_USERS_TABLE || 'users_table'
 
 export async function POST(req: NextRequest) {
+  const reqId = Math.random().toString(36).slice(2, 8)
+  const log = (...args: any[]) => console.log(`[messages ${reqId}]`, ...args)
+  const logErr = (...args: any[]) => console.error(`[messages ${reqId}]`, ...args)
+
   try {
     const formData = await req.formData()
     const slug = formData.get('slug')
     const message = formData.get('message')
     const image = formData.get('image') as File | null
+
+    log('start', { slug, hasImage: !!image, imageSize: image?.size, msgLen: typeof message === 'string' ? message.length : 0 })
 
     if (!slug || typeof slug !== 'string') {
       return NextResponse.json({ error: 'Missing slug' }, { status: 400 })
@@ -36,7 +42,8 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (userError || !user) {
-      return NextResponse.json({ error: 'User not found for this username' }, { status: 404 })
+      logErr('user lookup failed', { slug, userError })
+      return NextResponse.json({ error: 'User not found for this username', details: userError?.message }, { status: 404 })
     }
 
     const receiverId = user.user_id as string
@@ -48,6 +55,7 @@ export async function POST(req: NextRequest) {
       const extension = image.name?.split('.').pop() || 'jpg'
       const filePath = `${slug}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`
 
+      log('uploading image', { filePath, size: image.size, type: image.type })
       const { error: uploadError } = await supabaseAdmin.storage
         .from(BUCKET)
         .upload(filePath, image, {
@@ -56,6 +64,7 @@ export async function POST(req: NextRequest) {
         })
 
       if (uploadError) {
+        logErr('upload failed', uploadError)
         return NextResponse.json({ error: 'Upload failed', details: uploadError.message }, { status: 500 })
       }
 
@@ -67,25 +76,35 @@ export async function POST(req: NextRequest) {
     const messageId = randomUUID().slice(0, 12)
     const createdAt = new Date().toISOString()
 
-    const { error: insertError } = await supabaseAdmin
-      .from(TABLE)
-      .insert({
-        to_user: receiverId,
-        type: 'text_message',
-        from_user: 'b4dd65ed-2282-45b4-bb5f-299a9767e3d5',
-        content: imageUrl != null ? '[IMAGE](' + imageUrl + ')\n' + message : message,
-        media_url: imageUrl ?? '',
-        message_id: messageId,
-        created_at: createdAt,
-        ip_address: ipAddress,
-      })
-
-    if (insertError) {
-      return NextResponse.json({ error: 'Database insert failed', details: insertError.message }, { status: 500 })
+    const insertPayload = {
+      to_user: receiverId,
+      type: 'text_message',
+      from_user: 'b4dd65ed-2282-45b4-bb5f-299a9767e3d5',
+      content: imageUrl != null ? '[IMAGE](' + imageUrl + ')\n' + message : message,
+      media_url: imageUrl ?? '',
+      message_id: messageId,
+      created_at: createdAt,
+      ip_address: ipAddress,
     }
 
+    const { error: insertError } = await supabaseAdmin
+      .from(TABLE)
+      .insert(insertPayload)
+
+    if (insertError) {
+      logErr('insert failed', { code: insertError.code, message: insertError.message, details: insertError.details, hint: insertError.hint })
+      return NextResponse.json({
+        error: 'Database insert failed',
+        code: insertError.code,
+        details: insertError.message,
+        hint: insertError.hint,
+      }, { status: 500 })
+    }
+
+    log('ok', { messageId })
     return NextResponse.json({ ok: true })
   } catch (error: any) {
+    logErr('unexpected', error?.stack || error)
     return NextResponse.json({ error: 'Unexpected error', details: error?.message }, { status: 500 })
   }
 }
