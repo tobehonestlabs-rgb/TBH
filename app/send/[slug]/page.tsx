@@ -127,11 +127,12 @@ export default function SendMessagePage() {
   const btnRelease = (e: React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement>) =>
     ((e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)')
 
-  // Fetch IP eagerly on mount so it's ready before the user finishes typing
+  // Fetch IP eagerly on mount via our own endpoint
+  // (third-party services like ipify get blocked by ad blockers — same-origin doesn't)
   useEffect(() => {
     const ctrl = new AbortController()
     const t = setTimeout(() => ctrl.abort(), 6000)
-    fetch('https://api.ipify.org?format=json', { signal: ctrl.signal })
+    fetch('/api/ip', { signal: ctrl.signal })
       .then(r => r.json())
       .then(d => { ipRef.current = d.ip ?? null })
       .catch(() => {})
