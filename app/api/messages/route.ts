@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
 const BUCKET = process.env.NEXT_PUBLIC_SUPABASE_BUCKET || 'images'
-const TABLE = process.env.NEXT_PUBLIC_SUPABASE_TABLE || 'messages'
+const TABLE = process.env.NEXT_PUBLIC_SUPABASE_MESSAGE_TABLE || 'messages'
 const USERS_TABLE = process.env.NEXT_PUBLIC_SUPABASE_USERS_TABLE || 'users_table'
 
 export async function POST(req: NextRequest) {
@@ -72,20 +72,19 @@ export async function POST(req: NextRequest) {
       imageUrl = publicUrl.publicUrl
     }
 
-    // 3) Insert with ip_address
+    // 3) Insert
     const messageId = randomUUID().slice(0, 12)
-    const createdAt = new Date().toISOString()
 
     const { error: insertError } = await supabaseAdmin
       .from(TABLE)
       .insert({
         to_user: receiverId,
-        type: 'text_message',
+        type: imageUrl ? 'image' : 'text_message',
         from_user: null,
-        content: imageUrl != null ? '[IMAGE](' + imageUrl + ')\n' + message : message,
-        media_url: imageUrl ?? '',
+        content: message,
+        media_url: imageUrl ?? null,
+        contains_media: imageUrl != null,
         message_id: messageId,
-        created_at: createdAt,
         ip_address: ipAddress,
       })
 
