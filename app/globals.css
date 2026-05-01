@@ -54,6 +54,18 @@
 .tab-label-enter { animation: fadeSlideUp 0.18s ease-out forwards; }
 .tab-pop         { animation: tabPop 0.2s ease-out; }
 
+/* Bottom sheet animations */
+@keyframes slideUpSheet {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+@keyframes fadeInBackdrop {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.sheet-enter    { animation: slideUpSheet 0.38s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
+.backdrop-enter { animation: fadeInBackdrop 0.25s ease forwards; }
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
