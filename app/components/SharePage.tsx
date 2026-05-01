@@ -113,11 +113,30 @@ async function generateShareCard(
     ctx.fillRect(0, 0, W, H)
 
     if (pfpImg) {
-      ctx.save()
-      ctx.filter = 'blur(40px) brightness(0.25)'
-      ctx.drawImage(pfpImg, -60, -60, W + 120, H + 120)
-      ctx.filter = 'none'
-      ctx.restore()
+      // Safari/WebKit doesn't support ctx.filter — use downsample blur as fallback
+      const testCtx = document.createElement('canvas').getContext('2d')!
+      testCtx.filter = 'blur(1px)'
+      if (testCtx.filter === 'blur(1px)') {
+        // Chrome / Firefox — native filter
+        ctx.save()
+        ctx.filter = 'blur(40px) brightness(0.25)'
+        ctx.drawImage(pfpImg, -60, -60, W + 120, H + 120)
+        ctx.filter = 'none'
+        ctx.restore()
+      } else {
+        // iOS Safari — draw at 1/20 scale then stretch back (downsample blur)
+        const scale = 20
+        const sw = Math.max(2, Math.floor((W + 120) / scale))
+        const sh = Math.max(2, Math.floor((H + 120) / scale))
+        const tmp = document.createElement('canvas')
+        tmp.width = sw; tmp.height = sh
+        tmp.getContext('2d')!.drawImage(pfpImg, 0, 0, sw, sh)
+        ctx.save()
+        ctx.globalAlpha = 0.28
+        ctx.drawImage(tmp, -60, -60, W + 120, H + 120)
+        ctx.globalAlpha = 1
+        ctx.restore()
+      }
     }
     // Dark overlay
     ctx.fillStyle = 'rgba(0,0,0,0.45)'
@@ -527,7 +546,6 @@ const handlePlatformShare = async (platformId: string) => {
         className="w-full py-[14px] rounded-[32px] flex items-center justify-center gap-2 font-bold text-[17px] text-white"
         style={{
           background: copied ? 'linear-gradient(135deg, #FF6B6B, #4D96FF)' : '#0D0D0D',
-          animation: 'liftShake 3s ease-in-out infinite',
           transition: 'background 0.3s ease',
         }}
       >
@@ -545,7 +563,6 @@ const handlePlatformShare = async (platformId: string) => {
         className="w-full py-[14px] rounded-[32px] flex items-center justify-center gap-2 font-bold text-[17px] text-white disabled:opacity-60"
         style={{
           background: `linear-gradient(135deg, ${selectedColor.stops[0]}, ${selectedColor.stops[selectedColor.stops.length-1]})`,
-          animation: 'liftShake 3s ease-in-out 0.5s infinite',
         }}
       >
         {generating ? (
@@ -619,7 +636,11 @@ const handlePlatformShare = async (platformId: string) => {
 
       {/* ── Color picker bottom sheet ── */}
       {showColorPicker && (
-        <div className="absolute inset-0 z-50 flex flex-col justify-end">
+        <div
+          className="absolute inset-0 z-50 flex flex-col justify-end"
+          onTouchStart={e => e.stopPropagation()}
+          onTouchEnd={e => e.stopPropagation()}
+        >
           <div
             className="absolute inset-0 backdrop-enter"
             style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
@@ -709,15 +730,14 @@ const handlePlatformShare = async (platformId: string) => {
                   onClick={() => setSelectedColor(color)}
                   className="flex flex-col items-center gap-2 flex-shrink-0 active:scale-90 transition-transform"
                 >
-                  {/* Large gradient circle */}
                   <div
-                    className="w-14 h-14 rounded-full"
+                    className="w-10 h-10 rounded-full"
                     style={{
                       background: `linear-gradient(135deg, ${color.stops[0]}, ${color.stops[color.stops.length-1]})`,
                       boxShadow: selectedColor.id === color.id
-                        ? `0 0 0 3px #111, 0 0 0 5px ${color.stops[0]}, 0 8px 20px ${color.stops[0]}66`
-                        : '0 4px 12px rgba(0,0,0,0.3)',
-                      transform: selectedColor.id === color.id ? 'scale(1.12)' : 'scale(1)',
+                        ? `0 0 0 2px #111, 0 0 0 3.5px ${color.stops[0]}`
+                        : 'none',
+                      transform: selectedColor.id === color.id ? 'scale(1.1)' : 'scale(1)',
                       transition: 'all 0.2s ease',
                     }}
                   />
@@ -738,7 +758,6 @@ const handlePlatformShare = async (platformId: string) => {
                 className="w-full py-4 rounded-[24px] text-white font-bold text-[16px] active:scale-95 transition-all flex items-center justify-center gap-2"
                 style={{
                   background: `linear-gradient(135deg, ${selectedColor.stops[0]}, ${selectedColor.stops[selectedColor.stops.length - 1]})`,
-                  boxShadow: `0 8px 32px ${selectedColor.stops[0]}55`,
                 }}
               >
                 <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
@@ -779,7 +798,11 @@ const handlePlatformShare = async (platformId: string) => {
 
       {/* ── Card type picker bottom sheet ── */}
       {showCardPicker && (
-        <div className="absolute inset-0 z-50 flex flex-col justify-end">
+        <div
+          className="absolute inset-0 z-50 flex flex-col justify-end"
+          onTouchStart={e => e.stopPropagation()}
+          onTouchEnd={e => e.stopPropagation()}
+        >
           <div
             className="absolute inset-0 backdrop-enter"
             style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
@@ -879,7 +902,6 @@ const handlePlatformShare = async (platformId: string) => {
                 className="w-full py-4 rounded-[24px] text-white font-bold text-[16px] active:scale-95 transition-all flex items-center justify-center gap-2"
                 style={{
                   background: 'linear-gradient(135deg, #FF6B6B, #E8407A, #4D96FF)',
-                  boxShadow: '0 8px 32px rgba(255,107,107,0.38)',
                 }}
               >
                 <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
