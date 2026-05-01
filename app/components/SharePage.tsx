@@ -563,36 +563,46 @@ const handlePlatformShare = async (platformId: string) => {
       {/* ── Platform quick-share row ── */}
       <div className="w-full flex gap-3">
         {[
-          { id: 'instagram', label: 'Instagram', icon: '/assets/social_media_icons/IG_icon.svg', pkg: 'instagram' },
-          { id: 'snapchat',  label: 'Snapchat',  icon: '/assets/social_media_icons/snapshat_icon.svg', pkg: 'snapchat' },
-          { id: 'whatsapp',  label: 'WhatsApp',  icon: '/assets/social_media_icons/Platform=WhatsApp, Color=Original.svg', pkg: 'whatsapp' },
-        ].map(platform => (
-          <button
-            key={platform.id}
-            onClick={() => handlePlatformShare(platform.id)}
-            disabled={generating}
-            className="flex-1 flex flex-col items-center justify-center gap-2 py-4 rounded-[20px] active:scale-95 transition-transform relative disabled:opacity-50"
-            style={{
-              background: sharedPlatforms.includes(platform.id) ? '#0D0D0D' : '#F2F2F2',
-            }}
-          >
-            <img
-              src={platform.icon}
-              alt={platform.label}
-              className="w-6 h-6 object-contain"
-            />
-            <span className="text-[11px] font-semibold" style={{ color: sharedPlatforms.includes(platform.id) ? '#FFF' : '#0D0D0D' }}>
-              {platform.label}
-            </span>
-            {sharedPlatforms.includes(platform.id) && (
-              <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-[#34C759] flex items-center justify-center">
-                <svg width="8" height="8" fill="none" viewBox="0 0 24 24">
-                  <path d="M5 13l4 4L19 7" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
-            )}
-          </button>
-        ))}
+          { id: 'instagram', label: 'Instagram', icon: '/assets/social_media_icons/IG_icon.svg' },
+          { id: 'snapchat',  label: 'Snapchat',  icon: '/assets/social_media_icons/snapshat_icon.svg' },
+          { id: 'whatsapp',  label: 'WhatsApp',  icon: '/assets/social_media_icons/Platform=WhatsApp, Color=Original.svg' },
+        ].map(platform => {
+          const shared = sharedPlatforms.includes(platform.id)
+          return (
+            <button
+              key={platform.id}
+              onClick={() => handlePlatformShare(platform.id)}
+              disabled={generating}
+              className="flex-1 flex flex-col items-center justify-center gap-2.5 py-5 rounded-[22px] active:scale-95 transition-all relative disabled:opacity-50"
+              style={{
+                background: shared ? '#0D0D0D' : 'linear-gradient(160deg, #FAFAFA, #F2F2F2)',
+                boxShadow: shared
+                  ? '0 4px 20px rgba(0,0,0,0.18)'
+                  : '0 2px 12px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,1)',
+                border: shared ? 'none' : '1px solid rgba(0,0,0,0.055)',
+              }}
+            >
+              <img
+                src={platform.icon}
+                alt={platform.label}
+                className="w-7 h-7 object-contain drop-shadow-sm"
+              />
+              <span
+                className="text-[11px] font-semibold tracking-tight"
+                style={{ color: shared ? '#FFF' : '#0D0D0D' }}
+              >
+                {platform.label}
+              </span>
+              {shared && (
+                <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-[#34C759] flex items-center justify-center">
+                  <svg width="8" height="8" fill="none" viewBox="0 0 24 24">
+                    <path d="M5 13l4 4L19 7" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+              )}
+            </button>
+          )
+        })}
       </div>
 
       {/* ── Animated phrase box ── */}
@@ -610,10 +620,17 @@ const handlePlatformShare = async (platformId: string) => {
       {/* ── Color picker bottom sheet ── */}
       {showColorPicker && (
         <div className="absolute inset-0 z-50 flex flex-col justify-end">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShowColorPicker(false)} />
-          <div className="relative bg-[#111] rounded-t-[28px] z-10 pb-10">
+          <div
+            className="absolute inset-0 backdrop-enter"
+            style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
+            onClick={() => setShowColorPicker(false)}
+          />
+          <div className="relative sheet-enter rounded-t-[32px] z-10 pb-10 overflow-hidden border-t border-white/[0.07]" style={{ background: '#111' }}>
+            {/* Subtle color tint from selected theme */}
+            <div className="absolute top-0 left-0 right-0 h-[110px] pointer-events-none" style={{ background: `linear-gradient(to bottom, ${selectedColor.stops[0]}2e, transparent)` }} />
+            <div className="relative z-10">
             <div className="flex justify-center pt-3 pb-4">
-              <div className="w-11 h-[5px] rounded-full bg-[#444]" />
+              <div className="w-10 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.18)' }} />
             </div>
             <p className="text-white text-center text-[20px] font-extrabold px-6">Card Color</p>
             <p className="text-[#888] text-center text-[12px] mt-1 mb-5 px-6">Pick a style for your share card</p>
@@ -718,8 +735,11 @@ const handlePlatformShare = async (platformId: string) => {
             <div className="px-5">
               <button
                 onClick={() => { setShowColorPicker(false); handleShareCard(selectedCard) }}
-                className="w-full py-4 rounded-[24px] text-white font-bold text-[16px] active:scale-95 transition-transform flex items-center justify-center gap-2"
-                style={{ background: `linear-gradient(135deg, ${selectedColor.stops[0]}, ${selectedColor.stops[selectedColor.stops.length-1]})` }}
+                className="w-full py-4 rounded-[24px] text-white font-bold text-[16px] active:scale-95 transition-all flex items-center justify-center gap-2"
+                style={{
+                  background: `linear-gradient(135deg, ${selectedColor.stops[0]}, ${selectedColor.stops[selectedColor.stops.length - 1]})`,
+                  boxShadow: `0 8px 32px ${selectedColor.stops[0]}55`,
+                }}
               >
                 <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
                   <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -727,6 +747,7 @@ const handlePlatformShare = async (platformId: string) => {
                 Share this card
               </button>
             </div>
+            </div>{/* end relative z-10 */}
           </div>
         </div>
       )}
@@ -759,11 +780,17 @@ const handlePlatformShare = async (platformId: string) => {
       {/* ── Card type picker bottom sheet ── */}
       {showCardPicker && (
         <div className="absolute inset-0 z-50 flex flex-col justify-end">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShowCardPicker(false)} />
-          <div className="relative bg-[#111] rounded-t-[28px] z-10 pb-10" style={{ maxHeight: '75vh' }}>
+          <div
+            className="absolute inset-0 backdrop-enter"
+            style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
+            onClick={() => setShowCardPicker(false)}
+          />
+          <div className="relative sheet-enter rounded-t-[32px] z-10 pb-10 overflow-hidden border-t border-white/[0.07]" style={{ background: '#111', maxHeight: '75vh' }}>
+            <div className="absolute top-0 left-0 right-0 h-[80px] pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(255,107,107,0.16), transparent)' }} />
+            <div className="relative z-10 overflow-y-auto" style={{ maxHeight: '75vh' }}>
             {/* Handle */}
             <div className="flex justify-center pt-3 pb-4">
-              <div className="w-11 h-[5px] rounded-full bg-[#444]" />
+              <div className="w-10 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.18)' }} />
             </div>
 
             <p className="text-white text-center text-[20px] font-extrabold px-6">Card Type</p>
@@ -849,8 +876,11 @@ const handlePlatformShare = async (platformId: string) => {
             <div className="px-5">
               <button
                 onClick={() => handleShareCard(selectedCard)}
-                className="w-full py-4 rounded-[24px] text-white font-bold text-[16px] active:scale-95 transition-transform flex items-center justify-center gap-2"
-                style={{ background: 'linear-gradient(135deg, #FF6B6B, #FFE66D, #4D96FF)' }}
+                className="w-full py-4 rounded-[24px] text-white font-bold text-[16px] active:scale-95 transition-all flex items-center justify-center gap-2"
+                style={{
+                  background: 'linear-gradient(135deg, #FF6B6B, #E8407A, #4D96FF)',
+                  boxShadow: '0 8px 32px rgba(255,107,107,0.38)',
+                }}
               >
                 <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
                   <path d="M5 13l4 4L19 7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -858,6 +888,7 @@ const handlePlatformShare = async (platformId: string) => {
                 Use this card
               </button>
             </div>
+            </div>{/* end relative z-10 */}
           </div>
         </div>
       )}
