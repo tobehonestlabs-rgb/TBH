@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
       .insert({
         to_user: receiverId,
         type: 'text_message',
-        from_user: 'b4dd65ed-2282-45b4-bb5f-299a9767e3d5',
+        from_user: null,
         content: imageUrl != null ? '[IMAGE](' + imageUrl + ')\n' + message : message,
         media_url: imageUrl ?? '',
         message_id: messageId,
@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
       })
 
     if (insertError) {
+      console.error('[messages] insert error:', insertError)
       return NextResponse.json({ error: 'Database insert failed', details: insertError.message }, { status: 500 })
     }
 
