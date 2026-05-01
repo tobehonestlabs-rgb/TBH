@@ -211,18 +211,28 @@ export default function SendMessagePage() {
     const response = await fetch('/api/messages', { method: 'POST', body: formData, signal: controller.signal })
     if (!response.ok) {
       const body = await response.json().catch(() => ({}))
-      console.error('[send] server error:', body)
-      throw new Error(body?.details || body?.error || `Server error ${response.status}`)
+      const detail = body?.error || body?.details || ''
+      const err: any = new Error(detail || `HTTP ${response.status}`)
+      err.status = response.status
+      err.detail = detail
+      throw err
     }
     setSuccess(true)
     setMessage('')
     setImagePreview(null)
     editedBlobRef.current = null
   } catch (err: any) {
+    console.error('[send] failed:', err)
     if (err?.name === 'AbortError') {
       setError('Request timed out. Check your connection and try again.')
+    } else if (err?.status === 413) {
+      setError('Image too large. Try a smaller photo.')
+    } else if (err?.status >= 500) {
+      setError(`Server error (${err.status}). Please try again in a moment.`)
+    } else if (err?.status) {
+      setError(`Failed to send (${err.status})${err.detail ? ': ' + err.detail : ''}`)
     } else {
-      setError('Failed to send. Please try again.')
+      setError('Failed to send. Check your connection.')
     }
   } finally {
     clearTimeout(timeout)

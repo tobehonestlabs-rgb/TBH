@@ -41,7 +41,7 @@ export default function ImageEditor({
     if (!canvas) return
     const img = new Image()
     img.onload = () => {
-      const MAX = 1400
+      const MAX = 1080
       const scale = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight))
       canvas.width = Math.round(img.naturalWidth * scale)
       canvas.height = Math.round(img.naturalHeight * scale)
@@ -212,10 +212,21 @@ export default function ImageEditor({
   const handleDone = () => {
     const canvas = canvasRef.current
     if (!canvas) return
-    canvas.toBlob(blob => {
-      if (!blob) return
-      onDone(blob, canvas.toDataURL('image/jpeg', 0.92))
-    }, 'image/jpeg', 0.92)
+    const MAX_BYTES = 3 * 1024 * 1024 // 3MB — comfortably under Vercel's 4.5MB
+    const tryEncode = (q: number): Promise<Blob | null> =>
+      new Promise(res => canvas.toBlob(b => res(b), 'image/jpeg', q))
+    ;(async () => {
+      const qualities = [0.85, 0.75, 0.65, 0.55, 0.45]
+      let final: Blob | null = null
+      for (const q of qualities) {
+        const b = await tryEncode(q)
+        if (!b) continue
+        final = b
+        if (b.size <= MAX_BYTES) break
+      }
+      if (!final) return
+      onDone(final, canvas.toDataURL('image/jpeg', 0.85))
+    })()
   }
 
   // ── Crop overlay display rect (canvas-space → display-space) ──────────────
