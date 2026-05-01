@@ -19,7 +19,6 @@ export type UserProfile = {
 export default function HomePage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState(0)
-  const [labelKey, setLabelKey] = useState(0)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [hasUnread, setHasUnread] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -68,7 +67,6 @@ export default function HomePage() {
 
   const switchTab = (index: number) => {
     setActiveTab(index)
-    setLabelKey(k => k + 1)
   }
  
   return (
@@ -77,56 +75,61 @@ export default function HomePage() {
       style={{ fontFamily: "'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif" }}
     >
       
-      <div className="flex items-center justify-start px-4 pt-12 pb-3 bg-white sticky top-0 z-20">
+      {/* ── Blurred header — shows all three tabs at once ── */}
+      <div
+        className="sticky top-0 z-20 border-b border-black/[0.06]"
+        style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}
+      >
+        <div className="flex items-center gap-3 px-4 pt-12 pb-3">
 
-        {/* Left: spacer */}
-        <div className="flex-1 flex justify-start">
-          <div className="w-9 h-9" />
-        </div>
-
-        {/* Center: animated label + tappable dot indicators */}
-        <div className="flex flex-col items-center gap-2">
-          <span
-            key={labelKey}
-            className="tab-label-enter text-[26px] font-extrabold text-[#0D0D0D] tracking-tight"
-          >
-            {tabs[activeTab]}
-          </span>
-          <div className="flex items-center gap-4">
-            {tabs.map((_, i) => (
-              <div
-                key={i}
-                className="relative cursor-pointer p-1"
+          {/* Tab names — equal-width, all visible */}
+          <div className="flex flex-1 relative pb-[10px]">
+            {tabs.map((tab, i) => (
+              <button
+                key={tab}
                 onClick={() => switchTab(i)}
+                className="flex-1 text-center py-0.5 relative active:opacity-50 transition-opacity"
               >
-                <div
-                  className="rounded-full transition-all duration-300"
+                <span
+                  className="transition-all duration-200"
                   style={{
-                    width: 8,
-                    height: 8,
-                    background: activeTab === i ? '#0D0D0D' : '#E0E0E0',
-                    transform: activeTab === i ? 'scale(1.35)' : 'scale(1)',
+                    fontSize: '16px',
+                    fontWeight: activeTab === i ? 800 : 500,
+                    color: activeTab === i ? '#0D0D0D' : '#ADADAD',
+                    letterSpacing: activeTab === i ? '-0.4px' : '-0.2px',
                   }}
-                />
+                >
+                  {tab}
+                </span>
                 {i === 1 && hasUnread && (
-                  <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full" />
+                  <div
+                    className="absolute top-0 w-[7px] h-[7px] bg-red-500 rounded-full"
+                    style={{ right: 'calc(50% - 20px)' }}
+                  />
                 )}
-              </div>
+              </button>
             ))}
-          </div>
-        </div>
 
-        {/* Right: refresh button */}
-        <div className="flex-1 flex justify-end">
+            {/* Sliding underline */}
+            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#EBEBEB] rounded-full">
+              <div
+                className="absolute top-0 h-full rounded-full bg-[#0D0D0D] transition-all duration-300 ease-in-out"
+                style={{ width: '33.33%', left: `${activeTab * 33.33}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Refresh button */}
           <button
             onClick={() => window.location.reload()}
-            className="w-9 h-9 rounded-full border border-[#E8E8E8] flex items-center justify-center active:scale-90 active:bg-[#F2F2F2] transition-all"
+            className="w-9 h-9 rounded-full border border-[#E8E8E8] flex items-center justify-center active:scale-90 active:bg-[#F2F2F2] transition-all flex-shrink-0"
           >
             <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
               <path d="M1 4v6h6" stroke="#0D0D0D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M3.51 15a9 9 0 1 0 .49-4.5" stroke="#0D0D0D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
+
         </div>
       </div>
  
