@@ -211,7 +211,8 @@ export default function SendMessagePage() {
     const response = await fetch('/api/messages', { method: 'POST', body: formData, signal: controller.signal })
     if (!response.ok) {
       const body = await response.json().catch(() => ({}))
-      throw new Error(body?.error || `Server error ${response.status}`)
+      console.error('[send] server error:', body)
+      throw new Error(body?.details || body?.error || `Server error ${response.status}`)
     }
     setSuccess(true)
     setMessage('')
