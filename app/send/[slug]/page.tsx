@@ -3,6 +3,7 @@
 import { FormEvent, useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
+import ImageEditor from '@/app/components/ImageEditor'
 
 const SUGGESTIONS = [
   "Tell them something you've never had the courage to say 👀",
@@ -26,15 +27,23 @@ const FLOATING_EMOJIS = [
 
 const GLOBAL_STYLES = `
   .ios-arc {
-    width: 24px; height: 24px; border-radius: 50%;
-    border: 3px solid transparent;
-    border-top: 3px solid #FFF; border-right: 3px solid #FFF;
-    animation: ios-spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 2.5px solid rgba(255,255,255,0.3);
+    border-top: 2.5px solid #FFF;
+    animation: ios-spin 0.75s linear infinite;
+    flex-shrink: 0;
   }
   @keyframes ios-spin {
-    0%   { transform: rotate(0deg);   opacity: 0.3; }
-    50%  { transform: rotate(180deg); opacity: 1;   }
-    100% { transform: rotate(360deg); opacity: 0.3; }
+    to { transform: rotate(360deg); }
+  }
+  @keyframes send-shimmer {
+    0%   { background-position: -200% center; }
+    100% { background-position: 200% center; }
+  }
+  .send-btn-loading {
+    background: linear-gradient(90deg, #1a1a1a 0%, #2a2a2a 40%, #1a1a1a 60%, #111 100%) !important;
+    background-size: 200% auto !important;
+    animation: send-shimmer 1.4s linear infinite !important;
   }
   @keyframes floaty {
     0%, 100% { transform: translateY(0px);   }
@@ -100,10 +109,14 @@ export default function SendMessagePage() {
   const [suggIndex, setSuggIndex] = useState(0)
   const [suggVisible, setSuggVisible] = useState(true)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [showEditor, setShowEditor] = useState(false)
+  const [editorSrc, setEditorSrc] = useState<string | null>(null)
   const [message, setMessage] = useState('')
   const [liveCount, setLiveCount] = useState(() => Math.floor(Math.random() * 3000) + 4000)
   const [countAnimKey, setCountAnimKey] = useState(0)
   const fileRef = useRef<HTMLInputElement>(null)
+  const editedBlobRef = useRef<Blob | null>(null)
+  const ipRef = useRef<string | null>(null)
 
   const themeGradient = 'linear-gradient(180deg, #0D0D0D 45%, #ff431dcb 85%, #ff4a1d 100%)'
   const accentColor = '#ff3f1d'
@@ -113,6 +126,17 @@ export default function SendMessagePage() {
     ((e.currentTarget as HTMLButtonElement).style.transform = 'scale(0.96)')
   const btnRelease = (e: React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement>) =>
     ((e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)')
+
+  // Fetch IP eagerly on mount so it's ready before the user finishes typing
+  useEffect(() => {
+    const ctrl = new AbortController()
+    const t = setTimeout(() => ctrl.abort(), 6000)
+    fetch('https://api.ipify.org?format=json', { signal: ctrl.signal })
+      .then(r => r.json())
+      .then(d => { ipRef.current = d.ip ?? null })
+      .catch(() => {})
+      .finally(() => clearTimeout(t))
+  }, [])
 
   useEffect(() => {
     if (!slug) return
@@ -147,7 +171,26 @@ export default function SendMessagePage() {
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    setImagePreview(file ? URL.createObjectURL(file) : null)
+    if (!file) return
+    setEditorSrc(URL.createObjectURL(file))
+    setShowEditor(true)
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  const handleEditorDone = (blob: Blob, dataUrl: string) => {
+    editedBlobRef.current = blob
+    setImagePreview(dataUrl)
+    setShowEditor(false)
+  }
+
+  const handleEditorCancel = () => {
+    setShowEditor(false)
+  }
+
+  const handleReEdit = () => {
+    if (!imagePreview) return
+    setEditorSrc(imagePreview)
+    setShowEditor(true)
   }
 
  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -155,31 +198,32 @@ export default function SendMessagePage() {
   if (!message.trim() || isSubmitting) return
   setIsSubmitting(true)
   setError(null)
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 12000)
   try {
-    // Fetch IP non-blocking
-    let ipAddress: string | null = null
-    try {
-      const ipRes = await fetch('https://api.ipify.org?format=json')
-      const ipData = await ipRes.json()
-      ipAddress = ipData.ip ?? null
-    } catch {
-      // silently skip if blocked
-    }
-
     const formData = new FormData()
     formData.append('message', message)
     formData.append('slug', slug as string)
-    if (fileRef.current?.files?.[0]) formData.append('image', fileRef.current.files[0])
-    if (ipAddress) formData.append('ip_address', ipAddress)
+    if (editedBlobRef.current) formData.append('image', editedBlobRef.current, 'image.jpg')
+    if (ipRef.current) formData.append('ip_address', ipRef.current)
 
-    const response = await fetch('/api/messages', { method: 'POST', body: formData })
-    if (!response.ok) throw new Error()
+    const response = await fetch('/api/messages', { method: 'POST', body: formData, signal: controller.signal })
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}))
+      throw new Error(body?.error || `Server error ${response.status}`)
+    }
     setSuccess(true)
     setMessage('')
     setImagePreview(null)
-  } catch {
-    setError('Connection error. Please try again.')
+    editedBlobRef.current = null
+  } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      setError('Request timed out. Check your connection and try again.')
+    } else {
+      setError('Failed to send. Please try again.')
+    }
   } finally {
+    clearTimeout(timeout)
     setIsSubmitting(false)
   }
 }
@@ -376,6 +420,16 @@ export default function SendMessagePage() {
 
   // ── Main send screen ─────────────────────────────────────────────────────────
   return (
+    <>
+    {showEditor && editorSrc && (
+      <ImageEditor
+        src={editorSrc}
+        onDone={handleEditorDone}
+        onCancel={handleEditorCancel}
+        accentColor={accentColor}
+        font={font}
+      />
+    )}
     <main style={{
       minHeight: '100svh', background: themeGradient,
       fontFamily: font, display: 'flex', flexDirection: 'column',
@@ -460,9 +514,22 @@ export default function SendMessagePage() {
           {imagePreview ? (
             <div style={{ position: 'relative', width: '100%', height: '200px', borderRadius: '24px', overflow: 'hidden' }}>
               <img src={imagePreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              {/* Re-edit button */}
               <button
                 type="button"
-                onClick={() => { setImagePreview(null); if (fileRef.current) fileRef.current.value = '' }}
+                onClick={handleReEdit}
+                style={{
+                  position: 'absolute', top: '12px', left: '12px',
+                  padding: '6px 12px', borderRadius: '99px',
+                  background: 'rgba(0,0,0,0.65)', border: 'none', color: 'white',
+                  cursor: 'pointer', fontSize: '13px', fontWeight: '700',
+                  display: 'flex', alignItems: 'center', gap: '5px', fontFamily: font,
+                }}
+              >✏️ Edit</button>
+              {/* Remove button */}
+              <button
+                type="button"
+                onClick={() => { setImagePreview(null); editedBlobRef.current = null }}
                 style={{
                   position: 'absolute', top: '12px', right: '12px',
                   width: '32px', height: '32px', borderRadius: '50%',
@@ -497,20 +564,27 @@ export default function SendMessagePage() {
           <button
             type="submit" form="message-form"
             disabled={isSubmitting || !message.trim()}
-            onMouseDown={e => { if (message.trim()) btnPress(e) }}
+            onMouseDown={e => { if (message.trim() && !isSubmitting) btnPress(e) }}
             onMouseUp={btnRelease}
-            onTouchStart={e => { if (message.trim()) btnPress(e) }}
+            onTouchStart={e => { if (message.trim() && !isSubmitting) btnPress(e) }}
             onTouchEnd={btnRelease}
+            className={isSubmitting ? 'send-btn-loading' : ''}
             style={{
               width: '100%', padding: '20px', borderRadius: '99px', border: 'none',
               background: message.trim() ? '#0D0D0D' : 'rgba(255,255,255,0.1)',
               color: 'white', fontSize: '18px', fontWeight: '800',
               transition: 'transform 0.12s ease, background 0.2s ease',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: message.trim() ? 'pointer' : 'default', fontFamily: font,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+              cursor: isSubmitting ? 'not-allowed' : message.trim() ? 'pointer' : 'default',
+              fontFamily: font,
             }}
           >
-            {isSubmitting ? <div className="ios-arc" /> : 'Send anonymously'}
+            {isSubmitting ? (
+              <>
+                <div className="ios-arc" />
+                <span style={{ fontSize: '16px', fontWeight: '700', opacity: 0.9 }}>Sending…</span>
+              </>
+            ) : 'Send anonymously'}
           </button>
         </div>
 
@@ -536,10 +610,6 @@ export default function SendMessagePage() {
 
       </div>
     </main>
+    </>
   )
 }
-/*
-git add  .
- git commit -m "run "
-git push -u origin main
-*/ 
