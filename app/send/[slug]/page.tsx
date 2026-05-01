@@ -229,7 +229,7 @@ export default function SendMessagePage() {
               {[
                 { emoji: '🚫', text: 'Harassment & bullying' },
                 { emoji: '⚠️', text: 'Harmful content' },
-                { emoji: '🔞', text: 'Inappropriate or sexual content involving minors' },
+                { emoji: '🚨', text: 'Inappropriate or sexual content involving children' },
                 { emoji: '👺', text: 'No slurs, stay respectful' },
               ].map(item => (
                 <div key={item.text} style={{
