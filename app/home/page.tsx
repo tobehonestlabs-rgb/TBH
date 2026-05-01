@@ -19,6 +19,7 @@ export type UserProfile = {
 export default function HomePage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState(0)
+  const [labelKey, setLabelKey] = useState(0)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [hasUnread, setHasUnread] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -60,12 +61,15 @@ export default function HomePage() {
   const handleTouchEnd = (e: React.TouchEvent) => {
     const diff = touchStartX.current - e.changedTouches[0].clientX
     if (Math.abs(diff) > 60) {
-      if (diff > 0 && activeTab < 2) setActiveTab(activeTab + 1)
-      if (diff < 0 && activeTab > 0) setActiveTab(activeTab - 1)
+      if (diff > 0 && activeTab < 2) switchTab(activeTab + 1)
+      if (diff < 0 && activeTab > 0) switchTab(activeTab - 1)
     }
   }
- 
-  const tabLabel = tabs[activeTab]
+
+  const switchTab = (index: number) => {
+    setActiveTab(index)
+    setLabelKey(k => k + 1)
+  }
  
   return (
     <main
@@ -80,25 +84,35 @@ export default function HomePage() {
           <div className="w-9 h-9" />
         </div>
 
-        {/* Center: label + indicator — clickable to cycle tabs */}
-        <div
-          className="flex flex-col items-center gap-2 cursor-pointer"
-          onClick={() => setActiveTab((activeTab + 1) % 3)}
-        >
-          <span className="text-[26px] font-extrabold text-[#0D0D0D] tracking-tight">
-            {tabLabel}
+        {/* Center: animated label + tappable dot indicators */}
+        <div className="flex flex-col items-center gap-2">
+          <span
+            key={labelKey}
+            className="tab-label-enter text-[26px] font-extrabold text-[#0D0D0D] tracking-tight"
+          >
+            {tabs[activeTab]}
           </span>
-          <div className="relative w-[170px] h-[14px] bg-[#E0E0E0] rounded-full overflow-hidden">
-            <div
-              className="absolute top-0 h-full bg-[#0D0D0D] rounded-full transition-all duration-300 ease-in-out"
-              style={{ width: '33.33%', left: `${activeTab * 33.33}%` }}
-            />
-            {hasUnread && (
+          <div className="flex items-center gap-4">
+            {tabs.map((_, i) => (
               <div
-                className="absolute top-[-2px] w-[10px] h-[10px] bg-red-500 rounded-full z-10"
-                style={{ left: `calc(33.33% + 2px)` }}
-              />
-            )}
+                key={i}
+                className="relative cursor-pointer p-1"
+                onClick={() => switchTab(i)}
+              >
+                <div
+                  className="rounded-full transition-all duration-300"
+                  style={{
+                    width: 8,
+                    height: 8,
+                    background: activeTab === i ? '#0D0D0D' : '#E0E0E0',
+                    transform: activeTab === i ? 'scale(1.35)' : 'scale(1)',
+                  }}
+                />
+                {i === 1 && hasUnread && (
+                  <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full" />
+                )}
+              </div>
+            ))}
           </div>
         </div>
 
@@ -106,7 +120,7 @@ export default function HomePage() {
         <div className="flex-1 flex justify-end">
           <button
             onClick={() => window.location.reload()}
-            className="w-9 h-9 rounded-full bg-[#F2F2F2] flex items-center justify-center active:scale-90 transition-transform"
+            className="w-9 h-9 rounded-full border border-[#E8E8E8] flex items-center justify-center active:scale-90 active:bg-[#F2F2F2] transition-all"
           >
             <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
               <path d="M1 4v6h6" stroke="#0D0D0D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
