@@ -138,13 +138,9 @@ export default function MessagesPage({ onUnreadChange }: Props) {
         <style>{`div::-webkit-scrollbar { display: none; }`}</style>
 
         {messages.map(msg => {
-          const isImage = msg.content?.startsWith('[IMAGE](')
-          const imageUrl = isImage
-            ? msg.content.match(/\[IMAGE\]\(([^)]+)\)/)?.[1] ?? null
-            : null
-          const preview = isImage
-            ? msg.content.substring(msg.content.indexOf(')') + 2)
-            : msg.content ?? ''
+          const isImage = msg.contains_media || !!msg.media_url
+          const imageUrl = msg.media_url || null
+          const preview = msg.content ?? ''
 
           return (
             <button

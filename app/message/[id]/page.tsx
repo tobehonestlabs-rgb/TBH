@@ -440,13 +440,9 @@ export default function ReadMessageScreen() {
     load()
   }, [messageId, router])
 
-  const isImageMessage = message?.content?.startsWith('[IMAGE](') ?? false
-  const imageUrl = isImageMessage
-    ? message!.content.match(/\[IMAGE\]\(([^)]+)\)/)?.[1] ?? null
-    : null
-  const textContent = isImageMessage
-    ? message!.content.substring(message!.content.indexOf(')') + 1).trimStart()
-    : message?.content ?? ''
+  const isImageMessage = !!(message?.contains_media || message?.media_url)
+  const imageUrl = message?.media_url || null
+  const textContent = message?.content ?? ''
 
   // Pre-generate message card as soon as data is ready
   useEffect(() => {
