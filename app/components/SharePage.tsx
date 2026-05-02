@@ -456,11 +456,11 @@ const handlePlatformShare = async (platformId: string) => {
         <a
           href="/settings"
           className="absolute top-3 right-3 z-20 w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform"
-          style={{ background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)' }}
+          style={{ background: 'rgba(255,255,255,0.16)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
         >
-          <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="3" stroke="white" strokeWidth="2"/>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="white" strokeWidth="2"/>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="2.6" stroke="white" strokeWidth="1.8"/>
+            <path d="M19.14 12.94a7.97 7.97 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.93 7.93 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.43h-3.84a.5.5 0 0 0-.5.43l-.36 2.54a8.06 8.06 0 0 0-1.63.95l-2.39-.96a.5.5 0 0 0-.6.22L2.66 8.84a.5.5 0 0 0 .12.64l2.03 1.58a8.13 8.13 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.38 1.05.7 1.62.94l.36 2.54a.5.5 0 0 0 .5.43h3.84a.5.5 0 0 0 .5-.43l.36-2.54a8.06 8.06 0 0 0 1.63-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58z" stroke="white" strokeWidth="1.8" strokeLinejoin="round"/>
           </svg>
         </a>
 
@@ -592,11 +592,8 @@ const handlePlatformShare = async (platformId: string) => {
               disabled={generating}
               className="flex-1 flex flex-col items-center justify-center gap-2.5 py-5 rounded-[22px] active:scale-95 transition-all relative disabled:opacity-50"
               style={{
-                background: shared ? '#0D0D0D' : 'linear-gradient(160deg, #FAFAFA, #F2F2F2)',
-                boxShadow: shared
-                  ? '0 4px 20px rgba(0,0,0,0.18)'
-                  : '0 2px 12px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,1)',
-                border: shared ? 'none' : '1px solid rgba(0,0,0,0.055)',
+                background: shared ? '#0D0D0D' : '#F5F5F7',
+                border: 'none',
               }}
             >
               <img
@@ -771,25 +768,40 @@ const handlePlatformShare = async (platformId: string) => {
         </div>
       )}
 
-      {/* ── Edit prompt dialog — top aligned, fixed width ── */}
+      {/* ── Edit prompt dialog — animated + backdrop blur ── */}
       {editingPrompt && (
-        <div className="absolute inset-0 z-50 flex items-start justify-center bg-black/40 px-6 pt-32">
-          <div className="w-[300px] bg-white rounded-[20px] p-5 flex flex-col gap-3">
-            <p className="text-center text-[13px] text-[#888]">Edit message</p>
+        <div className="absolute inset-0 z-50 flex items-start justify-center px-6 pt-32">
+          <div
+            className="absolute inset-0 backdrop-enter"
+            style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
+            onClick={() => setEditingPrompt(false)}
+          />
+          <div className="dialog-enter relative w-[320px] bg-white rounded-[24px] p-6 flex flex-col gap-4 shadow-2xl">
+            <div className="flex flex-col gap-1">
+              <p className="text-center text-[17px] font-bold text-[#0D0D0D]">Edit your message</p>
+              <p className="text-center text-[12px] text-[#888]">This shows on your share card</p>
+            </div>
             <textarea
+              autoFocus
               value={tempPrompt}
               onChange={e => setTempPrompt(e.target.value)}
               rows={3}
-              className="w-full bg-[#F2F2F2] rounded-[12px] px-4 py-3 text-[15px] text-[#0D0D0D] text-center outline-none resize-none"
+              maxLength={120}
+              className="w-full bg-[#F5F5F7] rounded-[14px] px-4 py-3 text-[15px] font-medium text-[#0D0D0D] text-center outline-none resize-none border border-transparent focus:border-[#0D0D0D] transition-colors"
             />
+            <p className="text-right text-[11px] text-[#AAA] -mt-2">{tempPrompt.length}/120</p>
             <div className="flex gap-2">
-              <button onClick={() => setEditingPrompt(false)}
-                className="flex-1 h-[40px] rounded-[10px] border border-[#DDD] text-[#888] text-[13px]">
+              <button
+                onClick={() => setEditingPrompt(false)}
+                className="flex-1 h-[44px] rounded-[14px] bg-[#F2F2F7] text-[#666] text-[14px] font-semibold active:scale-95 transition-transform"
+              >
                 Cancel
               </button>
-              <button onClick={() => { setPromptText(tempPrompt); setEditingPrompt(false) }}
-                className="flex-1 h-[40px] rounded-[10px] bg-[#0D0D0D] text-white text-[13px] font-medium">
-                Confirm
+              <button
+                onClick={() => { setPromptText(tempPrompt); setEditingPrompt(false) }}
+                className="flex-1 h-[44px] rounded-[14px] bg-[#0D0D0D] text-white text-[14px] font-bold active:scale-95 transition-transform"
+              >
+                Save
               </button>
             </div>
           </div>

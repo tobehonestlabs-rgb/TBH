@@ -66,6 +66,13 @@
 .sheet-enter    { animation: slideUpSheet 0.38s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
 .backdrop-enter { animation: fadeInBackdrop 0.25s ease forwards; }
 
+/* Modal dialog spring entrance */
+@keyframes dialogIn {
+  from { opacity: 0; transform: scale(0.92) translateY(-12px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.dialog-enter { animation: dialogIn 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
