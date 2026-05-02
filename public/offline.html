@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TBH – Offline</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100dvh;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: #fff;
+      font-family: -apple-system, 'SF Pro Display', BlinkMacSystemFont, sans-serif;
+      color: #0D0D0D;
+      text-align: center;
+      padding: 32px;
+    }
+    .logo { font-size: 40px; font-weight: 900; letter-spacing: -1px; margin-bottom: 16px; }
+    h1 { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+    p { font-size: 15px; color: #888; line-height: 1.5; }
+    button {
+      margin-top: 32px;
+      padding: 14px 32px;
+      background: #0D0D0D;
+      color: #fff;
+      border: none;
+      border-radius: 28px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="logo">TBH</div>
+  <h1>You're offline</h1>
+  <p>Check your connection and try again.</p>
+  <button onclick="window.location.reload()">Retry</button>
+</body>
+</html>

@@ -6,6 +6,7 @@ import { supabaseClient } from '@/lib/supabaseClient'
 import SharePage from '@/app/components/SharePage'
 import MessagesPage from '@/app/components/MessagesPages'
 import ChatPage from '@/app/components/ChatPage'
+import NotificationSetup from '@/app/components/NotificationSetup'
 
 
 export type UserProfile = {
@@ -74,7 +75,8 @@ export default function HomePage() {
       className="min-h-screen bg-white flex flex-col overflow-hidden"
       style={{ fontFamily: "'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif" }}
     >
-      
+      <NotificationSetup />
+
       {/* ── Blurred header — shows all three tabs at once ── */}
       <div
         className="sticky top-0 z-20 border-b border-black/[0.06]"
