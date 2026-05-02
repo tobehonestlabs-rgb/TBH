@@ -4,6 +4,7 @@ import { FormEvent, useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
 import InAppBrowserBanner from '@/app/components/InAppBrowserBanner'
+import ImageEditor from '@/app/components/ImageEditor'
 
 const SUGGESTIONS = [
   "Tell them something you've never had the courage to say 👀",
