@@ -3,7 +3,7 @@
 import { FormEvent, useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
-import ImageEditor from '@/app/components/ImageEditor'
+import InAppBrowserBanner from '@/app/components/InAppBrowserBanner'
 
 const SUGGESTIONS = [
   "Tell them something you've never had the courage to say 👀",
@@ -305,8 +305,7 @@ export default function SendMessagePage() {
               style={{
                 width: '100%', padding: '18px', borderRadius: '99px', border: 'none',
                 background: accentColor, color: 'white', fontSize: '16px', fontWeight: '800',
-                cursor: 'pointer', boxShadow: `0 8px 32px rgba(255,65,29,0.35)`,
-                transition: 'transform 0.12s ease', fontFamily: font, marginTop: '8px',
+                cursor: 'pointer', transition: 'transform 0.12s ease', fontFamily: font, marginTop: '8px',
               }}
             >
               I agree, continue →
@@ -404,25 +403,31 @@ export default function SendMessagePage() {
                 width: '100%', padding: '18px', borderRadius: '99px', border: 'none',
                 background: '#0D0D0D', color: 'white', fontSize: '16px', fontWeight: '800',
                 cursor: 'pointer', transition: 'transform 0.12s ease', fontFamily: font,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
               }}
             >
-              📩 Send another message
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Send another
             </button>
 
-            {/* Liftdance CTA */}
             <button
               onClick={() => router.push('/')}
               onMouseDown={btnPress} onMouseUp={btnRelease}
               onTouchStart={btnPress} onTouchEnd={btnRelease}
-              className="liftdance"
               style={{
                 width: '100%', padding: '18px', borderRadius: '99px', border: 'none',
                 background: accentColor, color: 'white', fontSize: '16px', fontWeight: '800',
-                cursor: 'pointer', boxShadow: `0 8px 32px rgba(255,65,29,0.45)`,
-                transition: 'transform 0.12s ease', fontFamily: font,
+                cursor: 'pointer', transition: 'transform 0.12s ease', fontFamily: font,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
               }}
             >
-              ✨ Get my own anonymous messages
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+              Get my own link
             </button>
           </div>
         </div>
@@ -448,6 +453,7 @@ export default function SendMessagePage() {
       alignItems: 'center', padding: '0 20px 48px',
       position: 'relative', overflow: 'hidden',
     }}>
+      <InAppBrowserBanner />
       <FloatingEmojis />
       <style>{GLOBAL_STYLES}</style>
 
@@ -524,9 +530,21 @@ export default function SendMessagePage() {
           {/* Image picker */}
           <input ref={fileRef} type="file" accept="image/*" onChange={handleImageChange} style={{ display: 'none' }} />
           {imagePreview ? (
-            <div style={{ position: 'relative', width: '100%', height: '200px', borderRadius: '24px', overflow: 'hidden' }}>
-              <img src={imagePreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              {/* Re-edit button */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '12px',
+              padding: '10px 12px', borderRadius: '16px',
+              background: 'rgba(255,255,255,0.06)',
+            }}>
+              <div style={{ width: '44px', height: '44px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0 }}>
+                <img src={imagePreview} alt="" style={{
+                  width: '100%', height: '100%', objectFit: 'cover',
+                  filter: 'blur(4px)', transform: 'scale(1.15)',
+                }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>Photo</p>
+                <p style={{ margin: 0, fontSize: '11px', color: 'rgba(255,255,255,0.3)', marginTop: '2px' }}>Ready to send</p>
+              </div>
               <button
                 type="button"
                 onClick={handleReEdit}
@@ -543,13 +561,15 @@ export default function SendMessagePage() {
                 type="button"
                 onClick={() => { setImagePreview(null); editedBlobRef.current = null }}
                 style={{
-                  position: 'absolute', top: '12px', right: '12px',
-                  width: '32px', height: '32px', borderRadius: '50%',
-                  background: 'rgba(0,0,0,0.6)', border: 'none', color: 'white',
-                  cursor: 'pointer', fontSize: '14px',
+                  width: '30px', height: '30px', borderRadius: '50%', flexShrink: 0,
+                  background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}
-              >✕</button>
+              >
+                <svg width="11" height="11" fill="none" viewBox="0 0 24 24">
+                  <path d="M18 6L6 18M6 6l12 12" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+                </svg>
+              </button>
             </div>
           ) : (
             <button
@@ -557,14 +577,18 @@ export default function SendMessagePage() {
               onMouseDown={btnPress} onMouseUp={btnRelease}
               onTouchStart={btnPress} onTouchEnd={btnRelease}
               style={{
-                padding: '16px', borderRadius: '20px', border: 'none',
+                padding: '14px 16px', borderRadius: '16px', border: 'none',
                 background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)',
-                fontSize: '14px', fontWeight: '600', cursor: 'pointer',
+                fontSize: '14px', fontWeight: 600, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                 fontFamily: font, transition: 'transform 0.12s ease',
               }}
             >
-              📷 Add a photo
+              <svg width="17" height="17" fill="none" viewBox="0 0 24 24">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <circle cx="12" cy="13" r="4" stroke="currentColor" strokeWidth="2"/>
+              </svg>
+              Add a photo
             </button>
           )}
 
@@ -614,9 +638,14 @@ export default function SendMessagePage() {
               background: 'rgba(255,255,255,0.1)', border: 'none',
               color: 'white', fontSize: '14px', fontWeight: '700',
               cursor: 'pointer', fontFamily: font, transition: 'transform 0.12s ease',
+              display: 'flex', alignItems: 'center', gap: '6px',
             }}
           >
-            ✨ Get my own link
+            <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+            Get my own link
           </button>
         </div>
 
