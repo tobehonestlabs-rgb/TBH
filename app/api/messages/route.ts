@@ -27,11 +27,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
 
-    // Extract IP server-side from headers
+    // Extract IP and country from headers
     const ipAddress =
       req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
       req.headers.get('x-real-ip') ||
       req.headers.get('cf-connecting-ip') ||
+      null
+
+    const country = (formData.get('country') as string | null) ||
+      req.headers.get('x-vercel-ip-country') ||
       null
 
     // 1) Look up receiverId from slug
@@ -86,6 +90,7 @@ export async function POST(req: NextRequest) {
         contains_media: imageUrl != null,
         message_id: messageId,
         ip_address: ipAddress,
+        country,
       })
 
     if (insertError) {
