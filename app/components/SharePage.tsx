@@ -1094,7 +1094,7 @@ export default function SharePage({ profile }: Props) {
               <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
                 <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              Share {shareReady.isGif ? 'GIF' : 'image'}
+              Share link
             </button>
             <button
               onClick={() => setShareReady(null)}
