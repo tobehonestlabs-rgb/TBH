@@ -157,7 +157,7 @@ function supportsCanvasFilter(): boolean {
     ctx.filter = 'brightness(0)'
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, 1, 1)
-    const [r] = ctx.getImageData(0, 0, 1, 1).data
+    const r = ctx.getImageData(0, 0, 1, 1).data[0]
     return r === 0
   } catch { return false }
 }
