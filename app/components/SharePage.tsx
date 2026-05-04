@@ -150,9 +150,32 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 
 // Detect if canvas supports ctx.filter (fails silently on iOS Safari)
 function supportsCanvasFilter(): boolean {
-  const c = document.createElement('canvas').getContext('2d')!
-  c.filter = 'blur(1px)'
-  return c.filter === 'blur(1px)'
+  try {
+    const c = document.createElement('canvas')
+    c.width = 1; c.height = 1
+    const ctx = c.getContext('2d')!
+    ctx.filter = 'brightness(0)'
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, 1, 1)
+    const r = ctx.getImageData(0, 0, 1, 1).data[0]
+    return r === 0
+  } catch { return false }
+}
+
+function buildBlurCanvas(img: HTMLImageElement, W: number, H: number): HTMLCanvasElement {
+  const s1 = document.createElement('canvas')
+  s1.width = Math.max(2, W >> 3); s1.height = Math.max(2, H >> 3)
+  s1.getContext('2d')!.drawImage(img, 0, 0, s1.width, s1.height)
+  const s2 = document.createElement('canvas')
+  s2.width = Math.max(2, W >> 2); s2.height = Math.max(2, H >> 2)
+  s2.getContext('2d')!.drawImage(s1, 0, 0, s2.width, s2.height)
+  const s3 = document.createElement('canvas')
+  s3.width = Math.max(2, W >> 1); s3.height = Math.max(2, H >> 1)
+  s3.getContext('2d')!.drawImage(s2, 0, 0, s3.width, s3.height)
+  const s4 = document.createElement('canvas')
+  s4.width = W + 120; s4.height = H + 120
+  s4.getContext('2d')!.drawImage(s3, 0, 0, s4.width, s4.height)
+  return s4
 }
 
 // Draw blurred pfp background onto ctx — shared between image and GIF
@@ -171,13 +194,11 @@ function drawBlurredBg(
     ctx.filter = 'none'
     ctx.restore()
   } else if (blurTmp) {
-    // iOS: 3-pass accumulation gives a denser perceived blur
     ctx.save()
-    ctx.globalAlpha = 0.22
-    ctx.drawImage(blurTmp, -60 - extra, -60 - extra, W + 120 + extra * 2, H + 120 + extra * 2)
-    ctx.drawImage(blurTmp, -60 - extra, -60 - extra, W + 120 + extra * 2, H + 120 + extra * 2)
-    ctx.drawImage(blurTmp, -60 - extra, -60 - extra, W + 120 + extra * 2, H + 120 + extra * 2)
     ctx.globalAlpha = 1
+    ctx.drawImage(blurTmp, -60 - extra, -60 - extra, W + 120 + extra * 2, H + 120 + extra * 2)
+    ctx.fillStyle = 'rgba(0,0,0,0.72)'
+    ctx.fillRect(-60 - extra, -60 - extra, W + 120 + extra * 2, H + 120 + extra * 2)
     ctx.restore()
   }
 }
@@ -204,14 +225,9 @@ async function generateShareCard(
       loadWhiteSvg(`${window.location.origin}/assets/arrows.svg`).catch(() => null),
     ])
 
-    // Pre-render the downsample blur canvas for iOS once
     let blurTmp: HTMLCanvasElement | null = null
     if (!hasFilter && pfpImg) {
-      const scale = 20
-      blurTmp = document.createElement('canvas')
-      blurTmp.width  = Math.max(2, Math.floor((W + 120) / scale))
-      blurTmp.height = Math.max(2, Math.floor((H + 120) / scale))
-      blurTmp.getContext('2d')!.drawImage(pfpImg, 0, 0, blurTmp.width, blurTmp.height)
+      blurTmp = buildBlurCanvas(pfpImg, W, H)
     }
 
     // 1. Background gradient
@@ -343,14 +359,9 @@ async function generateShareGif(
     loadWhiteSvg(`${window.location.origin}/assets/arrows.svg`).catch(() => null),
   ])
 
-  // Pre-render downsampled blur once — reused across all GIF frames
   let blurTmp: HTMLCanvasElement | null = null
   if (!hasFilter && pfpImg) {
-    const ds = 20
-    blurTmp = document.createElement('canvas')
-    blurTmp.width  = Math.max(2, Math.floor((W + 120) / ds))
-    blurTmp.height = Math.max(2, Math.floor((H + 120) / ds))
-    blurTmp.getContext('2d')!.drawImage(pfpImg, 0, 0, blurTmp.width, blurTmp.height)
+    blurTmp = buildBlurCanvas(pfpImg, W, H)
   }
 
   const encoder = GIFEncoder()
@@ -565,7 +576,7 @@ export default function SharePage({ profile }: Props) {
     const { blob, filename, isGif } = shareReady
     const mime = isGif ? 'image/gif' : 'image/png'
     const file = new File([blob], filename, { type: mime })
-    const shareData = { files: [file], title: 'TBH', text: `Send me an anonymous message! 🤫🔥\n\n${shareLink}`, url: shareLink }
+    const shareData = { files: [file], title: 'TBH', text: shareLink }
     if (navigator.share && navigator.canShare?.(shareData)) {
       try { await navigator.share(shareData); setShareReady(null); return }
       catch (e: any) { if (e?.name === 'AbortError') { setShareReady(null); return } }
@@ -632,7 +643,7 @@ export default function SharePage({ profile }: Props) {
       const blob = await generateShareCard(profile, promptText, selectedCard, selectedColor.stops, selectedColor.ring)
       const file = new File([blob], 'tbh-share.png', { type: 'image/png' })
       try { await navigator.clipboard.writeText(shareLink) } catch {}
-      const shareData = { files: [file], title: 'TBH: Anonymous', text: `Send me an anonymous photo/message! 🤫🔥`, url: shareLink }
+      const shareData = { files: [file], title: 'TBH', text: shareLink }
       if (navigator.share && navigator.canShare?.(shareData)) {
         try {
           await navigator.share(shareData)
@@ -1071,29 +1082,15 @@ export default function SharePage({ profile }: Props) {
             <div className="flex justify-center mb-4">
               <div className="w-10 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.15)' }} />
             </div>
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: shareReady.isGif ? 'rgba(255,214,10,0.15)' : `${selectedColor.stops[0]}30` }}>
-                <span className="text-[22px]">{shareReady.isGif ? '🎞️' : '🖼️'}</span>
-              </div>
-              <div>
-                <p className="text-white font-extrabold text-[18px]">{shareReady.isGif ? 'GIF ready!' : 'Image ready!'}</p>
-                <p className="text-[#555] text-[12px] mt-0.5">Tap the button below to share</p>
-              </div>
+            <div className="mb-5">
+              <p className="text-white font-extrabold text-[18px]">{shareReady.isGif ? 'GIF ready!' : 'Image ready!'}</p>
+              <p className="text-[#555] text-[12px] mt-0.5">Tap the button below to share</p>
             </div>
             <button
               onClick={handleShareReady}
-              className="w-full py-[17px] rounded-full text-white font-extrabold text-[17px] active:scale-95 transition-all flex items-center justify-center gap-2 mb-3"
-              style={{
-                background: shareReady.isGif
-                  ? 'linear-gradient(135deg, #FFD60A, #FF9F0A)'
-                  : `linear-gradient(135deg, ${selectedColor.stops[0]}e0, ${selectedColor.stops[selectedColor.stops.length - 1]}e0)`,
-                boxShadow: shareReady.isGif ? '0 8px 24px rgba(255,214,10,0.3)' : `0 8px 24px ${selectedColor.stops[0]}40`,
-                color: shareReady.isGif ? '#000' : '#fff',
-              }}
+              className="w-full py-[17px] rounded-full font-extrabold text-[17px] active:scale-95 transition-transform mb-3"
+              style={{ background: '#ffffff', color: '#0D0D0D' }}
             >
-              <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
-                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
               Share link
             </button>
             <button
