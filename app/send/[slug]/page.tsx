@@ -7,12 +7,16 @@ import InAppBrowserBanner from '@/app/components/InAppBrowserBanner'
 import ImageEditor from '@/app/components/ImageEditor'
 
 const SUGGESTIONS = [
-  "Tell them something you've never had the courage to say 👀",
-  "Send a genuine compliment — it might make their whole day 🌟",
-  "Share an honest opinion they probably don't expect 🤫",
-  "Ask them something you've always been curious about 🎯",
-  "Tell them what you truly think of them 💬",
-  "Be real — what's one thing they should know? 🔥",
+  "You deserve a kiss 😘",
+  "I really like you",
+  "You're someone special, you know",
+  "I love the way you speak",
+  "You make my day better just by existing ✨",
+  "There's something about you I can't get out of my head",
+  "You're way more beautiful than you think 🌹",
+  "I wish I could tell you this in person",
+  "You have no idea how much you mean to me 💫",
+  "I could talk to you forever and never get tired",
 ]
 
 const FLOATING_EMOJIS = [
