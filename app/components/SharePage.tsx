@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { UserProfile } from '@/app/home/page'
 import Link from 'next/link'
+import { supabaseClient } from '@/lib/supabaseClient'
 type Props = { profile: UserProfile | null }
 
 type CardType = {
@@ -282,6 +283,7 @@ export default function SharePage({ profile }: Props) {
   const [generating, setGenerating] = useState(false)
   const [sharedPlatforms, setSharedPlatforms] = useState<string[]>([])
   const shareProgress = sharedPlatforms.length / 3
+  const hasMarkedSharing = useRef(false)
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [selectedColor, setSelectedColor] = useState(CARD_COLORS[0])
   const [phraseIndex, setPhraseIndex] = useState(0)
@@ -290,6 +292,16 @@ const [showHelpModal, setShowHelpModal] = useState(false)
   const shareLink = profile?.slug
     ? `${typeof window !== 'undefined' ? window.location.origin : 'https://tbhonest.net'}/send/${profile.slug}`
     : ''
+
+  // Mark user as sharing on first successful share
+  useEffect(() => {
+    if (sharedPlatforms.length === 0 || hasMarkedSharing.current || !profile) return
+    hasMarkedSharing.current = true
+    supabaseClient
+      .from('users_table')
+      .update({ is_sharing: true })
+      .eq('user_id', profile.user_id)
+  }, [sharedPlatforms.length, profile])
 
   // Phrase rotation
   useEffect(() => {
