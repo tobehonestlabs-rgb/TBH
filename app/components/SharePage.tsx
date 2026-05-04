@@ -363,6 +363,8 @@ async function generateShareGif(
     // Sinusoidal animation offsets (slow, gentle)
     const bgExtra  = Math.round(W * 0.03 * Math.sin(t * Math.PI))      // background breathe
     const logoOff  = Math.sin(t * Math.PI * 3.0) * 5                    // logo drift
+    const ringOffX = Math.sin(t * Math.PI * 3.7 + 0.5) * 6             // ring/pfp horizontal drift
+    const ringOffY = Math.cos(t * Math.PI * 2.9 + 1.2) * 5             // ring/pfp vertical drift
     const pillOff  = Math.sin(t * Math.PI * 2.0 + 0.8) * 4             // pill sway
     const linkOff  = Math.cos(t * Math.PI * 2.4) * 3                   // link drift
     const arrowOff = Math.sin(t * Math.PI * 1.6 + 1.2) * 6             // arrows bounce
@@ -406,10 +408,10 @@ async function generateShareGif(
     titleLines.forEach((line, i) => { ctx.fillText(line, W / 2, 170 + i * 65) })
     ctx.shadowBlur = 0
 
-    // Ring + PFP
+    // Ring + PFP (ring drifts with ringOffX / ringOffY)
     const ringY = 170 + titleLines.length * 65 + 30
     const ringR = 105
-    const cx = W / 2, cy = ringY + ringR
+    const cx = W / 2 + ringOffX, cy = ringY + ringR + ringOffY
     const ringGrad = ctx.createLinearGradient(0, 0, W, H)
     ringColors.forEach((c, i) => ringGrad.addColorStop(i / Math.max(ringColors.length - 1, 1), c))
     ctx.beginPath()
@@ -433,7 +435,7 @@ async function generateShareGif(
     ctx.textAlign = 'center'
     ctx.shadowColor = 'rgba(0,0,0,0.6)'
     ctx.shadowBlur = 8
-    ctx.fillText(`@${profile.username ?? ''}`, W / 2, cy + ringR + 45)
+    ctx.fillText(`@${profile.username ?? ''}`, cx, cy + ringR + 45)
     ctx.shadowBlur = 0
 
     // Prompt pill
@@ -512,6 +514,9 @@ export default function SharePage({ profile }: Props) {
   const [phraseVisible, setPhraseVisible] = useState(true)
   const [showHelpModal, setShowHelpModal] = useState(false)
   const [showGamePicker, setShowGamePicker] = useState(false)
+  const [sheetClosing, setSheetClosing]         = useState(false)
+  const [gamePickerClosing, setGamePickerClosing] = useState(false)
+  const [shareReady, setShareReady] = useState<{ blob: Blob; filename: string; isGif: boolean } | null>(null)
 
   const shareLink = profile?.slug
     ? `${typeof window !== 'undefined' ? window.location.origin : 'https://tbhonest.net'}/send/${profile.slug}`
@@ -538,10 +543,40 @@ export default function SharePage({ profile }: Props) {
     return () => clearInterval(interval)
   }, [])
 
+  const closeSheet = () => {
+    setSheetClosing(true)
+    setTimeout(() => { setShowSheet(false); setSheetClosing(false) }, 300)
+  }
+
+  const closeGamePicker = () => {
+    setGamePickerClosing(true)
+    setTimeout(() => { setShowGamePicker(false); setGamePickerClosing(false) }, 300)
+  }
+
   const handleGameSelect = (game: CardType) => {
     setSelectedCard(game)
     if (game.promptOverride) setPromptText(game.promptOverride)
-    setShowGamePicker(false)
+    closeGamePicker()
+  }
+
+  // Called from a fresh button tap → fresh gesture context → navigator.share works on iOS
+  const handleShareReady = async () => {
+    if (!shareReady) return
+    const { blob, filename, isGif } = shareReady
+    const mime = isGif ? 'image/gif' : 'image/png'
+    const file = new File([blob], filename, { type: mime })
+    const shareData = { files: [file], title: 'TBH', text: `Send me an anonymous message! 🤫🔥\n\n${shareLink}`, url: shareLink }
+    if (navigator.share && navigator.canShare?.(shareData)) {
+      try { await navigator.share(shareData); setShareReady(null); return }
+      catch (e: any) { if (e?.name === 'AbortError') { setShareReady(null); return } }
+    }
+    // fallback: trigger download
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = filename
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 30000)
+    setShareReady(null)
   }
 
   const handleCopy = async () => {
@@ -564,45 +599,29 @@ export default function SharePage({ profile }: Props) {
 
   const handleShareCard = async (cardType: CardType) => {
     if (!profile) return
+    closeSheet()
+    await new Promise(r => setTimeout(r, 300))
     setGenerating(true)
-    setShowSheet(false)
     try {
       const blob = await generateShareCard(profile, promptText, cardType, selectedColor.stops, selectedColor.ring)
-      const file = new File([blob], 'tbh-share.png', { type: 'image/png' })
-      const shareData = { files: [file], title: 'TBH', text: `Send me an anonymous message! 🤫🔥\n\n${shareLink}`, url: shareLink }
-      if (navigator.share && navigator.canShare?.(shareData)) {
-        try { await navigator.share(shareData); return } catch (e: any) { if (e?.name === 'AbortError') return }
-      }
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url; a.download = 'tbh-share.png'
-      document.body.appendChild(a); a.click(); document.body.removeChild(a)
-      setTimeout(() => URL.revokeObjectURL(url), 10000)
-    } catch (e) { console.error('Share failed', e) }
+      setShareReady({ blob, filename: 'tbh-share.png', isGif: false })
+    } catch (e) { console.error('Share card failed', e) }
     finally { setGenerating(false) }
   }
 
   const handleShareGif = async () => {
     if (!profile) return
+    closeSheet()
+    await new Promise(r => setTimeout(r, 300))
     setGenerating(true)
-    setShowSheet(false)
     setGifProgress(0)
     try {
       const blob = await generateShareGif(
         profile, promptText, selectedCard, selectedColor.stops, selectedColor.ring,
         pct => setGifProgress(pct),
       )
-      const file = new File([blob], 'tbh-share.gif', { type: 'image/gif' })
-      const shareData = { files: [file], title: 'TBH', text: `Send me an anonymous message! 🤫🔥\n\n${shareLink}` }
-      if (navigator.share && navigator.canShare?.(shareData)) {
-        try { await navigator.share(shareData); return } catch (e: any) { if (e?.name === 'AbortError') return }
-      }
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url; a.download = 'tbh-share.gif'
-      document.body.appendChild(a); a.click(); document.body.removeChild(a)
-      setTimeout(() => URL.revokeObjectURL(url), 30000)
-    } catch (e) { console.error('GIF share failed', e) }
+      setShareReady({ blob, filename: 'tbh-share.gif', isGif: true })
+    } catch (e) { console.error('GIF generation failed', e) }
     finally { setGenerating(false); setGifProgress(0) }
   }
 
@@ -803,11 +822,11 @@ export default function SharePage({ profile }: Props) {
           onTouchEnd={e => e.stopPropagation()}
         >
           <div
-            className="absolute inset-0 backdrop-enter"
+            className={`absolute inset-0 ${sheetClosing ? 'backdrop-exit' : 'backdrop-enter'}`}
             style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
-            onClick={() => setShowSheet(false)}
+            onClick={() => { if (!sheetClosing) closeSheet() }}
           />
-          <div className="relative sheet-enter rounded-t-[32px] z-10 pb-10 overflow-hidden border-t border-white/[0.06]" style={{ background: '#181818' }}>
+          <div className={`relative ${sheetClosing ? 'sheet-exit' : 'sheet-enter'} rounded-t-[32px] z-10 pb-10 overflow-hidden border-t border-white/[0.06]`} style={{ background: '#181818' }}>
             <div className="absolute top-0 left-0 right-0 h-[90px] pointer-events-none" style={{ background: `linear-gradient(to bottom, ${selectedColor.stops[0]}18, transparent)` }} />
 
             <div className="relative z-10">
@@ -950,7 +969,6 @@ export default function SharePage({ profile }: Props) {
                     <div className="px-5">
                       <button
                         onClick={() => {
-                          setShowSheet(false)
                           if (shareMode === 'gif') handleShareGif()
                           else handleShareCard(selectedCard)
                         }}
@@ -1003,8 +1021,8 @@ export default function SharePage({ profile }: Props) {
       {/* ── Game picker sheet ── */}
       {showGamePicker && (
         <div className="absolute inset-0 z-50 flex flex-col justify-end" onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
-          <div className="absolute inset-0 backdrop-enter" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }} onClick={() => setShowGamePicker(false)} />
-          <div className="relative sheet-enter rounded-t-[32px] z-10 border-t border-white/[0.06]" style={{ background: '#181818', maxHeight: '80vh' }}>
+          <div className={`absolute inset-0 ${gamePickerClosing ? 'backdrop-exit' : 'backdrop-enter'}`} style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }} onClick={() => { if (!gamePickerClosing) closeGamePicker() }} />
+          <div className={`relative ${gamePickerClosing ? 'sheet-exit' : 'sheet-enter'} rounded-t-[32px] z-10 border-t border-white/[0.06]`} style={{ background: '#181818', maxHeight: '80vh' }}>
             <div className="relative z-10 overflow-y-auto" style={{ maxHeight: '80vh' }}>
               <div className="flex justify-center pt-3 pb-2"><div className="w-10 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.15)' }} /></div>
               <div className="px-5 pb-2">
@@ -1041,6 +1059,49 @@ export default function SharePage({ profile }: Props) {
                 })}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Share-ready overlay ── shown after generation completes ── */}
+      {shareReady && (
+        <div className="absolute inset-0 z-[60] flex flex-col justify-end" onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
+          <div className="absolute inset-0 backdrop-enter" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }} onClick={() => setShareReady(null)} />
+          <div className="relative sheet-enter rounded-t-[32px] z-10 px-5 pt-5 pb-10 border-t border-white/[0.06]" style={{ background: '#181818' }}>
+            <div className="flex justify-center mb-4">
+              <div className="w-10 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.15)' }} />
+            </div>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: shareReady.isGif ? 'rgba(255,214,10,0.15)' : `${selectedColor.stops[0]}30` }}>
+                <span className="text-[22px]">{shareReady.isGif ? '🎞️' : '🖼️'}</span>
+              </div>
+              <div>
+                <p className="text-white font-extrabold text-[18px]">{shareReady.isGif ? 'GIF ready!' : 'Image ready!'}</p>
+                <p className="text-[#555] text-[12px] mt-0.5">Tap the button below to share</p>
+              </div>
+            </div>
+            <button
+              onClick={handleShareReady}
+              className="w-full py-[17px] rounded-full text-white font-extrabold text-[17px] active:scale-95 transition-all flex items-center justify-center gap-2 mb-3"
+              style={{
+                background: shareReady.isGif
+                  ? 'linear-gradient(135deg, #FFD60A, #FF9F0A)'
+                  : `linear-gradient(135deg, ${selectedColor.stops[0]}e0, ${selectedColor.stops[selectedColor.stops.length - 1]}e0)`,
+                boxShadow: shareReady.isGif ? '0 8px 24px rgba(255,214,10,0.3)' : `0 8px 24px ${selectedColor.stops[0]}40`,
+                color: shareReady.isGif ? '#000' : '#fff',
+              }}
+            >
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Share {shareReady.isGif ? 'GIF' : 'image'}
+            </button>
+            <button
+              onClick={() => setShareReady(null)}
+              className="w-full py-3 text-[#555] text-[14px] font-semibold active:opacity-70 transition-opacity"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}
