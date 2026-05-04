@@ -1,0 +1,39 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#0D0D0D"/>
+      <stop offset="60%"  stop-color="#181818"/>
+      <stop offset="100%" stop-color="#2A1218"/>
+    </linearGradient>
+    <radialGradient id="glow1" cx="50%" cy="50%" r="50%" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#FF4B1F" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#FF4B1F" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="50%" cy="50%" r="50%" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#FF6B6B" stop-opacity="0.20"/>
+      <stop offset="100%" stop-color="#FF6B6B" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="rounded">
+      <rect width="1024" height="1024" rx="224"/>
+    </clipPath>
+  </defs>
+
+  <!-- Rounded square clip -->
+  <g clip-path="url(#rounded)">
+    <!-- Background -->
+    <rect width="1024" height="1024" fill="url(#bg)"/>
+
+    <!-- Top-right warm glow -->
+    <ellipse cx="870" cy="154" rx="340" ry="340" fill="url(#glow1)"/>
+    <!-- Bottom-left subtle glow -->
+    <ellipse cx="160" cy="900" rx="260" ry="260" fill="url(#glow2)"/>
+
+    <!-- TBH mark — scaled to ~700 wide, centered -->
+    <!-- Original path: viewBox 0 0 314 157 → scale≈2.229, translate(162,354) -->
+    <path
+      transform="translate(162, 354) scale(2.229)"
+      d="M46.3396 64.0528H1.07678C-3.25033 18.0082 17.6731 4.26842 33.5563 0.53795H210.89C219.476 0.53795 241.566 -0.323452 247.336 10.7226C253.105 21.7687 250.126 55.9136 249.525 72.192H278.843C278.843 57.1928 282.121 21.8849 283.872 10.7226C285.624 -0.439742 305.331 0.489503 312.5 0.53795C308.508 43.5594 305.623 130.3 303.871 142.974C302.12 155.648 280.444 156.975 272.46 156.055L274.974 107.656H247.336L243.859 142.974C241.386 155.648 223.425 156.975 214.754 156.055L219.261 64.0528H205.224C205.224 68.2387 200.888 71.3684 198.27 72.192C204.451 76.9883 205.61 101.697 205.224 107.656C204.838 113.615 202.004 134.835 196.338 142.974C191.805 149.485 180.97 154.408 176.119 156.055H101.94L110.44 64.0528H88.9329C88.2461 74.9535 84.1856 110.436 81.9308 131.46C79.6096 153.104 71.5473 155.667 64.3354 156.055H36.2812L46.3396 64.0528Z"
+      fill="white"
+    />
+  </g>
+</svg>
