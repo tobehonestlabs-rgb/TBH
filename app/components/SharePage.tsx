@@ -576,7 +576,7 @@ export default function SharePage({ profile }: Props) {
     const { blob, filename, isGif } = shareReady
     const mime = isGif ? 'image/gif' : 'image/png'
     const file = new File([blob], filename, { type: mime })
-    const shareData = { files: [file], title: 'TBH', text: `Send me an anonymous message! 🤫🔥\n\n${shareLink}`, url: shareLink }
+    const shareData = { files: [file], title: 'TBH', text: shareLink }
     if (navigator.share && navigator.canShare?.(shareData)) {
       try { await navigator.share(shareData); setShareReady(null); return }
       catch (e: any) { if (e?.name === 'AbortError') { setShareReady(null); return } }
@@ -643,7 +643,7 @@ export default function SharePage({ profile }: Props) {
       const blob = await generateShareCard(profile, promptText, selectedCard, selectedColor.stops, selectedColor.ring)
       const file = new File([blob], 'tbh-share.png', { type: 'image/png' })
       try { await navigator.clipboard.writeText(shareLink) } catch {}
-      const shareData = { files: [file], title: 'TBH: Anonymous', text: `Send me an anonymous photo/message! 🤫🔥`, url: shareLink }
+      const shareData = { files: [file], title: 'TBH', text: shareLink }
       if (navigator.share && navigator.canShare?.(shareData)) {
         try {
           await navigator.share(shareData)
@@ -1082,29 +1082,15 @@ export default function SharePage({ profile }: Props) {
             <div className="flex justify-center mb-4">
               <div className="w-10 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.15)' }} />
             </div>
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: shareReady.isGif ? 'rgba(255,214,10,0.15)' : `${selectedColor.stops[0]}30` }}>
-                <span className="text-[22px]">{shareReady.isGif ? '🎞️' : '🖼️'}</span>
-              </div>
-              <div>
-                <p className="text-white font-extrabold text-[18px]">{shareReady.isGif ? 'GIF ready!' : 'Image ready!'}</p>
-                <p className="text-[#555] text-[12px] mt-0.5">Tap the button below to share</p>
-              </div>
+            <div className="mb-5">
+              <p className="text-white font-extrabold text-[18px]">{shareReady.isGif ? 'GIF ready!' : 'Image ready!'}</p>
+              <p className="text-[#555] text-[12px] mt-0.5">Tap the button below to share</p>
             </div>
             <button
               onClick={handleShareReady}
-              className="w-full py-[17px] rounded-full text-white font-extrabold text-[17px] active:scale-95 transition-all flex items-center justify-center gap-2 mb-3"
-              style={{
-                background: shareReady.isGif
-                  ? 'linear-gradient(135deg, #FFD60A, #FF9F0A)'
-                  : `linear-gradient(135deg, ${selectedColor.stops[0]}e0, ${selectedColor.stops[selectedColor.stops.length - 1]}e0)`,
-                boxShadow: shareReady.isGif ? '0 8px 24px rgba(255,214,10,0.3)' : `0 8px 24px ${selectedColor.stops[0]}40`,
-                color: shareReady.isGif ? '#000' : '#fff',
-              }}
+              className="w-full py-[17px] rounded-full font-extrabold text-[17px] active:scale-95 transition-transform mb-3"
+              style={{ background: '#ffffff', color: '#0D0D0D' }}
             >
-              <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
-                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
               Share link
             </button>
             <button
