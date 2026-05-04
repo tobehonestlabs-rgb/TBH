@@ -118,6 +118,7 @@ export default function SendMessagePage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const editedBlobRef = useRef<Blob | null>(null)
   const ipRef = useRef<string | null>(null)
+  const countryRef = useRef<string | null>(null)
 
   const themeGradient = 'linear-gradient(180deg, #0D0D0D 45%, #ff431dcb 85%, #ff4a1d 100%)'
   const accentColor = '#ff3f1d'
@@ -128,16 +129,17 @@ export default function SendMessagePage() {
   const btnRelease = (e: React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement>) =>
     ((e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)')
 
-  // Fetch IP eagerly on mount via our own endpoint
-  // (third-party services like ipify get blocked by ad blockers — same-origin doesn't)
+  // Fetch IP and country eagerly on mount
   useEffect(() => {
     const ctrl = new AbortController()
     const t = setTimeout(() => ctrl.abort(), 6000)
-    fetch('/api/ip', { signal: ctrl.signal })
-      .then(r => r.json())
-      .then(d => { ipRef.current = d.ip ?? null })
-      .catch(() => {})
-      .finally(() => clearTimeout(t))
+    Promise.all([
+      fetch('/api/ip',  { signal: ctrl.signal }).then(r => r.json()).catch(() => ({})),
+      fetch('/api/geo', { signal: ctrl.signal }).then(r => r.json()).catch(() => ({})),
+    ]).then(([ipData, geoData]) => {
+      ipRef.current      = ipData.ip      ?? null
+      countryRef.current = geoData.country ?? null
+    }).finally(() => clearTimeout(t))
   }, [])
 
   useEffect(() => {
@@ -208,6 +210,7 @@ export default function SendMessagePage() {
     formData.append('slug', slug as string)
     if (editedBlobRef.current) formData.append('image', editedBlobRef.current, 'image.jpg')
     if (ipRef.current) formData.append('ip_address', ipRef.current)
+    if (countryRef.current) formData.append('country', countryRef.current)
 
     const response = await fetch('/api/messages', { method: 'POST', body: formData, signal: controller.signal })
     if (!response.ok) {
