@@ -150,9 +150,32 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 
 // Detect if canvas supports ctx.filter (fails silently on iOS Safari)
 function supportsCanvasFilter(): boolean {
-  const c = document.createElement('canvas').getContext('2d')!
-  c.filter = 'blur(1px)'
-  return c.filter === 'blur(1px)'
+  try {
+    const c = document.createElement('canvas')
+    c.width = 1; c.height = 1
+    const ctx = c.getContext('2d')!
+    ctx.filter = 'brightness(0)'
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, 1, 1)
+    const [r] = ctx.getImageData(0, 0, 1, 1).data
+    return r === 0
+  } catch { return false }
+}
+
+function buildBlurCanvas(img: HTMLImageElement, W: number, H: number): HTMLCanvasElement {
+  const s1 = document.createElement('canvas')
+  s1.width = Math.max(2, W >> 3); s1.height = Math.max(2, H >> 3)
+  s1.getContext('2d')!.drawImage(img, 0, 0, s1.width, s1.height)
+  const s2 = document.createElement('canvas')
+  s2.width = Math.max(2, W >> 2); s2.height = Math.max(2, H >> 2)
+  s2.getContext('2d')!.drawImage(s1, 0, 0, s2.width, s2.height)
+  const s3 = document.createElement('canvas')
+  s3.width = Math.max(2, W >> 1); s3.height = Math.max(2, H >> 1)
+  s3.getContext('2d')!.drawImage(s2, 0, 0, s3.width, s3.height)
+  const s4 = document.createElement('canvas')
+  s4.width = W + 120; s4.height = H + 120
+  s4.getContext('2d')!.drawImage(s3, 0, 0, s4.width, s4.height)
+  return s4
 }
 
 // Draw blurred pfp background onto ctx — shared between image and GIF
@@ -171,13 +194,11 @@ function drawBlurredBg(
     ctx.filter = 'none'
     ctx.restore()
   } else if (blurTmp) {
-    // iOS: 3-pass accumulation gives a denser perceived blur
     ctx.save()
-    ctx.globalAlpha = 0.22
-    ctx.drawImage(blurTmp, -60 - extra, -60 - extra, W + 120 + extra * 2, H + 120 + extra * 2)
-    ctx.drawImage(blurTmp, -60 - extra, -60 - extra, W + 120 + extra * 2, H + 120 + extra * 2)
-    ctx.drawImage(blurTmp, -60 - extra, -60 - extra, W + 120 + extra * 2, H + 120 + extra * 2)
     ctx.globalAlpha = 1
+    ctx.drawImage(blurTmp, -60 - extra, -60 - extra, W + 120 + extra * 2, H + 120 + extra * 2)
+    ctx.fillStyle = 'rgba(0,0,0,0.72)'
+    ctx.fillRect(-60 - extra, -60 - extra, W + 120 + extra * 2, H + 120 + extra * 2)
     ctx.restore()
   }
 }
@@ -204,14 +225,9 @@ async function generateShareCard(
       loadWhiteSvg(`${window.location.origin}/assets/arrows.svg`).catch(() => null),
     ])
 
-    // Pre-render the downsample blur canvas for iOS once
     let blurTmp: HTMLCanvasElement | null = null
     if (!hasFilter && pfpImg) {
-      const scale = 20
-      blurTmp = document.createElement('canvas')
-      blurTmp.width  = Math.max(2, Math.floor((W + 120) / scale))
-      blurTmp.height = Math.max(2, Math.floor((H + 120) / scale))
-      blurTmp.getContext('2d')!.drawImage(pfpImg, 0, 0, blurTmp.width, blurTmp.height)
+      blurTmp = buildBlurCanvas(pfpImg, W, H)
     }
 
     // 1. Background gradient
@@ -343,14 +359,9 @@ async function generateShareGif(
     loadWhiteSvg(`${window.location.origin}/assets/arrows.svg`).catch(() => null),
   ])
 
-  // Pre-render downsampled blur once — reused across all GIF frames
   let blurTmp: HTMLCanvasElement | null = null
   if (!hasFilter && pfpImg) {
-    const ds = 20
-    blurTmp = document.createElement('canvas')
-    blurTmp.width  = Math.max(2, Math.floor((W + 120) / ds))
-    blurTmp.height = Math.max(2, Math.floor((H + 120) / ds))
-    blurTmp.getContext('2d')!.drawImage(pfpImg, 0, 0, blurTmp.width, blurTmp.height)
+    blurTmp = buildBlurCanvas(pfpImg, W, H)
   }
 
   const encoder = GIFEncoder()
