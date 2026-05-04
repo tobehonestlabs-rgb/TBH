@@ -18,10 +18,34 @@ type CardType = {
 
 const ALL_CARD_TYPES: CardType[] = [
   {
-    id: 'confession', emoji: '🤫', title: 'BLOW ME UP',
-    subtitle: "Tell me something you don't dare say out loud",
-    description: 'Anonymous confessions',
+    id: 'blow_me_up', emoji: '💣', title: 'BLOW ME UP',
+    subtitle: "Send me an anonymous photo or message",
+    description: 'Anonymous messages',
     promptOverride: 'Send me an anonymous Photo/message 🤫'
+  },
+  {
+    id: 'confession', emoji: '🤫', title: 'CONFESS TO ME',
+    subtitle: "Tell me something you've never dared say",
+    description: 'Anonymous confessions',
+    promptOverride: "Tell me something you've never dared say 🤫"
+  },
+  {
+    id: 'qa', emoji: '❓', title: 'ASK ME ANYTHING',
+    subtitle: 'Ask me anything — I will answer honestly',
+    description: 'Q&A',
+    promptOverride: 'Ask me anything, I dare you ❓'
+  },
+  {
+    id: 'make_laugh', emoji: '😂', title: 'MAKE ME LAUGH',
+    subtitle: 'Send memes, jokes or something hilarious',
+    description: 'Make me laugh',
+    promptOverride: 'Make me laugh 😂 send a meme or funny message'
+  },
+  {
+    id: 'confess_chat', emoji: '💬', title: 'CONFESS & CHAT',
+    subtitle: 'Confess something and start a conversation',
+    description: 'Confess and chat',
+    promptOverride: 'Confess something to me 💬'
   },
   {
     id: 'be_honest', emoji: '👀', title: 'BE HONEST',
@@ -30,22 +54,16 @@ const ALL_CARD_TYPES: CardType[] = [
     promptOverride: "Be honest with me 👀 Tell me what you really think"
   },
   {
+    id: 'dare_me', emoji: '🎯', title: 'DARE ME',
+    subtitle: 'Dare me to do something wild',
+    description: 'Dare me',
+    promptOverride: 'Dare me to do something 🎯'
+  },
+  {
     id: 'birthday', emoji: '🎊', title: "IT'S MY BIRTHDAY",
     subtitle: 'Wish me or tell me something sincere',
     description: "It's my birthday!",
     promptOverride: "It's my birthday 🎊 Send me a message!"
-  },
-  {
-    id: 'show_room', emoji: '🛋️', title: 'SHOW YOUR ROOM',
-    subtitle: 'Show me your favorite spot or your decor',
-    description: 'Show your room',
-    promptOverride: null
-  },
-  {
-    id: 'guess', emoji: '🎯', title: 'GUESS SOMETHING',
-    subtitle: 'Guess something about me',
-    description: 'Guess something about me',
-    promptOverride: 'Guess something about me 🎯'
   },
 ]
 
@@ -493,6 +511,7 @@ export default function SharePage({ profile }: Props) {
   const [phraseIndex, setPhraseIndex]     = useState(0)
   const [phraseVisible, setPhraseVisible] = useState(true)
   const [showHelpModal, setShowHelpModal] = useState(false)
+  const [showGamePicker, setShowGamePicker] = useState(false)
 
   const shareLink = profile?.slug
     ? `${typeof window !== 'undefined' ? window.location.origin : 'https://tbhonest.net'}/send/${profile.slug}`
@@ -518,6 +537,12 @@ export default function SharePage({ profile }: Props) {
     }, 5000)
     return () => clearInterval(interval)
   }, [])
+
+  const handleGameSelect = (game: CardType) => {
+    setSelectedCard(game)
+    if (game.promptOverride) setPromptText(game.promptOverride)
+    setShowGamePicker(false)
+  }
 
   const handleCopy = async () => {
     if (!shareLink) return
@@ -625,7 +650,7 @@ export default function SharePage({ profile }: Props) {
             <div className="absolute inset-0 w-full h-full" style={{ backgroundImage: `url(${profile.pfp})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(20px)', transform: 'scale(1.15)' }} />
           )}
           {!profile?.pfp && <div className="absolute inset-0 bg-gray-800" />}
-          <div className="absolute inset-0 bg-black/55" />
+          <div className="absolute inset-0 bg-black/40" />
           <a href="/settings" className="absolute top-3 right-3 z-20 w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform" style={{ background: 'rgba(255,255,255,0.16)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
               <circle cx="12" cy="12" r="2.6" stroke="white" strokeWidth="1.8"/>
@@ -657,6 +682,23 @@ export default function SharePage({ profile }: Props) {
         </div>
       )}
 
+      {/* ── Game selector ── */}
+      <button
+        onClick={() => setShowGamePicker(true)}
+        className="w-full flex items-center gap-3 px-4 py-3 rounded-[20px] active:scale-95 transition-all"
+        style={{ background: '#F5F5F7' }}
+      >
+        <span className="text-[22px]">{selectedCard.emoji}</span>
+        <div className="flex-1 text-left">
+          <p className="text-[13px] font-extrabold text-[#0D0D0D] tracking-tight">{selectedCard.title}</p>
+          <p className="text-[11px] text-[#888] mt-0.5">{selectedCard.subtitle}</p>
+        </div>
+        <span className="text-[11px] font-semibold text-[#AAA]">Change</span>
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+          <path d="M9 18l6-6-6-6" stroke="#ADADAD" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+
       {/* ── Flat progress bar ── */}
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-3">
@@ -670,8 +712,8 @@ export default function SharePage({ profile }: Props) {
             />
           </div>
         </div>
-        <p className="text-[11px] text-[#AAA]">
-          {shareProgress > 0 ? '🎉 Viral mode activated' : 'Share your link to unlock your viral potential'}
+        <p className="text-[11px] font-semibold text-[#555]">
+          The more you share, the more messages you receive from your friends
         </p>
       </div>
 
@@ -765,159 +807,168 @@ export default function SharePage({ profile }: Props) {
             style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
             onClick={() => setShowSheet(false)}
           />
-          <div className="relative sheet-enter rounded-t-[32px] z-10 pb-10 overflow-hidden border-t border-white/[0.07]" style={{ background: '#111' }}>
-            <div className="absolute top-0 left-0 right-0 h-[110px] pointer-events-none" style={{ background: `linear-gradient(to bottom, ${selectedColor.stops[0]}2e, transparent)` }} />
+          <div className="relative sheet-enter rounded-t-[32px] z-10 pb-10 overflow-hidden border-t border-white/[0.06]" style={{ background: '#181818' }}>
+            <div className="absolute top-0 left-0 right-0 h-[90px] pointer-events-none" style={{ background: `linear-gradient(to bottom, ${selectedColor.stops[0]}18, transparent)` }} />
 
             <div className="relative z-10">
               {/* Handle */}
-              <div className="flex justify-center pt-3 pb-4">
-                <div className="w-10 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.18)' }} />
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.15)' }} />
               </div>
 
-              {/* ── Step 1: Format picker ── */}
-              {sheetStep === 'format' && (
-                <>
-                  <p className="text-white text-center text-[20px] font-extrabold px-6">Share Format</p>
-                  <p className="text-[#888] text-center text-[12px] mt-1 mb-5 px-6">Choose how to share your card</p>
-                  <div className="flex gap-3 px-5 mb-5">
-                    {/* Image option */}
-                    <button
-                      onClick={() => { setShareMode('image'); setSheetStep('color') }}
-                      className="flex-1 rounded-[20px] flex flex-col items-center justify-center gap-2 py-6 active:scale-95 transition-all"
-                      style={{ background: 'rgba(255,255,255,0.08)', border: shareMode === 'image' ? '1.5px solid rgba(255,255,255,0.3)' : '1.5px solid transparent' }}
-                    >
-                      <svg width="32" height="32" fill="none" viewBox="0 0 24 24">
-                        <rect x="3" y="3" width="18" height="18" rx="3" stroke="white" strokeWidth="1.8"/>
-                        <circle cx="8.5" cy="8.5" r="1.5" fill="white"/>
-                        <path d="M21 15l-5-5L5 21" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                      <span className="text-white font-bold text-[15px]">Image</span>
-                      <span className="text-[#666] text-[11px]">Static PNG photo</span>
-                    </button>
-                    {/* GIF option */}
-                    <button
-                      onClick={() => { setShareMode('gif'); setSheetStep('color') }}
-                      className="flex-1 rounded-[20px] flex flex-col items-center justify-center gap-2 py-6 active:scale-95 transition-all"
-                      style={{ background: 'rgba(255,255,255,0.08)', border: shareMode === 'gif' ? '1.5px solid rgba(255,255,255,0.3)' : '1.5px solid transparent' }}
-                    >
-                      <svg width="32" height="32" fill="none" viewBox="0 0 24 24">
-                        <rect x="2" y="6" width="20" height="12" rx="2" stroke="white" strokeWidth="1.8"/>
-                        <path d="M12 10v4M10 12h4" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
-                        <path d="M7 10v1.5a.5.5 0 0 0 .5.5H9M17 10v4h-2" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                      <span className="text-white font-bold text-[15px]">GIF</span>
-                      <span className="text-[#666] text-[11px]">4s animated loop</span>
-                    </button>
-                  </div>
-                </>
-              )}
-
-              {/* ── Step 2: Color picker ── */}
-              {sheetStep === 'color' && (
-                <>
-                  <div className="flex items-center px-5 mb-4">
-                    <button
-                      onClick={() => setSheetStep('format')}
-                      className="w-8 h-8 rounded-full flex items-center justify-center mr-3 active:scale-90 transition-transform"
-                      style={{ background: 'rgba(255,255,255,0.1)' }}
-                    >
-                      <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
-                        <path d="M15 18l-6-6 6-6" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </button>
-                    <p className="text-white text-[20px] font-extrabold flex-1">
-                      {shareMode === 'gif' ? 'GIF Color' : 'Card Color'}
-                    </p>
-                    <span className="text-[12px] px-3 py-1 rounded-full font-bold" style={{ background: 'rgba(255,255,255,0.1)', color: shareMode === 'gif' ? '#FFD60A' : '#4facfe' }}>
-                      {shareMode === 'gif' ? 'GIF' : 'PNG'}
-                    </span>
-                  </div>
-
-                  {/* Card preview */}
-                  <div className="flex justify-center mb-4 px-5">
-                    <div className="rounded-[20px] overflow-hidden relative shadow-2xl" style={{ width: '130px', height: '231px' }}>
-                      {profile?.pfp && (
-                        <div className="absolute inset-0" style={{ backgroundImage: `url(${profile.pfp})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(12px) brightness(0.35)', transform: 'scale(1.1)' }} />
-                      )}
-                      <div className="absolute inset-0" style={{ background: `linear-gradient(160deg, ${selectedColor.stops[0]}cc, ${selectedColor.stops[selectedColor.stops.length - 1]}cc)` }} />
-                      <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.5))' }} />
-                      <div className="absolute top-3 left-0 right-0 flex justify-center">
-                        <div className="h-[3px] w-[30px] rounded-full bg-white/50" />
-                      </div>
-                      <div className="absolute left-0 right-0 flex justify-center" style={{ top: '38px' }}>
-                        <div className="w-[48px] h-[48px] rounded-full overflow-hidden" style={{ border: `2px solid ${selectedColor.ring[0]}` }}>
-                          {profile?.pfp
-                            ? <img src={profile.pfp} alt="" className="w-full h-full object-cover" />
-                            : <div className="w-full h-full bg-gray-600 flex items-center justify-center text-white font-bold text-base">{profile?.username?.[0]?.toUpperCase() ?? '?'}</div>
-                          }
-                        </div>
-                      </div>
-                      <div className="absolute left-0 right-0 text-center" style={{ top: '96px' }}>
-                        <p className="text-white font-bold text-[9px]">@{profile?.username ?? 'you'}</p>
-                      </div>
-                      <div className="absolute left-2 right-2" style={{ top: '112px' }}>
-                        <div className="rounded-[5px] px-2 py-1" style={{ background: 'rgba(255,255,255,0.12)' }}>
-                          <p className="text-white/75 text-center" style={{ fontSize: '5.5px', lineHeight: '8px' }}>Send me an anonymous message</p>
-                        </div>
-                      </div>
-                      <div className="absolute left-0 right-0 flex justify-center" style={{ bottom: '22px' }}>
-                        <img src="/assets/arrows.svg" alt="" className="w-9 h-3 object-contain" style={{ filter: 'brightness(0) invert(1) opacity(0.7)' }} />
-                      </div>
-                      <div className="absolute bottom-3 left-0 right-0 text-center">
-                        <p className="text-white/50" style={{ fontSize: '4.5px' }}>tbhonest.net/send/{profile?.slug}</p>
-                      </div>
-                      {/* GIF badge */}
-                      {shareMode === 'gif' && (
-                        <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded-md" style={{ background: '#FFD60A' }}>
-                          <span className="text-black font-extrabold" style={{ fontSize: '7px' }}>GIF</span>
-                        </div>
-                      )}
+              {/* Sliding step container */}
+              <div className="overflow-hidden">
+                {/* ── Step 1: Format picker ── */}
+                {sheetStep === 'format' && (
+                  <div className="slide-from-left pb-2">
+                    <p className="text-white text-center text-[20px] font-extrabold px-6 pt-3">Share Format</p>
+                    <p className="text-[#777] text-center text-[12px] mt-1 mb-5 px-6">Choose how to share your card</p>
+                    <div className="flex gap-3 px-5 mb-5">
+                      <button
+                        onClick={() => { setShareMode('image'); setSheetStep('color') }}
+                        className="flex-1 rounded-[24px] flex flex-col items-center justify-center gap-2 py-6 active:scale-95 transition-all"
+                        style={{
+                          background: 'rgba(255,255,255,0.06)',
+                          border: shareMode === 'image' ? `1.5px solid ${selectedColor.stops[0]}80` : '1.5px solid rgba(255,255,255,0.08)',
+                        }}
+                      >
+                        <svg width="30" height="30" fill="none" viewBox="0 0 24 24">
+                          <rect x="3" y="3" width="18" height="18" rx="3" stroke="white" strokeWidth="1.6"/>
+                          <circle cx="8.5" cy="8.5" r="1.5" fill="white"/>
+                          <path d="M21 15l-5-5L5 21" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        <span className="text-white font-bold text-[14px]">Image</span>
+                        <span className="text-[#555] text-[11px]">Static PNG</span>
+                      </button>
+                      <button
+                        onClick={() => { setShareMode('gif'); setSheetStep('color') }}
+                        className="flex-1 rounded-[24px] flex flex-col items-center justify-center gap-2 py-6 active:scale-95 transition-all"
+                        style={{
+                          background: 'rgba(255,255,255,0.06)',
+                          border: shareMode === 'gif' ? `1.5px solid ${selectedColor.stops[0]}80` : '1.5px solid rgba(255,255,255,0.08)',
+                        }}
+                      >
+                        <svg width="30" height="30" fill="none" viewBox="0 0 24 24">
+                          <rect x="2" y="6" width="20" height="12" rx="2" stroke="white" strokeWidth="1.6"/>
+                          <path d="M12 10v4M10 12h4" stroke="white" strokeWidth="1.6" strokeLinecap="round"/>
+                          <path d="M7 10v1.5a.5.5 0 0 0 .5.5H9M17 10v4h-2" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        <span className="text-white font-bold text-[14px]">GIF</span>
+                        <span className="text-[#555] text-[11px]">4s animated</span>
+                      </button>
                     </div>
                   </div>
+                )}
 
-                  {/* Color swatches */}
-                  <div className="flex gap-4 px-5 mb-4 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
-                    {CARD_COLORS.map(color => (
+                {/* ── Step 2: Color picker ── */}
+                {sheetStep === 'color' && (
+                  <div className="slide-from-right pb-2">
+                    <div className="flex items-center px-5 pt-3 mb-4">
                       <button
-                        key={color.id}
-                        onClick={() => setSelectedColor(color)}
-                        className="flex flex-col items-center gap-1.5 flex-shrink-0 active:scale-90 transition-transform"
+                        onClick={() => setSheetStep('format')}
+                        className="w-8 h-8 rounded-full flex items-center justify-center mr-3 active:scale-90 transition-transform"
+                        style={{ background: 'rgba(255,255,255,0.08)' }}
                       >
-                        <div
-                          className="w-10 h-10 rounded-full"
-                          style={{
-                            background: `linear-gradient(135deg, ${color.stops[0]}, ${color.stops[color.stops.length - 1]})`,
-                            boxShadow: selectedColor.id === color.id ? `0 0 0 2px #111, 0 0 0 3.5px ${color.stops[0]}` : 'none',
-                            transform: selectedColor.id === color.id ? 'scale(1.1)' : 'scale(1)',
-                            transition: 'all 0.2s ease',
-                          }}
-                        />
-                        <span className="text-[10px] font-semibold" style={{ color: selectedColor.id === color.id ? '#FFF' : 'rgba(255,255,255,0.45)' }}>
-                          {color.label}
-                        </span>
+                        <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+                          <path d="M15 18l-6-6 6-6" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
                       </button>
-                    ))}
-                  </div>
+                      <p className="text-white text-[20px] font-extrabold flex-1">
+                        {shareMode === 'gif' ? 'GIF Color' : 'Card Color'}
+                      </p>
+                      <span className="text-[11px] px-2.5 py-0.5 rounded-full font-bold" style={{ background: 'rgba(255,255,255,0.08)', color: shareMode === 'gif' ? '#FFD60A' : 'rgba(255,255,255,0.5)' }}>
+                        {shareMode === 'gif' ? 'GIF' : 'PNG'}
+                      </span>
+                    </div>
 
-                  {/* Share button */}
-                  <div className="px-5">
-                    <button
-                      onClick={() => {
-                        setShowSheet(false)
-                        if (shareMode === 'gif') handleShareGif()
-                        else handleShareCard(selectedCard)
-                      }}
-                      className="w-full py-4 rounded-[24px] text-white font-bold text-[16px] active:scale-95 transition-all flex items-center justify-center gap-2"
-                      style={{ background: `linear-gradient(135deg, ${selectedColor.stops[0]}, ${selectedColor.stops[selectedColor.stops.length - 1]})` }}
-                    >
-                      <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
-                        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                      {shareMode === 'gif' ? 'Generate & Share GIF' : 'Share this card'}
-                    </button>
+                    {/* Card preview */}
+                    <div className="flex justify-center mb-4 px-5">
+                      <div className="rounded-[20px] overflow-hidden relative" style={{ width: '130px', height: '231px', boxShadow: `0 16px 48px ${selectedColor.stops[0]}40` }}>
+                        {profile?.pfp && (
+                          <div className="absolute inset-0" style={{ backgroundImage: `url(${profile.pfp})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(12px) brightness(0.4)', transform: 'scale(1.1)' }} />
+                        )}
+                        <div className="absolute inset-0" style={{ background: `linear-gradient(160deg, ${selectedColor.stops[0]}99, ${selectedColor.stops[selectedColor.stops.length - 1]}bb)` }} />
+                        <div className="absolute inset-0" style={{ background: 'rgba(255,255,255,0.04)' }} />
+                        <div className="absolute top-3 left-0 right-0 flex justify-center">
+                          <div className="h-[3px] w-[30px] rounded-full bg-white/40" />
+                        </div>
+                        <div className="absolute left-0 right-0 flex justify-center" style={{ top: '38px' }}>
+                          <div className="w-[48px] h-[48px] rounded-full overflow-hidden" style={{ boxShadow: `0 0 0 2px ${selectedColor.ring[0]}, 0 0 0 3.5px ${selectedColor.ring[1] ?? selectedColor.ring[0]}60` }}>
+                            {profile?.pfp
+                              ? <img src={profile.pfp} alt="" className="w-full h-full object-cover" />
+                              : <div className="w-full h-full bg-gray-600 flex items-center justify-center text-white font-bold text-base">{profile?.username?.[0]?.toUpperCase() ?? '?'}</div>
+                            }
+                          </div>
+                        </div>
+                        <div className="absolute left-0 right-0 text-center" style={{ top: '96px' }}>
+                          <p className="text-white font-bold text-[9px]">@{profile?.username ?? 'you'}</p>
+                        </div>
+                        <div className="absolute left-2 right-2" style={{ top: '112px' }}>
+                          <div className="rounded-[5px] px-2 py-1" style={{ background: 'rgba(255,255,255,0.10)' }}>
+                            <p className="text-white/70 text-center" style={{ fontSize: '5.5px', lineHeight: '8px' }}>{selectedCard.title}</p>
+                          </div>
+                        </div>
+                        <div className="absolute left-0 right-0 flex justify-center" style={{ bottom: '22px' }}>
+                          <img src="/assets/arrows.svg" alt="" className="w-9 h-3 object-contain" style={{ filter: 'brightness(0) invert(1) opacity(0.6)' }} />
+                        </div>
+                        <div className="absolute bottom-3 left-0 right-0 text-center">
+                          <p className="text-white/40" style={{ fontSize: '4.5px' }}>tbhonest.net/send/{profile?.slug}</p>
+                        </div>
+                        {shareMode === 'gif' && (
+                          <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded-md" style={{ background: '#FFD60A' }}>
+                            <span className="text-black font-extrabold" style={{ fontSize: '7px' }}>GIF</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Color swatches */}
+                    <div className="flex gap-4 px-5 mb-5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
+                      {CARD_COLORS.map(color => (
+                        <button
+                          key={color.id}
+                          onClick={() => setSelectedColor(color)}
+                          className="flex flex-col items-center gap-1.5 flex-shrink-0 active:scale-90 transition-transform"
+                        >
+                          <div
+                            className="w-10 h-10 rounded-full"
+                            style={{
+                              background: `linear-gradient(135deg, ${color.stops[0]}, ${color.stops[color.stops.length - 1]})`,
+                              boxShadow: selectedColor.id === color.id ? `0 0 0 2px #181818, 0 0 0 3.5px ${color.stops[0]}` : 'none',
+                              transform: selectedColor.id === color.id ? 'scale(1.1)' : 'scale(1)',
+                              transition: 'all 0.2s ease',
+                            }}
+                          />
+                          <span className="text-[10px] font-semibold" style={{ color: selectedColor.id === color.id ? '#FFF' : 'rgba(255,255,255,0.35)' }}>
+                            {color.label}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Share button */}
+                    <div className="px-5">
+                      <button
+                        onClick={() => {
+                          setShowSheet(false)
+                          if (shareMode === 'gif') handleShareGif()
+                          else handleShareCard(selectedCard)
+                        }}
+                        className="w-full py-[17px] rounded-full text-white font-bold text-[16px] active:scale-95 transition-all flex items-center justify-center gap-2"
+                        style={{
+                          background: `linear-gradient(135deg, ${selectedColor.stops[0]}e0, ${selectedColor.stops[selectedColor.stops.length - 1]}e0)`,
+                          boxShadow: `0 8px 24px ${selectedColor.stops[0]}40`,
+                        }}
+                      >
+                        <svg width="17" height="17" fill="none" viewBox="0 0 24 24">
+                          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        {shareMode === 'gif' ? 'Generate & Share GIF' : 'Share this card'}
+                      </button>
+                    </div>
                   </div>
-                </>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -949,27 +1000,45 @@ export default function SharePage({ profile }: Props) {
         </div>
       )}
 
-      {/* ── Card type picker sheet (legacy, kept for future use) ── */}
-      {showCardPicker && (
+      {/* ── Game picker sheet ── */}
+      {showGamePicker && (
         <div className="absolute inset-0 z-50 flex flex-col justify-end" onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
-          <div className="absolute inset-0 backdrop-enter" style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }} onClick={() => setShowCardPicker(false)} />
-          <div className="relative sheet-enter rounded-t-[32px] z-10 pb-10 overflow-hidden border-t border-white/[0.07]" style={{ background: '#111', maxHeight: '75vh' }}>
-            <div className="relative z-10 overflow-y-auto" style={{ maxHeight: '75vh' }}>
-              <div className="flex justify-center pt-3 pb-4"><div className="w-10 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.18)' }} /></div>
-              <p className="text-white text-center text-[20px] font-extrabold px-6">Card Type</p>
-              <div className="flex gap-4 px-5 overflow-x-auto pb-4" style={{ scrollSnapType: 'x mandatory' }}>
-                {ALL_CARD_TYPES.map(card => (
-                  <button key={card.id} onClick={() => setSelectedCard(card)} className="flex-shrink-0 transition-transform active:scale-95" style={{ scrollSnapAlign: 'center', width: '120px' }}>
-                    <div className="w-full rounded-[16px] overflow-hidden relative mb-2" style={{ height: '213px', background: 'linear-gradient(160deg, #1a1a2e, #16213e)', border: selectedCard.id === card.id ? '2px solid #FF6B6B' : '2px solid rgba(255,255,255,0.1)' }}>
-                      <div className="absolute top-9 left-0 right-0 flex justify-center text-[26px]">{card.emoji}</div>
-                      <div className="absolute top-[68px] left-0 right-0 px-2 text-center"><p className="text-white font-extrabold" style={{ fontSize: '10px' }}>{card.title}</p></div>
-                    </div>
-                    <p className="text-center font-semibold truncate" style={{ fontSize: '10px', color: selectedCard.id === card.id ? '#FF6B6B' : '#888' }}>{card.emoji} {card.description}</p>
-                  </button>
-                ))}
+          <div className="absolute inset-0 backdrop-enter" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }} onClick={() => setShowGamePicker(false)} />
+          <div className="relative sheet-enter rounded-t-[32px] z-10 border-t border-white/[0.06]" style={{ background: '#181818', maxHeight: '80vh' }}>
+            <div className="relative z-10 overflow-y-auto" style={{ maxHeight: '80vh' }}>
+              <div className="flex justify-center pt-3 pb-2"><div className="w-10 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.15)' }} /></div>
+              <div className="px-5 pb-2">
+                <p className="text-white text-[21px] font-extrabold tracking-tight">Choose your game</p>
+                <p className="text-[#555] text-[12px] mt-0.5">Each game changes what appears on your share card</p>
               </div>
-              <div className="px-5 mt-2">
-                <button onClick={() => { setShowCardPicker(false); setSheetStep('format'); setShowSheet(true) }} className="w-full py-4 rounded-[24px] text-white font-bold text-[16px] active:scale-95 transition-all" style={{ background: 'linear-gradient(135deg, #FF6B6B, #4D96FF)' }}>Use this card</button>
+              <div className="flex flex-col gap-2 px-5 pb-10 pt-2">
+                {ALL_CARD_TYPES.map(game => {
+                  const isSelected = selectedCard.id === game.id
+                  return (
+                    <button
+                      key={game.id}
+                      onClick={() => handleGameSelect(game)}
+                      className="w-full flex items-center gap-4 px-4 py-3.5 rounded-[18px] active:scale-[0.98] transition-all text-left"
+                      style={{
+                        background: isSelected ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.04)',
+                        border: isSelected ? '1.5px solid rgba(255,255,255,0.18)' : '1.5px solid transparent',
+                      }}
+                    >
+                      <span className="text-[26px] flex-shrink-0">{game.emoji}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-extrabold text-[14px] tracking-tight">{game.title}</p>
+                        <p className="text-[#555] text-[11px] mt-0.5 truncate">{game.subtitle}</p>
+                      </div>
+                      {isSelected && (
+                        <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center flex-shrink-0">
+                          <svg width="10" height="10" fill="none" viewBox="0 0 24 24">
+                            <path d="M5 13l4 4L19 7" stroke="#0D0D0D" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
               </div>
             </div>
           </div>
