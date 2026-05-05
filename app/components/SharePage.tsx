@@ -623,7 +623,12 @@ export default function SharePage({ profile }: Props) {
     const file = new File([blob], filename, { type: mime })
     const shareData = { files: [file], title: 'TBH', text: shareLink }
     if (navigator.share && navigator.canShare?.(shareData)) {
-      try { await navigator.share(shareData); setShareReady(null); return }
+      try {
+        await navigator.share(shareData)
+        setShareReady(null)
+        setSharedPlatforms(prev => prev.includes('share') ? prev : [...prev, 'share'])
+        return
+      }
       catch (e: any) { if (e?.name === 'AbortError') { setShareReady(null); return } }
     }
     // fallback: trigger download
@@ -633,6 +638,7 @@ export default function SharePage({ profile }: Props) {
     document.body.appendChild(a); a.click(); document.body.removeChild(a)
     setTimeout(() => URL.revokeObjectURL(url), 30000)
     setShareReady(null)
+    setSharedPlatforms(prev => prev.includes('share') ? prev : [...prev, 'share'])
   }
 
   const handleCopy = async () => {
