@@ -48,7 +48,11 @@ export default function RootLayout({
         <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-icon-180.png" />
       </head>
       <body>
-        {children}
+        <div id="desktop-bg">
+          <div id="app-shell">
+            {children}
+          </div>
+        </div>
         <Analytics />
       </body>
     </html>
