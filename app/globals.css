@@ -124,3 +124,58 @@
   @apply bg-white/30;
 }
 
+/* ── Desktop layout: phone frame centred in viewport ── */
+#desktop-bg {
+  width: 100%;
+  min-height: 100dvh;
+}
+
+#app-shell {
+  width: 100%;
+  min-height: 100dvh;
+}
+
+@media (min-width: 768px) {
+  #desktop-bg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px;
+    background: linear-gradient(160deg, #ECECF4 0%, #E4E4EE 60%, #EBE6F0 100%);
+  }
+
+  #app-shell {
+    width: 430px;
+    min-width: 430px;
+    height: min(900px, 90vh);
+    min-height: unset;
+    border-radius: 44px;
+    overflow: hidden;
+    box-shadow:
+      0 40px 120px rgba(0, 0, 0, 0.22),
+      0 8px 32px rgba(0, 0, 0, 0.10),
+      0 0 0 1px rgba(0, 0, 0, 0.07);
+    position: relative;
+  }
+
+  /* Scrollbar hidden on desktop for cleaner phone look */
+  #app-shell ::-webkit-scrollbar { display: none; }
+  #app-shell * { scrollbar-width: none; }
+
+  /* Dynamic Island pill at top of phone frame */
+  #app-shell::before {
+    content: '';
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 34px;
+    background: #000;
+    border-radius: 20px;
+    z-index: 9999;
+    pointer-events: none;
+  }
+}
+
