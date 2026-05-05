@@ -162,20 +162,65 @@ function supportsCanvasFilter(): boolean {
   } catch { return false }
 }
 
+// Separable box blur on raw pixel data — 3 passes ≈ Gaussian
+// At 1/8 scale with radius=4: effective blur ~32px at full canvas resolution
+function applySoftBlur(data: Uint8ClampedArray, w: number, h: number, radius: number) {
+  const tmp = new Uint8ClampedArray(data.length)
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let rv = 0, gv = 0, bv = 0, n = 0
+      for (let dx = -radius; dx <= radius; dx++) {
+        const nx = Math.min(w - 1, Math.max(0, x + dx))
+        const p = (y * w + nx) * 4
+        rv += data[p]; gv += data[p + 1]; bv += data[p + 2]; n++
+      }
+      const p = (y * w + x) * 4
+      tmp[p] = rv / n; tmp[p + 1] = gv / n; tmp[p + 2] = bv / n; tmp[p + 3] = data[p + 3]
+    }
+  }
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let rv = 0, gv = 0, bv = 0, n = 0
+      for (let dy = -radius; dy <= radius; dy++) {
+        const ny = Math.min(h - 1, Math.max(0, y + dy))
+        const p = (ny * w + x) * 4
+        rv += tmp[p]; gv += tmp[p + 1]; bv += tmp[p + 2]; n++
+      }
+      const p = (y * w + x) * 4
+      data[p] = rv / n; data[p + 1] = gv / n; data[p + 2] = bv / n
+    }
+  }
+}
+
 function buildBlurCanvas(img: HTMLImageElement, W: number, H: number): HTMLCanvasElement {
-  const s1 = document.createElement('canvas')
-  s1.width = Math.max(2, W >> 3); s1.height = Math.max(2, H >> 3)
-  s1.getContext('2d')!.drawImage(img, 0, 0, s1.width, s1.height)
-  const s2 = document.createElement('canvas')
-  s2.width = Math.max(2, W >> 2); s2.height = Math.max(2, H >> 2)
-  s2.getContext('2d')!.drawImage(s1, 0, 0, s2.width, s2.height)
-  const s3 = document.createElement('canvas')
-  s3.width = Math.max(2, W >> 1); s3.height = Math.max(2, H >> 1)
-  s3.getContext('2d')!.drawImage(s2, 0, 0, s3.width, s3.height)
-  const s4 = document.createElement('canvas')
-  s4.width = W + 120; s4.height = H + 120
-  s4.getContext('2d')!.drawImage(s3, 0, 0, s4.width, s4.height)
-  return s4
+  // Work at 1/8 scale — small enough for fast JS blur, large enough for smooth upscale
+  const sw = Math.max(4, W >> 3)
+  const sh = Math.max(4, H >> 3)
+  const small = document.createElement('canvas')
+  small.width = sw; small.height = sh
+  const sctx = small.getContext('2d')!
+  sctx.drawImage(img, 0, 0, sw, sh)
+
+  // 3 passes of box blur with radius 4 → approximates Gaussian, ~32px effective radius at full scale
+  const imgData = sctx.getImageData(0, 0, sw, sh)
+  applySoftBlur(imgData.data, sw, sh, 4)
+  applySoftBlur(imgData.data, sw, sh, 4)
+  applySoftBlur(imgData.data, sw, sh, 4)
+  sctx.putImageData(imgData, 0, 0)
+
+  // Step-by-step upscale: each 2× step is smooth bilinear, no blocky artifacts
+  const m1 = document.createElement('canvas')
+  m1.width = Math.max(2, W >> 2); m1.height = Math.max(2, H >> 2)
+  m1.getContext('2d')!.drawImage(small, 0, 0, m1.width, m1.height)
+
+  const m2 = document.createElement('canvas')
+  m2.width = Math.max(2, W >> 1); m2.height = Math.max(2, H >> 1)
+  m2.getContext('2d')!.drawImage(m1, 0, 0, m2.width, m2.height)
+
+  const out = document.createElement('canvas')
+  out.width = W + 120; out.height = H + 120
+  out.getContext('2d')!.drawImage(m2, 0, 0, out.width, out.height)
+  return out
 }
 
 // Draw blurred pfp background onto ctx — shared between image and GIF
@@ -189,7 +234,7 @@ function drawBlurredBg(
 ) {
   if (hasFilter) {
     ctx.save()
-    ctx.filter = 'blur(40px) brightness(0.25)'
+    ctx.filter = 'blur(40px) brightness(0.35)'
     ctx.drawImage(pfpImg, -60 - extra, -60 - extra, W + 120 + extra * 2, H + 120 + extra * 2)
     ctx.filter = 'none'
     ctx.restore()
@@ -197,7 +242,7 @@ function drawBlurredBg(
     ctx.save()
     ctx.globalAlpha = 1
     ctx.drawImage(blurTmp, -60 - extra, -60 - extra, W + 120 + extra * 2, H + 120 + extra * 2)
-    ctx.fillStyle = 'rgba(0,0,0,0.72)'
+    ctx.fillStyle = 'rgba(0,0,0,0.50)'
     ctx.fillRect(-60 - extra, -60 - extra, W + 120 + extra * 2, H + 120 + extra * 2)
     ctx.restore()
   }
