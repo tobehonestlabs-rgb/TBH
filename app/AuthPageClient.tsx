@@ -57,6 +57,7 @@ function InfiniteRow({ cards, reverse = false, speed = 28 }: {
         {doubled.map((card, i) => (
           <div
             key={i}
+            className="auth-card"
             style={{
               background: card.bg,
               color: card.color,
@@ -68,6 +69,8 @@ function InfiniteRow({ cards, reverse = false, speed = 28 }: {
               flexShrink: 0,
               letterSpacing: '-0.01em',
               boxShadow: '0 2px 12px rgba(0,0,0,0.10)',
+              transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+              cursor: 'pointer',
             }}
           >
             {card.text}
@@ -85,6 +88,20 @@ export default function AuthPageClient() {
   const [otpSent, setOtpSent] = useState(false)
   const [otp, setOtp] = useState('')
   const [emailError, setEmailError] = useState<string | null>(null)
+  const [liveCount, setLiveCount] = useState(12473)
+  const [glow, setGlow] = useState({ x: 50, y: 30 })
+  const heroRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const t = setInterval(() => setLiveCount(c => c + Math.floor(Math.random() * 4) + 1), 2200)
+    return () => clearInterval(t)
+  }, [])
+
+  const handleHeroMove = (e: React.MouseEvent) => {
+    const r = heroRef.current?.getBoundingClientRect()
+    if (!r) return
+    setGlow({ x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 })
+  }
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -144,14 +161,43 @@ export default function AuthPageClient() {
 
   return (
     <main
-      className="min-h-screen bg-white flex flex-col items-center justify-center overflow-hidden"
+      className="min-h-screen bg-white flex flex-col items-center justify-center overflow-hidden relative"
       style={{ fontFamily: font }}
+      onMouseMove={handleHeroMove}
     >
+      {/* Cursor-tracked ambient glow */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 transition-opacity duration-300"
+        style={{
+          background: `radial-gradient(circle 280px at ${glow.x}% ${glow.y}%, rgba(255,107,157,0.18), rgba(77,150,255,0.10) 40%, transparent 70%)`,
+        }}
+      />
+
       {/* ── Hero section ── */}
-      <div className="flex flex-col items-center px-6 pt-16 pb-8 w-full max-w-sm">
+      <div ref={heroRef} className="flex flex-col items-center px-6 pt-16 pb-8 w-full max-w-sm relative z-10">
+
+        {/* Live activity pill */}
+        <div
+          className="flex items-center gap-2 mb-5 px-3 py-1.5 rounded-full"
+          style={{
+            background: 'rgba(255,255,255,0.85)',
+            boxShadow: '0 4px 18px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.05)',
+            animation: 'fadeSlideUp 0.5s ease forwards',
+            opacity: 0,
+          }}
+        >
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full rounded-full bg-[#34C759] opacity-75 animate-ping" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#34C759]" />
+          </span>
+          <span style={{ fontSize: '12px', fontWeight: 700, color: '#0D0D0D', letterSpacing: '-0.01em' }}>
+            {liveCount.toLocaleString()} messages sent today
+          </span>
+        </div>
 
         {/* Logo */}
-        <div style={{ animation: 'fadeSlideUp 0.5s ease forwards', opacity: 0 }}>
+        <div style={{ animation: 'fadeSlideUp 0.5s ease 0.05s forwards', opacity: 0 }}>
           <Image
             src="/assets/TBH_Title_Logo.svg"
             alt="TBH"
@@ -164,10 +210,13 @@ export default function AuthPageClient() {
 
         {/* Headline */}
         <div style={{ animation: 'fadeSlideUp 0.5s ease 0.1s forwards', opacity: 0 }} className="text-center mb-8">
-          <h1 style={{ fontSize: '26px', fontWeight: '900', color: '#0D0D0D', letterSpacing: '-0.03em', lineHeight: 1.15, margin: 0 }}>
-            Join,<br />the fun.
+          <h1 style={{ fontSize: '32px', fontWeight: '900', color: '#0D0D0D', letterSpacing: '-0.035em', lineHeight: 1.05, margin: 0 }}>
+            Join,<br />
+            <span style={{ background: 'linear-gradient(135deg, #FF512F 0%, #F09819 50%, #FF6B9D 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+              the fun.
+            </span>
           </h1>
-          <p style={{ fontSize: '14px', color: '#888', marginTop: '8px', fontWeight: '500' }}>
+          <p style={{ fontSize: '14px', color: '#888', marginTop: '10px', fontWeight: '500' }}>
             Send & receive honest messages,<br />confessions, and more.
           </p>
         </div>
@@ -182,8 +231,8 @@ export default function AuthPageClient() {
               <button
                 onClick={handleGoogleLogin}
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 bg-[#0D0D0D] text-white rounded-[14px] active:scale-95 transition-transform disabled:opacity-50"
-                style={{ height: '46px' }}
+                className="w-full flex items-center justify-center gap-2 bg-[#0D0D0D] text-white rounded-[14px] active:scale-95 transition-all disabled:opacity-50 hover:shadow-[0_8px_24px_rgba(13,13,13,0.25)]"
+                style={{ height: '48px' }}
               >
                 {loading ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -197,8 +246,8 @@ export default function AuthPageClient() {
 
               <button
                 onClick={() => setShowEmailForm(true)}
-                className="w-full flex items-center justify-center gap-2 bg-[#F2F2F2] text-[#0D0D0D] rounded-[14px] active:scale-95 transition-transform"
-                style={{ height: '46px' }}
+                className="w-full flex items-center justify-center gap-2 bg-[#F4F4F6] text-[#0D0D0D] rounded-[14px] active:scale-95 transition-all hover:bg-[#EEEEF0]"
+                style={{ height: '48px' }}
               >
                 <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
                   <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke="#0D0D0D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -310,6 +359,10 @@ export default function AuthPageClient() {
         @keyframes scrollRev {
           0%   { transform: translateX(-50%); }
           100% { transform: translateX(0); }
+        }
+        .auth-card:hover {
+          transform: translateY(-4px) scale(1.04);
+          box-shadow: 0 8px 28px rgba(0,0,0,0.16) !important;
         }
       `}</style>
     </main>
