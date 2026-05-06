@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Image from 'next/image'
 import { createBrowserClient } from '@supabase/ssr'
 
@@ -92,13 +92,6 @@ export default function AuthPageClient() {
   const [otpSent, setOtpSent] = useState(false)
   const [otp, setOtp] = useState('')
   const [emailError, setEmailError] = useState<string | null>(null)
-  const [liveCount, setLiveCount] = useState(12473)
-
-  useEffect(() => {
-    const t = setInterval(() => setLiveCount(c => c + Math.floor(Math.random() * 4) + 1), 2800)
-    return () => clearInterval(t)
-  }, [])
-
   const font = "'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif"
 
   const handleGoogleLogin = async () => {
@@ -162,22 +155,8 @@ export default function AuthPageClient() {
       {/* ── Hero section ── */}
       <div className="flex flex-col items-center px-6 pt-16 pb-8 w-full max-w-sm relative z-10">
 
-        {/* Live activity pill */}
-        <div
-          className="flex items-center gap-2 mb-5 px-3 py-1.5 rounded-full"
-          style={{ animation: 'fadeSlideUp 0.5s ease forwards', opacity: 0, background: 'rgba(255,255,255,0.9)', boxShadow: '0 4px 18px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.05)' }}
-        >
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full rounded-full bg-[#34C759] opacity-75 animate-ping" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#34C759]" />
-          </span>
-          <span style={{ fontSize: '12px', fontWeight: 700, color: '#0D0D0D', letterSpacing: '-0.01em' }}>
-            {liveCount.toLocaleString()} messages sent today
-          </span>
-        </div>
-
         {/* Logo */}
-        <div style={{ animation: 'fadeSlideUp 0.5s ease 0.08s forwards', opacity: 0 }}>
+        <div style={{ animation: 'fadeSlideUp 0.5s ease forwards', opacity: 0 }}>
           <Image
             src="/assets/TBH_Title_Logo.svg"
             alt="TBH"
