@@ -135,6 +135,8 @@
   min-height: 100dvh;
 }
 
+#desktop-decor { display: none; }
+
 @media (min-width: 768px) {
   #desktop-bg {
     display: flex;
@@ -142,7 +144,13 @@
     justify-content: center;
     min-height: 100vh;
     padding: 24px;
-    background: linear-gradient(160deg, #ECECF4 0%, #E4E4EE 60%, #EBE6F0 100%);
+    background:
+      radial-gradient(ellipse 60% 50% at 50% 50%, rgba(255, 235, 210, 0.45) 0%, transparent 60%),
+      radial-gradient(ellipse 80% 70% at 0% 100%, rgba(199, 220, 255, 0.4) 0%, transparent 50%),
+      radial-gradient(ellipse 80% 70% at 100% 0%, rgba(255, 220, 240, 0.4) 0%, transparent 50%),
+      #FFFFFF;
+    position: relative;
+    overflow: hidden;
   }
 
   #app-shell {
@@ -157,9 +165,9 @@
       0 8px 32px rgba(0, 0, 0, 0.10),
       0 0 0 1px rgba(0, 0, 0, 0.07);
     position: relative;
+    z-index: 1;
   }
 
-  /* Scrollbar hidden on desktop for cleaner phone look */
   #app-shell ::-webkit-scrollbar { display: none; }
   #app-shell * { scrollbar-width: none; }
 
@@ -177,5 +185,39 @@
     z-index: 9999;
     pointer-events: none;
   }
+
+  /* Floating message cards scattered around the phone frame */
+  #desktop-decor {
+    display: block;
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .decor-card {
+    position: absolute;
+    padding: 13px 19px;
+    border-radius: 16px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    box-shadow: 0 6px 28px rgba(0, 0, 0, 0.10), 0 1px 3px rgba(0, 0, 0, 0.06);
+    transform: rotate(var(--rot, 0deg));
+    animation: floatyDecor var(--dur, 8s) ease-in-out infinite;
+    animation-delay: var(--delay, 0s);
+    will-change: transform;
+  }
+
+  @keyframes floatyDecor {
+    0%, 100% { transform: rotate(var(--rot, 0deg)) translateY(0); }
+    50%      { transform: rotate(var(--rot, 0deg)) translateY(-14px); }
+  }
+}
+
+/* Hide decor cards if viewport too narrow to fit them around the phone */
+@media (max-width: 1100px) {
+  #desktop-decor { display: none !important; }
 }
 

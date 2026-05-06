@@ -79,14 +79,14 @@ const PHRASES = [
 ]
 
 const CARD_COLORS = [
-  { id: 'magma',    label: 'Magma',  stops: ['#FF411D', '#550B00'], ring: ['#FF411D', '#FF8F1D', '#FFBF00'] },
-  { id: 'neon',     label: 'Vibe',   stops: ['#8A2BE2', '#000814'], ring: ['#8A2BE2', '#E0B0FF', '#4D96FF'] },
-  { id: 'azure',    label: 'Azure',  stops: ['#00D2FF', '#000046'], ring: ['#00D2FF', '#3A7BD5', '#00F2FE'] },
-  { id: 'emerald',  label: 'Jungle', stops: ['#00B09B', '#111111'], ring: ['#00B09B', '#96C93D', '#00FF87'] },
-  { id: 'titanium', label: 'Chrome', stops: ['#757F9A', '#1C1C1C'], ring: ['#FFFFFF', '#D7DDE8', '#757F9A'] },
-  { id: 'hyper',    label: 'Volt',   stops: ['#F7971E', '#FFD200'], ring: ['#FFD200', '#FFFFFF', '#FF8C00'] },
-  { id: 'bloom',    label: 'Blush',  stops: ['#F953C6', '#2A0845'], ring: ['#F953C6', '#FF9A9E', '#B91D73'] },
-  { id: 'nebula',   label: 'Cosmos', stops: ['#4facfe', '#000000'], ring: ['#4facfe', '#00f2fe', '#FFFFFF'] },
+  { id: 'magma',    label: 'Magma',   stops: ['#FF512F', '#F09819'], ring: ['#FF512F', '#FFD60A', '#FF8F1D'] },
+  { id: 'sunset',   label: 'Sunset',  stops: ['#FF6B9D', '#FFC371'], ring: ['#FF6B9D', '#FFC371', '#FFE0B2'] },
+  { id: 'azure',    label: 'Azure',   stops: ['#2193B0', '#6DD5ED'], ring: ['#2193B0', '#6DD5ED', '#FFFFFF'] },
+  { id: 'emerald',  label: 'Jungle',  stops: ['#11998E', '#38EF7D'], ring: ['#11998E', '#38EF7D', '#A8FF78'] },
+  { id: 'violet',   label: 'Violet',  stops: ['#834D9B', '#D04ED6'], ring: ['#D04ED6', '#834D9B', '#FBC2EB'] },
+  { id: 'amber',    label: 'Amber',   stops: ['#F7B733', '#FC4A1A'], ring: ['#FC4A1A', '#F7B733', '#FFD60A'] },
+  { id: 'bloom',    label: 'Bloom',   stops: ['#FF9A9E', '#FAD0C4'], ring: ['#FF9A9E', '#FAD0C4', '#FECFEF'] },
+  { id: 'ocean',    label: 'Ocean',   stops: ['#4E54C8', '#8F94FB'], ring: ['#4E54C8', '#8F94FB', '#A8EDEA'] },
 ]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
