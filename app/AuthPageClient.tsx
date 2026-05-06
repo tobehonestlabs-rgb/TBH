@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { createBrowserClient } from '@supabase/ssr'
 
@@ -43,7 +43,6 @@ function InfiniteRow({ cards, reverse = false, speed = 28 }: {
   speed?: number
 }) {
   const doubled = [...cards, ...cards]
-
   return (
     <div className="overflow-hidden relative" style={{ maskImage: 'linear-gradient(90deg, transparent, black 12%, black 88%, transparent)', WebkitMaskImage: 'linear-gradient(90deg, transparent, black 12%, black 88%, transparent)' }}>
       <div
@@ -69,8 +68,8 @@ function InfiniteRow({ cards, reverse = false, speed = 28 }: {
               flexShrink: 0,
               letterSpacing: '-0.01em',
               boxShadow: '0 2px 12px rgba(0,0,0,0.10)',
-              transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-              cursor: 'pointer',
+              transition: 'transform 0.18s ease, box-shadow 0.18s ease',
+              cursor: 'default',
             }}
           >
             {card.text}
@@ -81,6 +80,11 @@ function InfiniteRow({ cards, reverse = false, speed = 28 }: {
   )
 }
 
+const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
 export default function AuthPageClient() {
   const [loading, setLoading] = useState(false)
   const [showEmailForm, setShowEmailForm] = useState(false)
@@ -89,24 +93,11 @@ export default function AuthPageClient() {
   const [otp, setOtp] = useState('')
   const [emailError, setEmailError] = useState<string | null>(null)
   const [liveCount, setLiveCount] = useState(12473)
-  const [glow, setGlow] = useState({ x: 50, y: 30 })
-  const heroRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const t = setInterval(() => setLiveCount(c => c + Math.floor(Math.random() * 4) + 1), 2200)
+    const t = setInterval(() => setLiveCount(c => c + Math.floor(Math.random() * 4) + 1), 2800)
     return () => clearInterval(t)
   }, [])
-
-  const handleHeroMove = (e: React.MouseEvent) => {
-    const r = heroRef.current?.getBoundingClientRect()
-    if (!r) return
-    setGlow({ x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 })
-  }
-
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
 
   const font = "'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif"
 
@@ -126,10 +117,7 @@ export default function AuthPageClient() {
     try {
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
-        options: {
-          shouldCreateUser: true,
-          emailRedirectTo: `https://tbhonest.net/auth/callback`,
-        },
+        options: { shouldCreateUser: true, emailRedirectTo: `https://tbhonest.net/auth/callback` },
       })
       if (error) throw error
       setOtpSent(true)
@@ -161,31 +149,23 @@ export default function AuthPageClient() {
 
   return (
     <main
-      className="min-h-screen bg-white flex flex-col items-center justify-center overflow-hidden relative"
+      className="min-h-screen bg-white flex flex-col items-center justify-center overflow-hidden"
       style={{ fontFamily: font }}
-      onMouseMove={handleHeroMove}
     >
-      {/* Cursor-tracked ambient glow */}
+      {/* Static ambient glow — no mouse tracking, no re-renders */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 transition-opacity duration-300"
-        style={{
-          background: `radial-gradient(circle 280px at ${glow.x}% ${glow.y}%, rgba(255,107,157,0.18), rgba(77,150,255,0.10) 40%, transparent 70%)`,
-        }}
+        className="pointer-events-none absolute inset-0"
+        style={{ background: 'radial-gradient(ellipse 70% 50% at 50% 20%, rgba(255,107,157,0.12) 0%, rgba(77,150,255,0.08) 50%, transparent 70%)' }}
       />
 
       {/* ── Hero section ── */}
-      <div ref={heroRef} className="flex flex-col items-center px-6 pt-16 pb-8 w-full max-w-sm relative z-10">
+      <div className="flex flex-col items-center px-6 pt-16 pb-8 w-full max-w-sm relative z-10">
 
         {/* Live activity pill */}
         <div
           className="flex items-center gap-2 mb-5 px-3 py-1.5 rounded-full"
-          style={{
-            background: 'rgba(255,255,255,0.85)',
-            boxShadow: '0 4px 18px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.05)',
-            animation: 'fadeSlideUp 0.5s ease forwards',
-            opacity: 0,
-          }}
+          style={{ animation: 'fadeSlideUp 0.5s ease forwards', opacity: 0, background: 'rgba(255,255,255,0.9)', boxShadow: '0 4px 18px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.05)' }}
         >
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full rounded-full bg-[#34C759] opacity-75 animate-ping" />
@@ -197,7 +177,7 @@ export default function AuthPageClient() {
         </div>
 
         {/* Logo */}
-        <div style={{ animation: 'fadeSlideUp 0.5s ease 0.05s forwards', opacity: 0 }}>
+        <div style={{ animation: 'fadeSlideUp 0.5s ease 0.08s forwards', opacity: 0 }}>
           <Image
             src="/assets/TBH_Title_Logo.svg"
             alt="TBH"
@@ -209,7 +189,7 @@ export default function AuthPageClient() {
         </div>
 
         {/* Headline */}
-        <div style={{ animation: 'fadeSlideUp 0.5s ease 0.1s forwards', opacity: 0 }} className="text-center mb-8">
+        <div style={{ animation: 'fadeSlideUp 0.5s ease 0.16s forwards', opacity: 0 }} className="text-center mb-8">
           <h1 style={{ fontSize: '32px', fontWeight: '900', color: '#0D0D0D', letterSpacing: '-0.035em', lineHeight: 1.05, margin: 0 }}>
             Join,<br />
             <span style={{ background: 'linear-gradient(135deg, #FF512F 0%, #F09819 50%, #FF6B9D 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
@@ -224,14 +204,14 @@ export default function AuthPageClient() {
         {/* ── Auth ── */}
         <div
           className="w-full flex flex-col gap-2"
-          style={{ animation: 'fadeSlideUp 0.5s ease 0.2s forwards', opacity: 0 }}
+          style={{ animation: 'fadeSlideUp 0.5s ease 0.24s forwards', opacity: 0 }}
         >
           {!showEmailForm ? (
             <>
               <button
                 onClick={handleGoogleLogin}
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 bg-[#0D0D0D] text-white rounded-[14px] active:scale-95 transition-all disabled:opacity-50 hover:shadow-[0_8px_24px_rgba(13,13,13,0.25)]"
+                className="w-full flex items-center justify-center gap-2 bg-[#0D0D0D] text-white rounded-[14px] active:scale-95 transition-transform disabled:opacity-50"
                 style={{ height: '48px' }}
               >
                 {loading ? (
@@ -246,7 +226,7 @@ export default function AuthPageClient() {
 
               <button
                 onClick={() => setShowEmailForm(true)}
-                className="w-full flex items-center justify-center gap-2 bg-[#F4F4F6] text-[#0D0D0D] rounded-[14px] active:scale-95 transition-all hover:bg-[#EEEEF0]"
+                className="w-full flex items-center justify-center gap-2 bg-[#F4F4F6] text-[#0D0D0D] rounded-[14px] active:scale-95 transition-transform"
                 style={{ height: '48px' }}
               >
                 <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
@@ -340,7 +320,7 @@ export default function AuthPageClient() {
       {/* ── Sliding cards ── */}
       <div
         className="w-full flex flex-col gap-[10px] pb-10"
-        style={{ animation: 'fadeSlideUp 0.5s ease 0.35s forwards', opacity: 0 }}
+        style={{ animation: 'fadeSlideUp 0.5s ease 0.38s forwards', opacity: 0 }}
       >
         <InfiniteRow cards={CARD_ROWS[0]} speed={32} />
         <InfiniteRow cards={CARD_ROWS[1]} reverse speed={26} />
@@ -361,8 +341,8 @@ export default function AuthPageClient() {
           100% { transform: translateX(0); }
         }
         .auth-card:hover {
-          transform: translateY(-4px) scale(1.04);
-          box-shadow: 0 8px 28px rgba(0,0,0,0.16) !important;
+          transform: translateY(-3px) scale(1.03);
+          box-shadow: 0 8px 24px rgba(0,0,0,0.14) !important;
         }
       `}</style>
     </main>
