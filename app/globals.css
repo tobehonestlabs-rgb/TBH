@@ -159,7 +159,11 @@
     height: min(900px, 90vh);
     min-height: unset;
     border-radius: 44px;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+    /* transform creates a new stacking context so position:fixed children
+       (bottom sheets, modals) are contained inside the phone frame */
+    transform: translateZ(0);
     box-shadow:
       0 40px 120px rgba(0, 0, 0, 0.22),
       0 8px 32px rgba(0, 0, 0, 0.10),
@@ -185,39 +189,5 @@
     z-index: 9999;
     pointer-events: none;
   }
-
-  /* Floating message cards scattered around the phone frame */
-  #desktop-decor {
-    display: block;
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  .decor-card {
-    position: absolute;
-    padding: 13px 19px;
-    border-radius: 16px;
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    white-space: nowrap;
-    box-shadow: 0 6px 28px rgba(0, 0, 0, 0.10), 0 1px 3px rgba(0, 0, 0, 0.06);
-    transform: rotate(var(--rot, 0deg));
-    animation: floatyDecor var(--dur, 8s) ease-in-out infinite;
-    animation-delay: var(--delay, 0s);
-    will-change: transform;
-  }
-
-  @keyframes floatyDecor {
-    0%, 100% { transform: rotate(var(--rot, 0deg)) translateY(0); }
-    50%      { transform: rotate(var(--rot, 0deg)) translateY(-14px); }
-  }
-}
-
-/* Hide decor cards if viewport too narrow to fit them around the phone */
-@media (max-width: 1100px) {
-  #desktop-decor { display: none !important; }
 }
 
