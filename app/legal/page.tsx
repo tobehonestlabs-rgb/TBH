@@ -5,7 +5,7 @@ import Link from 'next/link'
 
 export default function LegalPage() {
   return (
-    <main className="min-h-screen bg-white text-gray-900 px-6 py-12 flex flex-col items-center">
+    <main className="legal-scroll h-full overflow-y-auto bg-white text-gray-900 px-6 py-12 flex flex-col items-center">
       {/* Logo */}
       <div className="mb-12">
         <Link href="/">

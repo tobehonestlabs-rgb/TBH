@@ -72,7 +72,7 @@ export default function HomePage() {
  
   return (
     <main
-      className="min-h-screen bg-white flex flex-col overflow-hidden"
+      className="h-full bg-white flex flex-col overflow-hidden"
       style={{ fontFamily: "'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif" }}
     >
       <NotificationSetup />
