@@ -280,13 +280,13 @@ export default function MessagesPage({ onUnreadChange }: Props) {
                   <div className="flex gap-3">
                     <button
                       onClick={() => setShowReply(true)}
-                      className="flex-1 py-[15px] rounded-[16px] bg-[#0D0D0D] text-white font-bold text-[15px] active:scale-95 transition-transform"
+                      className="flex-1 py-[15px] rounded-full bg-[#0D0D0D] text-white font-bold text-[15px] active:scale-95 transition-transform"
                     >
                       Reply
                     </button>
                     <button
                       onClick={handleShare}
-                      className="flex-1 py-[15px] rounded-[16px] font-bold text-[15px] active:scale-95 transition-transform"
+                      className="flex-1 py-[15px] rounded-full font-bold text-[15px] active:scale-95 transition-transform"
                       style={{ background: '#F2F2F2', color: '#0D0D0D' }}
                     >
                       Share
@@ -324,7 +324,7 @@ export default function MessagesPage({ onUnreadChange }: Props) {
                   <button
                     onClick={handleSendReply}
                     disabled={!replyText.trim()}
-                    className="w-full py-[15px] rounded-[16px] bg-[#0D0D0D] text-white font-bold text-[15px] active:scale-95 transition-transform disabled:opacity-40"
+                    className="w-full py-[15px] rounded-full bg-[#0D0D0D] text-white font-bold text-[15px] active:scale-95 transition-transform disabled:opacity-40"
                   >
                     Send Reply
                   </button>

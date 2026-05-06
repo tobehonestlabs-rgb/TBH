@@ -107,22 +107,19 @@
 .slide-from-right { animation: slideInFromRight 0.28s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
 .slide-from-left  { animation: slideInFromLeft  0.28s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-}
+/* Hide scrollbars by default everywhere */
+::-webkit-scrollbar { display: none; width: 0; height: 0; }
+* { scrollbar-width: none; -ms-overflow-style: none; }
 
-::-webkit-scrollbar-track {
-  @apply bg-black;
+/* Stylish scrollbar exclusively on the legal page scroll container */
+.legal-scroll { scrollbar-width: thin; scrollbar-color: rgba(0,0,0,0.22) transparent; }
+.legal-scroll::-webkit-scrollbar { display: block; width: 6px; }
+.legal-scroll::-webkit-scrollbar-track { background: transparent; margin: 16px 0; }
+.legal-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.20);
+  border-radius: 999px;
 }
-
-::-webkit-scrollbar-thumb {
-  @apply bg-white/20 rounded-full;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-white/30;
-}
+.legal-scroll::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.32); }
 
 /* ── Desktop layout: phone frame centred in viewport ── */
 #desktop-bg {
@@ -132,7 +129,12 @@
 
 #app-shell {
   width: 100%;
-  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
+  position: relative;
+  /* transform creates a new stacking context so position:fixed children
+     (bottom sheets, modals) are contained inside the phone frame */
+  transform: translateZ(0);
 }
 
 #desktop-decor { display: none; }
@@ -157,23 +159,14 @@
     width: 430px;
     min-width: 430px;
     height: min(900px, 90vh);
-    min-height: unset;
     border-radius: 44px;
-    overflow-x: hidden;
-    overflow-y: auto;
-    /* transform creates a new stacking context so position:fixed children
-       (bottom sheets, modals) are contained inside the phone frame */
-    transform: translateZ(0);
+    overflow: hidden;
     box-shadow:
       0 40px 120px rgba(0, 0, 0, 0.22),
       0 8px 32px rgba(0, 0, 0, 0.10),
       0 0 0 1px rgba(0, 0, 0, 0.07);
-    position: relative;
     z-index: 1;
   }
-
-  #app-shell ::-webkit-scrollbar { display: none; }
-  #app-shell * { scrollbar-width: none; }
 
   /* Dynamic Island pill at top of phone frame */
   #app-shell::before {
