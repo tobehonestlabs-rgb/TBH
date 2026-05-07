@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { UserProfile } from '@/app/home/page'
 import Link from 'next/link'
 import { supabaseClient } from '@/lib/supabaseClient'
@@ -565,7 +566,7 @@ export default function SharePage({ profile }: Props) {
   // 'format' → pick Image/GIF, 'color' → pick color (after format chosen)
   const [sheetStep, setSheetStep]         = useState<'format' | 'color'>('format')
   const [shareMode, setShareMode]         = useState<'image' | 'gif'>('image')
-  const [selectedColor, setSelectedColor] = useState(CARD_COLORS[0])
+  const [selectedColor, setSelectedColor] = useState(CARD_COLORS[1])
   const [phraseIndex, setPhraseIndex]     = useState(0)
   const [phraseVisible, setPhraseVisible] = useState(true)
   const [showHelpModal, setShowHelpModal] = useState(false)
@@ -573,6 +574,9 @@ export default function SharePage({ profile }: Props) {
   const [sheetClosing, setSheetClosing]         = useState(false)
   const [gamePickerClosing, setGamePickerClosing] = useState(false)
   const [shareReady, setShareReady] = useState<{ blob: Blob; filename: string; isGif: boolean } | null>(null)
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
+
+  useEffect(() => { setPortalTarget(document.getElementById('app-shell')) }, [])
 
   const shareLink = profile?.slug
     ? `${typeof window !== 'undefined' ? window.location.origin : 'https://tbhonest.net'}/send/${profile.slug}`
@@ -877,9 +881,9 @@ export default function SharePage({ profile }: Props) {
       </Link>
 
       {/* ── Share sheet (format → color) ── */}
-      {showSheet && (
+      {showSheet && portalTarget && createPortal(
         <div
-          className="absolute inset-0 z-50 flex flex-col justify-end"
+          className="fixed inset-0 z-50 flex flex-col justify-end"
           onTouchStart={e => e.stopPropagation()}
           onTouchEnd={e => e.stopPropagation()}
         >
@@ -1051,12 +1055,13 @@ export default function SharePage({ profile }: Props) {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        portalTarget
       )}
 
       {/* ── Edit prompt dialog ── */}
-      {editingPrompt && (
-        <div className="absolute inset-0 z-50 flex items-start justify-center px-6 pt-32">
+      {editingPrompt && portalTarget && createPortal(
+        <div className="fixed inset-0 z-50 flex items-start justify-center px-6 pt-32">
           <div className="absolute inset-0 backdrop-enter" style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }} onClick={() => setEditingPrompt(false)} />
           <div className="dialog-enter relative w-[320px] bg-white rounded-[24px] p-6 flex flex-col gap-4 shadow-2xl">
             <div className="flex flex-col gap-1">
@@ -1077,12 +1082,13 @@ export default function SharePage({ profile }: Props) {
               <button onClick={() => { setPromptText(tempPrompt); setEditingPrompt(false) }} className="flex-1 h-[44px] rounded-[14px] bg-[#0D0D0D] text-white text-[14px] font-bold active:scale-95 transition-transform">Save</button>
             </div>
           </div>
-        </div>
+        </div>,
+        portalTarget
       )}
 
       {/* ── Game picker sheet ── */}
-      {showGamePicker && (
-        <div className="absolute inset-0 z-50 flex flex-col justify-end" onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
+      {showGamePicker && portalTarget && createPortal(
+        <div className="fixed inset-0 z-50 flex flex-col justify-end" onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
           <div className={`absolute inset-0 ${gamePickerClosing ? 'backdrop-exit' : 'backdrop-enter'}`} style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }} onClick={() => { if (!gamePickerClosing) closeGamePicker() }} />
           <div className={`relative ${gamePickerClosing ? 'sheet-exit' : 'sheet-enter'} rounded-t-[32px] z-10 border-t border-white/[0.06]`} style={{ background: '#181818', maxHeight: '80vh' }}>
             <div className="relative z-10 overflow-y-auto" style={{ maxHeight: '80vh' }}>
@@ -1122,12 +1128,13 @@ export default function SharePage({ profile }: Props) {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        portalTarget
       )}
 
       {/* ── Share-ready overlay ── shown after generation completes ── */}
-      {shareReady && (
-        <div className="absolute inset-0 z-[60] flex flex-col justify-end" onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
+      {shareReady && portalTarget && createPortal(
+        <div className="fixed inset-0 z-[60] flex flex-col justify-end" onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
           <div className="absolute inset-0 backdrop-enter" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }} onClick={() => setShareReady(null)} />
           <div className="relative sheet-enter rounded-t-[32px] z-10 px-5 pt-5 pb-10 border-t border-white/[0.06]" style={{ background: '#181818' }}>
             <div className="flex justify-center mb-4">
@@ -1151,7 +1158,8 @@ export default function SharePage({ profile }: Props) {
               Cancel
             </button>
           </div>
-        </div>
+        </div>,
+        portalTarget
       )}
 
       <style jsx global>{`

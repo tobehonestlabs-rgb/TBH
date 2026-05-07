@@ -242,9 +242,14 @@ export default function MessagesPage({ onUnreadChange, isActive }: Props) {
             <div className="flex items-center justify-between px-5 pt-4 pb-2">
               <button
                 onClick={handleReport}
-                className="text-[#FF3B30] text-[13px] font-semibold active:opacity-60 transition-opacity"
+                className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+                style={{ background: '#FFF0EE' }}
+                title="Report"
               >
-                Report
+                <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
+                  <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" stroke="#FF3B30" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <line x1="4" y1="22" x2="4" y2="15" stroke="#FF3B30" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
               </button>
               {/* drag pill */}
               <div className="w-10 h-[5px] rounded-full bg-[#E0E0E0]" />
