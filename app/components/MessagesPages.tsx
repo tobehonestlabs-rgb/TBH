@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { supabaseClient } from '@/lib/supabaseClient'
 
 type Message = {
@@ -12,7 +13,10 @@ type Message = {
   contains_media: boolean
 }
 
-type Props = { onUnreadChange: (hasUnread: boolean) => void }
+type Props = {
+  onUnreadChange: (hasUnread: boolean) => void
+  isActive: boolean
+}
 
 function timeAgo(iso: string): string {
   try {
@@ -30,14 +34,31 @@ function timeAgo(iso: string): string {
   } catch { return 'now' }
 }
 
-export default function MessagesPage({ onUnreadChange }: Props) {
-  const [messages, setMessages] = useState<Message[]>([])
-  const [loading, setLoading] = useState(true)
+export default function MessagesPage({ onUnreadChange, isActive }: Props) {
+  const [messages, setMessages]       = useState<Message[]>([])
+  const [loading, setLoading]         = useState(true)
   const [selectedMsg, setSelectedMsg] = useState<Message | null>(null)
   const [sheetClosing, setSheetClosing] = useState(false)
   const [imageBlurred, setImageBlurred] = useState(true)
-  const [showReply, setShowReply] = useState(false)
-  const [replyText, setReplyText] = useState('')
+  const [showFullscreen, setShowFullscreen] = useState(false)
+  const [showReply, setShowReply]     = useState(false)
+  const [replyText, setReplyText]     = useState('')
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
+
+  useEffect(() => {
+    setPortalTarget(document.getElementById('app-shell'))
+  }, [])
+
+  // Close sheet when navigating away from Messages tab
+  useEffect(() => {
+    if (!isActive && selectedMsg) {
+      setSelectedMsg(null)
+      setSheetClosing(false)
+      setShowReply(false)
+      setReplyText('')
+      setShowFullscreen(false)
+    }
+  }, [isActive]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     let mounted = true
@@ -86,14 +107,22 @@ export default function MessagesPage({ onUnreadChange }: Props) {
       onUnreadChange(messages.filter(m => !m.isOpened && m.message_id !== msg.message_id).length > 0)
     }
     setSelectedMsg(msg)
+    setSheetClosing(false)
     setImageBlurred(true)
+    setShowFullscreen(false)
     setShowReply(false)
     setReplyText('')
   }
 
   const closeSheet = () => {
     setSheetClosing(true)
-    setTimeout(() => { setSelectedMsg(null); setSheetClosing(false); setShowReply(false); setReplyText('') }, 300)
+    setShowFullscreen(false)
+    setTimeout(() => {
+      setSelectedMsg(null)
+      setSheetClosing(false)
+      setShowReply(false)
+      setReplyText('')
+    }, 300)
   }
 
   const handleReport = async () => {
@@ -140,8 +169,9 @@ export default function MessagesPage({ onUnreadChange }: Props) {
     )
   }
 
-  const isImage = selectedMsg ? (selectedMsg.contains_media || !!selectedMsg.media_url) : false
-  const imageUrl = selectedMsg?.media_url || null
+  const isImageMessage = selectedMsg ? (selectedMsg.contains_media || !!selectedMsg.media_url) : false
+  const imageUrl       = selectedMsg?.media_url || null
+  const textContent    = selectedMsg?.content   || null
 
   return (
     <>
@@ -149,7 +179,7 @@ export default function MessagesPage({ onUnreadChange }: Props) {
       <div className="flex flex-col pt-2 pb-10">
         {messages.map(msg => {
           const hasImage = msg.contains_media || !!msg.media_url
-          const preview = msg.content ?? ''
+          const preview  = msg.content ?? ''
           return (
             <button
               key={msg.message_id}
@@ -200,34 +230,24 @@ export default function MessagesPage({ onUnreadChange }: Props) {
         })}
       </div>
 
-      {/* ── Message sheet ── */}
-      {selectedMsg && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end">
-          {/* Backdrop */}
+      {/* ── Full-screen message sheet (portaled to #app-shell to escape slide transform) ── */}
+      {selectedMsg && portalTarget && createPortal(
+        <div className="fixed inset-0 z-50 flex flex-col">
+          {/* Full-screen white panel slides up */}
           <div
-            className={`absolute inset-0 ${sheetClosing ? 'backdrop-exit' : 'backdrop-enter'}`}
-            style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
-            onClick={closeSheet}
-          />
-
-          {/* Sheet panel */}
-          <div
-            className={`relative ${sheetClosing ? 'sheet-exit' : 'sheet-enter'} rounded-t-[32px] bg-white z-10`}
-            style={{ boxShadow: '0 -8px 48px rgba(0,0,0,0.18), 0 -1px 0 rgba(0,0,0,0.04)' }}
+            className={`flex-1 ${sheetClosing ? 'sheet-exit' : 'sheet-enter'} bg-white flex flex-col overflow-hidden`}
+            style={{ borderRadius: '28px 28px 0 0' }}
           >
-            {/* Drag handle */}
-            <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 rounded-full bg-[#E0E0E0]" />
-            </div>
-
-            {/* Top bar: Report + Close */}
-            <div className="flex items-center justify-between px-5 py-2">
+            {/* Top bar */}
+            <div className="flex items-center justify-between px-5 pt-4 pb-2">
               <button
                 onClick={handleReport}
                 className="text-[#FF3B30] text-[13px] font-semibold active:opacity-60 transition-opacity"
               >
                 Report
               </button>
+              {/* drag pill */}
+              <div className="w-10 h-[5px] rounded-full bg-[#E0E0E0]" />
               <button
                 onClick={closeSheet}
                 className="w-8 h-8 rounded-full bg-[#F2F2F2] flex items-center justify-center active:scale-90 transition-transform"
@@ -238,60 +258,69 @@ export default function MessagesPage({ onUnreadChange }: Props) {
               </button>
             </div>
 
-            {/* Message content */}
-            <div className="px-5 pt-2 pb-4">
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto px-5 pt-4 pb-4">
               {!showReply ? (
                 <>
-                  {/* Message bubble */}
-                  <div
-                    className="w-full rounded-[24px] p-5 mb-3"
-                    style={{ background: '#F7F7F9' }}
-                  >
-                    {isImage && imageUrl && (
-                      <div className="mb-4">
-                        <div className="relative w-full rounded-[16px] overflow-hidden bg-[#EEE]" style={{ aspectRatio: '4/3' }}>
-                          <img src={imageUrl} alt="" className="w-full h-full object-cover" style={{ filter: imageBlurred ? 'blur(16px)' : 'none', transition: 'filter 0.3s ease' }} />
-                          {imageBlurred && (
-                            <button
-                              onClick={() => setImageBlurred(false)}
-                              className="absolute inset-0 flex items-center justify-center"
-                            >
-                              <div className="bg-black/60 rounded-full px-4 py-2">
-                                <span className="text-white text-[13px] font-semibold">Tap to reveal</span>
-                              </div>
-                            </button>
-                          )}
+                  {/* Image row */}
+                  {isImageMessage && imageUrl && (
+                    <>
+                      <button
+                        onClick={() => setShowFullscreen(true)}
+                        className="w-full flex items-center gap-3 p-3 rounded-[18px] active:scale-[0.98] transition-transform mb-4"
+                        style={{ background: '#F7F7F9' }}
+                      >
+                        {/* Blurred thumbnail */}
+                        <div className="w-14 h-14 rounded-[12px] overflow-hidden bg-[#E8E8E8] flex-shrink-0">
+                          <img
+                            src={imageUrl} alt=""
+                            className="w-full h-full object-cover"
+                            style={{ filter: imageBlurred ? 'blur(10px)' : 'none', transition: 'filter 0.3s' }}
+                          />
                         </div>
-                      </div>
-                    )}
-                    {selectedMsg.content ? (
+                        <div className="flex-1 text-left">
+                          <p className="font-semibold text-[15px] text-[#0D0D0D]">Photo</p>
+                          <p className="text-[12px] text-[#ADADAD]">Tap to view fullscreen</p>
+                        </div>
+                        {/* Blur toggle */}
+                        <button
+                          onClick={e => { e.stopPropagation(); setImageBlurred(b => !b) }}
+                          className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
+                          style={{ background: imageBlurred ? '#0D0D0D' : '#E8E8E8' }}
+                        >
+                          {imageBlurred ? (
+                            <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="white" strokeWidth="2"/>
+                              <circle cx="12" cy="12" r="3" stroke="white" strokeWidth="2"/>
+                            </svg>
+                          ) : (
+                            <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+                              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" stroke="#0D0D0D" strokeWidth="2" strokeLinecap="round"/>
+                              <line x1="1" y1="1" x2="23" y2="23" stroke="#0D0D0D" strokeWidth="2" strokeLinecap="round"/>
+                            </svg>
+                          )}
+                        </button>
+                      </button>
+                      {textContent && <div className="w-full h-[1px] bg-[#F0F0F0] mb-4" />}
+                    </>
+                  )}
+
+                  {/* Message text */}
+                  {textContent && (
+                    <div
+                      className="w-full rounded-[24px] p-6 mb-4 flex items-center justify-center"
+                      style={{ background: '#F7F7F9', minHeight: 120 }}
+                    >
                       <p
                         className="text-[#0D0D0D] font-semibold text-center leading-snug"
-                        style={{ fontSize: selectedMsg.content.length > 100 ? '18px' : selectedMsg.content.length > 50 ? '22px' : '26px' }}
+                        style={{ fontSize: textContent.length > 100 ? '18px' : textContent.length > 50 ? '22px' : '28px' }}
                       >
-                        {selectedMsg.content}
+                        {textContent}
                       </p>
-                    ) : null}
-                  </div>
+                    </div>
+                  )}
 
-                  <p className="text-[11px] text-[#ADADAD] text-center mb-4">{timeAgo(selectedMsg.created_at)}</p>
-
-                  {/* Action buttons */}
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => setShowReply(true)}
-                      className="flex-1 py-[15px] rounded-full bg-[#0D0D0D] text-white font-bold text-[15px] active:scale-95 transition-transform"
-                    >
-                      Reply
-                    </button>
-                    <button
-                      onClick={handleShare}
-                      className="flex-1 py-[15px] rounded-full font-bold text-[15px] active:scale-95 transition-transform"
-                      style={{ background: '#F2F2F2', color: '#0D0D0D' }}
-                    >
-                      Share
-                    </button>
-                  </div>
+                  <p className="text-[11px] text-[#ADADAD] text-center mb-6">{timeAgo(selectedMsg.created_at)}</p>
                 </>
               ) : (
                 <>
@@ -306,18 +335,19 @@ export default function MessagesPage({ onUnreadChange }: Props) {
                     Back
                   </button>
 
-                  {/* Their message, compact */}
-                  <div className="w-full rounded-[16px] px-4 py-3 mb-3" style={{ background: '#F7F7F9' }}>
-                    <p className="text-[#555] text-[14px] leading-snug line-clamp-2">{selectedMsg.content}</p>
-                  </div>
+                  {textContent && (
+                    <div className="w-full rounded-[16px] px-4 py-3 mb-4" style={{ background: '#F7F7F9' }}>
+                      <p className="text-[#555] text-[14px] leading-snug line-clamp-3">{textContent}</p>
+                    </div>
+                  )}
 
                   <textarea
                     value={replyText}
                     onChange={e => setReplyText(e.target.value)}
                     placeholder="Type your reply..."
                     autoFocus
-                    rows={3}
-                    className="w-full rounded-[16px] bg-[#F7F7F9] px-4 py-3 text-[16px] text-[#0D0D0D] outline-none resize-none mb-3"
+                    rows={4}
+                    className="w-full rounded-[16px] bg-[#F7F7F9] px-4 py-3 text-[16px] text-[#0D0D0D] outline-none resize-none mb-4"
                     style={{ fontFamily: 'inherit' }}
                   />
 
@@ -332,10 +362,64 @@ export default function MessagesPage({ onUnreadChange }: Props) {
               )}
             </div>
 
-            {/* Safe area padding */}
-            <div className="h-6" />
+            {/* Bottom action buttons (only on main view) */}
+            {!showReply && (
+              <div className="px-5 pb-8 pt-2 flex gap-3 border-t border-[#F0F0F0]">
+                <button
+                  onClick={() => setShowReply(true)}
+                  className="flex-1 py-[15px] rounded-full bg-[#0D0D0D] text-white font-bold text-[15px] active:scale-95 transition-transform"
+                >
+                  Reply
+                </button>
+                <button
+                  onClick={handleShare}
+                  className="flex-1 py-[15px] rounded-full font-bold text-[15px] active:scale-95 transition-transform"
+                  style={{ background: '#F2F2F2', color: '#0D0D0D' }}
+                >
+                  Share
+                </button>
+              </div>
+            )}
           </div>
-        </div>
+        </div>,
+        portalTarget
+      )}
+
+      {/* ── Fullscreen image viewer (also portaled) ── */}
+      {showFullscreen && imageUrl && portalTarget && createPortal(
+        <div className="fixed inset-0 z-[60] bg-black flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 pt-12 pb-4">
+            <button
+              onClick={() => setShowFullscreen(false)}
+              className="w-10 h-10 rounded-full flex items-center justify-center"
+              style={{ background: 'rgba(255,255,255,0.14)' }}
+            >
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+                <path d="M18 6 6 18M6 6l12 12" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </button>
+            <img src="/assets/TBH_Title_Logo.svg" alt="TBH" className="h-6 invert" />
+            <div className="w-10" />
+          </div>
+          {/* Full image */}
+          <div className="flex-1 flex items-center justify-center overflow-hidden">
+            <img
+              src={imageUrl} alt=""
+              className="max-w-full max-h-full object-contain"
+              style={{ touchAction: 'pinch-zoom' }}
+            />
+          </div>
+          {/* Text beneath */}
+          {textContent && (
+            <div className="px-5 pb-10">
+              <div className="rounded-[20px] px-5 py-4" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                <p className="text-white text-center text-[16px] font-medium">{textContent}</p>
+              </div>
+            </div>
+          )}
+        </div>,
+        portalTarget
       )}
     </>
   )

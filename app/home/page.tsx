@@ -153,7 +153,7 @@ export default function HomePage() {
           </div>
           <div className="relative overflow-hidden" style={{ width: '33.333%', flexShrink: 0, height: '100%' }}>
             <div className="h-full overflow-y-auto">
-              <MessagesPage onUnreadChange={setHasUnread} />
+              <MessagesPage onUnreadChange={setHasUnread} isActive={activeTab === 1} />
             </div>
           </div>
           <div className="relative overflow-hidden" style={{ width: '33.333%', flexShrink: 0, height: '100%' }}>
