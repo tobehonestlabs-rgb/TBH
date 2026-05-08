@@ -139,7 +139,7 @@
 
 #desktop-decor { display: none; }
 
-@media (min-width: 768px) {
+@media (min-width: 500px) {
   #desktop-bg {
     display: flex;
     align-items: center;
@@ -156,10 +156,10 @@
   }
 
   #app-shell {
-    width: 430px;
-    min-width: 430px;
+    /* Scales smoothly: phone-width on large screens, fills viewport on small */
+    width: clamp(320px, calc(100vw - 48px), 430px);
     height: min(900px, 90vh);
-    border-radius: 44px;
+    border-radius: clamp(24px, 5vw, 44px);
     overflow: hidden;
     box-shadow:
       0 40px 120px rgba(0, 0, 0, 0.22),
