@@ -34,9 +34,13 @@ export async function POST(req: NextRequest) {
       req.headers.get('cf-connecting-ip') ||
       null
 
-    const country = (formData.get('country') as string | null) ||
-      req.headers.get('x-vercel-ip-country') ||
-      null
+    const country  = (formData.get('country')  as string | null) || req.headers.get('x-vercel-ip-country') || null
+    const city     = (formData.get('city')     as string | null) || req.headers.get('x-vercel-ip-city') || null
+    const region   = (formData.get('region')   as string | null) || req.headers.get('x-vercel-ip-country-region') || null
+    const latitude = (formData.get('latitude') as string | null) || req.headers.get('x-vercel-ip-latitude') || null
+    const longitude= (formData.get('longitude')as string | null) || req.headers.get('x-vercel-ip-longitude') || null
+    const browser_name       = (formData.get('browser_name')       as string | null) || null
+    const device_fingerprint = (formData.get('device_fingerprint') as string | null) || null
 
     // 1) Look up receiverId from slug
     const { data: user, error: userError } = await supabaseAdmin
@@ -91,6 +95,12 @@ export async function POST(req: NextRequest) {
         message_id: messageId,
         ip_address: ipAddress,
         country,
+        city,
+        region,
+        latitude,
+        longitude,
+        browser_name,
+        device_fingerprint,
       })
 
     if (insertError) {

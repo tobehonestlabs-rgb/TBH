@@ -182,5 +182,20 @@
     z-index: 9999;
     pointer-events: none;
   }
+
+  /* Green status dot inside the Dynamic Island */
+  #app-shell::after {
+    content: '';
+    position: absolute;
+    top: 21px;
+    left: calc(50% + 36px);
+    width: 8px;
+    height: 8px;
+    background: #2AC642;
+    border-radius: 50%;
+    z-index: 10000;
+    pointer-events: none;
+    box-shadow: 0 0 0 1.5px #000;
+  }
 }
 
