@@ -39,6 +39,9 @@ export default function HomePage() {
  
       if (!data) { router.push('/onboarding'); return }
       setProfile(data)
+
+      // Register user's IP for sender identification
+      fetch('/api/user/register-ip', { method: 'POST' }).catch(() => {})
  
       // Check unread messages
       const { data: msgs } = await supabaseClient
