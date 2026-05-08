@@ -24,7 +24,7 @@ export default function HomePage() {
   const [hasUnread, setHasUnread] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
  
-  const tabs = ['Share', 'Messages', 'Chat']
+  const tabs = ['Play', 'Messages', 'Chat']
  
   useEffect(() => {
     const loadProfile = async () => {
