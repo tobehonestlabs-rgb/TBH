@@ -31,6 +31,7 @@ function timeAgo(iso: string): string {
 export default function ChatPage() {
   const [convs, setConvs]     = useState<Conversation[]>([])
   const [loading, setLoading] = useState(true)
+  const [myUserId, setMyUserId] = useState<string | null>(null)
   const [selected, setSelected] = useState<Conversation | null>(null)
   const [msgs, setMsgs]       = useState<ConvMsg[]>([])
   const [input, setInput]     = useState('')
@@ -43,7 +44,7 @@ export default function ChatPage() {
   useEffect(() => {
     fetch('/api/conversations')
       .then(r => r.json())
-      .then(d => { setConvs(d.conversations ?? []); setLoading(false) })
+      .then(d => { setConvs(d.conversations ?? []); setMyUserId(d.userId ?? null); setLoading(false) })
       .catch(() => setLoading(false))
   }, [])
 
