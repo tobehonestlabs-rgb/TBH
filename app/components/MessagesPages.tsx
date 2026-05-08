@@ -42,7 +42,13 @@ function timeAgo(iso: string): string {
   } catch { return 'now' }
 }
 
-type ConvMsg = { id: string; sender_id: string; content: string; created_at: string }
+type ConvMsg = {
+  id: string
+  sender_id: string
+  content: string
+  created_at: string
+  is_read: boolean
+}
 
 export default function MessagesPage({ onUnreadChange, isActive }: Props) {
   const [messages, setMessages]         = useState<Message[]>([])
@@ -66,6 +72,7 @@ export default function MessagesPage({ onUnreadChange, isActive }: Props) {
   const [convInput, setConvInput]     = useState('')
   const [convSending, setConvSending] = useState(false)
   const convBottomRef = useRef<HTMLDivElement>(null)
+  const convChannelRef = useRef<ReturnType<typeof supabaseClient.channel> | null>(null)
 
   useEffect(() => { setPortalTarget(document.getElementById('app-shell')) }, [])
 
@@ -122,6 +129,7 @@ export default function MessagesPage({ onUnreadChange, isActive }: Props) {
 
   const closeSheet = () => {
     setSheetClosing(true); setShowFullscreen(false); setShowConv(false)
+    if (convChannelRef.current) { supabaseClient.removeChannel(convChannelRef.current).catch(() => {}); convChannelRef.current = null }
     setTimeout(() => {
       setSelectedMsg(null); setSheetClosing(false); setShowReply(false)
       setReplyText(''); setShowInsights(false); setSenderCount(null); setConvId(null)
@@ -143,6 +151,26 @@ export default function MessagesPage({ onUnreadChange, isActive }: Props) {
     }
   }
 
+  const subscribeConv = (cid: string) => {
+    if (convChannelRef.current) { supabaseClient.removeChannel(convChannelRef.current).catch(() => {}); convChannelRef.current = null }
+    const ch = supabaseClient.channel(`conv-msg-${cid}`)
+    ch
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversation_messages', filter: `conversation_id=eq.${cid}` }, payload => {
+        const m = payload.new as ConvMsg
+        setConvMsgs(prev => prev.find(x => x.id === m.id) ? prev : [...prev, m])
+        setTimeout(() => convBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+        if (userIdRef.current && m.sender_id !== userIdRef.current) {
+          fetch(`/api/conversations/${cid}/read`, { method: 'POST' }).catch(() => {})
+        }
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_messages', filter: `conversation_id=eq.${cid}` }, payload => {
+        const updated = payload.new as ConvMsg
+        setConvMsgs(prev => prev.map(m => m.id === updated.id ? { ...m, is_read: updated.is_read } : m))
+      })
+      .subscribe()
+    convChannelRef.current = ch
+  }
+
   const startConversation = async () => {
     if (!selectedMsg) return
     if (convId) { setShowConv(true); return }
@@ -150,10 +178,7 @@ export default function MessagesPage({ onUnreadChange, isActive }: Props) {
       const res = await fetch('/api/conversations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          original_message_id: selectedMsg.message_id,
-          sender_ip: selectedMsg.ip_address ?? null,
-        }),
+        body: JSON.stringify({ original_message_id: selectedMsg.message_id, sender_ip: selectedMsg.ip_address ?? null }),
       })
       const { conversation } = await res.json()
       if (!conversation) return
@@ -161,6 +186,8 @@ export default function MessagesPage({ onUnreadChange, isActive }: Props) {
       const mRes = await fetch(`/api/conversations/${conversation.id}/messages`)
       const { messages: ms } = await mRes.json()
       setConvMsgs(ms ?? [])
+      fetch(`/api/conversations/${conversation.id}/read`, { method: 'POST' }).catch(() => {})
+      subscribeConv(conversation.id)
       setShowConv(true)
       setTimeout(() => convBottomRef.current?.scrollIntoView(), 50)
     } catch {}
@@ -177,7 +204,7 @@ export default function MessagesPage({ onUnreadChange, isActive }: Props) {
       })
       const { message } = await res.json()
       if (message) {
-        setConvMsgs(prev => [...prev, message])
+        setConvMsgs(prev => prev.find(m => m.id === message.id) ? prev : [...prev, message])
         setTimeout(() => convBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
       }
     } catch {}
@@ -474,43 +501,69 @@ export default function MessagesPage({ onUnreadChange, isActive }: Props) {
               )}
 
               {/* ── Conversation thread ── */}
-              {showConv && (
-                <div className="flex flex-col h-full slide-from-right">
-                  <div className="px-5 pt-2 pb-3 border-b border-[#F0F0F0] flex-shrink-0">
-                    <button onClick={() => setShowConv(false)} className="flex items-center gap-1.5 text-[#ADADAD] text-[13px] py-1 active:opacity-60 mb-1">
-                      <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7" stroke="#ADADAD" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      Back
-                    </button>
-                    <p className="text-[16px] font-bold text-[#0D0D0D]">Anonymous sender</p>
-                    <p className="text-[11px] text-[#ADADAD]">They'll see your messages if they sign up</p>
-                  </div>
-                  <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-2.5" style={{ minHeight: 200 }}>
-                    {convMsgs.length === 0 && (
-                      <p className="text-[14px] text-[#ADADAD] text-center mt-8">Start the conversation</p>
-                    )}
-                    {convMsgs.map(m => (
-                      <div key={m.id} className="flex justify-end">
-                        <div className="max-w-[78%] px-4 py-3 rounded-[18px] rounded-br-[6px]" style={{ background: '#0D0D0D' }}>
-                          <p className="text-white text-[15px] leading-snug">{m.content}</p>
-                          <p className="text-white/40 text-[10px] mt-1 text-right">{timeAgo(m.created_at)}</p>
+              {showConv && (() => {
+                const myId = userIdRef.current
+                const lastReadSentId = [...convMsgs].reverse().find(m => m.sender_id === myId && m.is_read)?.id
+                return (
+                  <div className="flex flex-col slide-from-right" style={{ height: '100%' }}>
+                    <div className="px-5 pt-2 pb-3 border-b border-[#F0F0F0] flex-shrink-0">
+                      <button onClick={() => setShowConv(false)} className="flex items-center gap-1.5 text-[#ADADAD] text-[13px] py-1 active:opacity-60 mb-1">
+                        <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7" stroke="#ADADAD" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        Back
+                      </button>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-[16px] font-bold text-[#0D0D0D]">Anonymous sender</p>
+                          <p className="text-[11px] text-[#ADADAD]">Private conversation</p>
                         </div>
+                        <div className="w-2 h-2 rounded-full bg-[#2AC642]" />
                       </div>
-                    ))}
-                    <div ref={convBottomRef} />
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-1.5">
+                      {convMsgs.length === 0 && (
+                        <p className="text-[14px] text-[#ADADAD] text-center mt-8">Start the conversation</p>
+                      )}
+                      {convMsgs.map((m, i) => {
+                        const isMine = m.sender_id === myId
+                        const isLastMine = isMine && convMsgs.slice(i + 1).every(n => n.sender_id !== myId)
+                        return (
+                          <div key={m.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
+                            <div className="max-w-[78%] px-4 py-3"
+                              style={{
+                                background: isMine ? '#0D0D0D' : '#F2F2F2',
+                                borderRadius: isMine ? '20px 20px 5px 20px' : '20px 20px 20px 5px',
+                              }}>
+                              <p style={{ color: isMine ? '#FFF' : '#0D0D0D', fontSize: '15px', lineHeight: '1.4' }}>{m.content}</p>
+                            </div>
+                            {(isLastMine || (i === convMsgs.length - 1 && !isMine)) && (
+                              <div className={`flex items-center gap-1 mt-0.5 px-1 ${isMine ? 'flex-row-reverse' : ''}`}>
+                                <span className="text-[10px] text-[#C8C8C8]">{timeAgo(m.created_at)}</span>
+                                {isMine && m.id === lastReadSentId && <span className="text-[10px] text-[#2AC642] font-medium">Read</span>}
+                                {isMine && m.id !== lastReadSentId && isLastMine && <span className="text-[10px] text-[#C8C8C8]">Sent</span>}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                      <div ref={convBottomRef} />
+                    </div>
+
+                    <div className="px-4 pb-6 pt-2 border-t border-[#F0F0F0] flex gap-2 flex-shrink-0">
+                      <input
+                        value={convInput} onChange={e => setConvInput(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendConvMsg() } }}
+                        placeholder="Message…" maxLength={500}
+                        className="flex-1 rounded-full bg-[#F5F5F5] px-4 py-3 text-[15px] text-[#0D0D0D] outline-none"
+                        style={{ fontFamily: 'inherit' }}
+                      />
+                      <button onClick={sendConvMsg} disabled={!convInput.trim() || convSending} className="w-10 h-10 rounded-full bg-[#0D0D0D] flex items-center justify-center active:scale-90 transition-transform disabled:opacity-30 flex-shrink-0">
+                        <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      </button>
+                    </div>
                   </div>
-                  <div className="px-4 pb-6 pt-2 border-t border-[#F0F0F0] flex gap-2 flex-shrink-0">
-                    <input
-                      value={convInput} onChange={e => setConvInput(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendConvMsg() } }}
-                      placeholder="Message…" maxLength={500}
-                      className="flex-1 rounded-full bg-[#F5F5F5] px-4 py-3 text-[15px] text-[#0D0D0D] outline-none"
-                    />
-                    <button onClick={sendConvMsg} disabled={!convInput.trim() || convSending} className="w-10 h-10 rounded-full bg-[#0D0D0D] flex items-center justify-center active:scale-90 transition-transform disabled:opacity-40 flex-shrink-0">
-                      <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    </button>
-                  </div>
-                </div>
-              )}
+                )
+              })()}
             </div>
 
             {/* Bottom buttons — main view only */}
