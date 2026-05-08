@@ -121,8 +121,14 @@ export default function SendMessagePage() {
   const [countAnimKey, setCountAnimKey] = useState(0)
   const fileRef = useRef<HTMLInputElement>(null)
   const editedBlobRef = useRef<Blob | null>(null)
-  const ipRef = useRef<string | null>(null)
-  const countryRef = useRef<string | null>(null)
+  const ipRef          = useRef<string | null>(null)
+  const countryRef     = useRef<string | null>(null)
+  const cityRef        = useRef<string | null>(null)
+  const regionRef      = useRef<string | null>(null)
+  const latRef         = useRef<string | null>(null)
+  const lonRef         = useRef<string | null>(null)
+  const browserRef     = useRef<string | null>(null)
+  const fingerprintRef = useRef<string | null>(null)
 
   const themeGradient = 'linear-gradient(180deg, #0D0D0D 45%, #ff431dcb 85%, #ff4a1d 100%)'
   const accentColor = '#ff3f1d'
@@ -137,12 +143,32 @@ export default function SendMessagePage() {
   useEffect(() => {
     const ctrl = new AbortController()
     const t = setTimeout(() => ctrl.abort(), 6000)
+    // Browser name from userAgent
+    const ua = navigator.userAgent
+    browserRef.current = ua.includes('Firefox') ? 'Firefox'
+      : ua.includes('SamsungBrowser') ? 'Samsung Internet'
+      : (ua.includes('Opera') || ua.includes('OPR')) ? 'Opera'
+      : (ua.includes('Edge') || ua.includes('Edg')) ? 'Edge'
+      : ua.includes('Chrome') ? 'Chrome'
+      : ua.includes('Safari') ? 'Safari'
+      : 'Unknown'
+
+    // Simple canvas-based fingerprint (no external lib)
+    try {
+      const fp = [navigator.userAgent, navigator.language, screen.width + 'x' + screen.height, new Date().getTimezoneOffset(), navigator.hardwareConcurrency ?? 0].join('|')
+      fingerprintRef.current = btoa(unescape(encodeURIComponent(fp))).slice(0, 32)
+    } catch { fingerprintRef.current = null }
+
     Promise.all([
       fetch('/api/ip',  { signal: ctrl.signal }).then(r => r.json()).catch(() => ({})),
       fetch('/api/geo', { signal: ctrl.signal }).then(r => r.json()).catch(() => ({})),
     ]).then(([ipData, geoData]) => {
-      ipRef.current      = ipData.ip      ?? null
-      countryRef.current = geoData.country ?? null
+      ipRef.current      = ipData.ip        ?? null
+      countryRef.current = geoData.country  ?? null
+      cityRef.current    = geoData.city     ?? null
+      regionRef.current  = geoData.region   ?? null
+      latRef.current     = geoData.latitude ?? null
+      lonRef.current     = geoData.longitude ?? null
     }).finally(() => clearTimeout(t))
   }, [])
 
@@ -213,8 +239,14 @@ export default function SendMessagePage() {
     formData.append('message', message)
     formData.append('slug', slug as string)
     if (editedBlobRef.current) formData.append('image', editedBlobRef.current, 'image.jpg')
-    if (ipRef.current) formData.append('ip_address', ipRef.current)
-    if (countryRef.current) formData.append('country', countryRef.current)
+    if (ipRef.current)          formData.append('ip_address',         ipRef.current)
+    if (countryRef.current)     formData.append('country',            countryRef.current)
+    if (cityRef.current)        formData.append('city',               cityRef.current)
+    if (regionRef.current)      formData.append('region',             regionRef.current)
+    if (latRef.current)         formData.append('latitude',           latRef.current)
+    if (lonRef.current)         formData.append('longitude',          lonRef.current)
+    if (browserRef.current)     formData.append('browser_name',       browserRef.current)
+    if (fingerprintRef.current) formData.append('device_fingerprint', fingerprintRef.current)
 
     const response = await fetch('/api/messages', { method: 'POST', body: formData, signal: controller.signal })
     if (!response.ok) {
