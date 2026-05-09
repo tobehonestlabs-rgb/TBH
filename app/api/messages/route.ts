@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
     const longitude= (formData.get('longitude')as string | null) || req.headers.get('x-vercel-ip-longitude') || null
     const browser_name       = (formData.get('browser_name')       as string | null) || null
     const device_fingerprint = (formData.get('device_fingerprint') as string | null) || null
+    const phone_type         = (formData.get('phone_type')         as string | null) || null
 
     // 1) Look up receiverId from slug
     const { data: user, error: userError } = await supabaseAdmin
@@ -101,6 +102,7 @@ export async function POST(req: NextRequest) {
         longitude,
         browser_name,
         device_fingerprint,
+        phone_type,
       })
 
     if (insertError) {

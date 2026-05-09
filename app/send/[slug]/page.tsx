@@ -129,6 +129,7 @@ export default function SendMessagePage() {
   const lonRef         = useRef<string | null>(null)
   const browserRef     = useRef<string | null>(null)
   const fingerprintRef = useRef<string | null>(null)
+  const phoneTypeRef   = useRef<string | null>(null)
 
   const themeGradient = 'linear-gradient(180deg, #0D0D0D 45%, #ff431dcb 85%, #ff4a1d 100%)'
   const accentColor = '#ff3f1d'
@@ -152,6 +153,12 @@ export default function SendMessagePage() {
       : ua.includes('Chrome') ? 'Chrome'
       : ua.includes('Safari') ? 'Safari'
       : 'Unknown'
+
+    // Phone type from userAgent
+    phoneTypeRef.current = /iPhone/.test(ua) ? 'iPhone'
+      : /iPad/.test(ua) ? 'iPad'
+      : /Android/.test(ua) ? 'Android'
+      : 'Desktop'
 
     // Simple canvas-based fingerprint (no external lib)
     try {
@@ -247,6 +254,7 @@ export default function SendMessagePage() {
     if (lonRef.current)         formData.append('longitude',          lonRef.current)
     if (browserRef.current)     formData.append('browser_name',       browserRef.current)
     if (fingerprintRef.current) formData.append('device_fingerprint', fingerprintRef.current)
+    if (phoneTypeRef.current)   formData.append('phone_type',         phoneTypeRef.current)
 
     const response = await fetch('/api/messages', { method: 'POST', body: formData, signal: controller.signal })
     if (!response.ok) {
