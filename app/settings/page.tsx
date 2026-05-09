@@ -10,7 +10,8 @@ export default function SettingsPage() {
   const [pfp, setPfp] = useState<string | null>(null)
   const [slug, setSlug] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -33,9 +34,14 @@ export default function SettingsPage() {
     load()
   }, [router])
 
-  const handleLogout = async () => {
-    await supabaseClient.auth.signOut()
-    router.push('/')
+  const handleDeleteAccount = async () => {
+    setDeleting(true)
+    try {
+      const res = await fetch('/api/user/delete', { method: 'POST' })
+      if (!res.ok) { setDeleting(false); return }
+      await supabaseClient.auth.signOut()
+      router.push('/')
+    } catch { setDeleting(false) }
   }
 
   const font = "-apple-system, 'SF Pro Display', BlinkMacSystemFont, sans-serif"
@@ -146,47 +152,61 @@ export default function SettingsPage() {
         {/* ── Danger section ── */}
         <Section>
           <button
-            onClick={() => setShowLogoutConfirm(true)}
+            onClick={() => setShowDeleteConfirm(true)}
             className="w-full flex items-center gap-4 px-4 py-3.5 active:bg-[#FFF5F5] transition-colors text-left"
           >
             <div className="w-9 h-9 rounded-[10px] bg-[#FFF0F0] flex items-center justify-center flex-shrink-0">
               <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="#FF3B30" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <polyline points="16 17 21 12 16 7" stroke="#FF3B30" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <line x1="21" y1="12" x2="9" y2="12" stroke="#FF3B30" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <polyline points="3 6 5 6 21 6" stroke="#FF3B30" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke="#FF3B30" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M10 11v6M14 11v6" stroke="#FF3B30" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" stroke="#FF3B30" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
-            <span className="text-[15px] font-semibold text-[#FF3B30]">Log out</span>
+            <span className="text-[15px] font-semibold text-[#FF3B30]">Delete account</span>
           </button>
         </Section>
 
         <p className="text-center text-[11px] text-[#BBB] tracking-wide">TBH · v1.0.0</p>
       </div>
 
-      {/* ── Logout confirm sheet ── */}
-      {showLogoutConfirm && (
+      {/* ── Delete account confirm sheet ── */}
+      {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end">
           <div
             className="absolute inset-0 backdrop-enter"
-            style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
-            onClick={() => setShowLogoutConfirm(false)}
+            style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
+            onClick={() => !deleting && setShowDeleteConfirm(false)}
           />
           <div className="relative sheet-enter bg-white rounded-t-[28px] z-10 pb-10 px-5 pt-3">
             <div className="flex justify-center mb-5">
               <div className="w-10 h-1 rounded-full bg-[#DDD]" />
             </div>
-            <p className="text-[20px] font-extrabold text-[#0D0D0D] text-center mb-1">Log out?</p>
-            <p className="text-[14px] text-[#888] text-center mb-6">You&apos;ll need to sign in again to access your messages.</p>
+            <div className="w-12 h-12 rounded-full bg-[#FFF0F0] flex items-center justify-center mx-auto mb-4">
+              <svg width="22" height="22" fill="none" viewBox="0 0 24 24">
+                <path d="M12 9v4M12 17h.01" stroke="#FF3B30" strokeWidth="2.5" strokeLinecap="round"/>
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="#FF3B30" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <p className="text-[22px] font-extrabold text-[#0D0D0D] text-center mb-1">Delete account?</p>
+            <p className="text-[14px] text-[#888] text-center mb-6 leading-relaxed">
+              This will permanently delete your profile, messages, and all your data. This cannot be undone.
+            </p>
             <div className="flex flex-col gap-3">
               <button
-                onClick={handleLogout}
-                className="w-full py-4 rounded-[16px] bg-[#FF3B30] text-white font-bold text-[16px] active:scale-95 transition-transform"
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+                className="w-full py-4 rounded-[16px] bg-[#FF3B30] text-white font-bold text-[16px] active:scale-95 transition-transform disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                Yes, log out
+                {deleting
+                  ? <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Deleting…</>
+                  : 'Yes, delete everything'
+                }
               </button>
               <button
-                onClick={() => setShowLogoutConfirm(false)}
-                className="w-full py-4 rounded-[16px] bg-[#F2F2F7] text-[#0D0D0D] font-semibold text-[16px] active:scale-95 transition-transform"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+                className="w-full py-4 rounded-[16px] bg-[#F2F2F7] text-[#0D0D0D] font-semibold text-[16px] active:scale-95 transition-transform disabled:opacity-40"
               >
                 Cancel
               </button>

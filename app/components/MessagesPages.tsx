@@ -19,6 +19,7 @@ type Message = {
   longitude?: string | null
   browser_name?: string | null
   device_fingerprint?: string | null
+  phone_type?: string | null
 }
 
 type Props = {
@@ -887,11 +888,14 @@ export default function MessagesPage({ onUnreadChange, isActive }: Props) {
                       </p>
                     </div>
 
-                    {/* Browser */}
-                    {selectedMsg.browser_name && (
+                    {/* Device */}
+                    {(selectedMsg.phone_type || selectedMsg.browser_name) && (
                       <div className="rounded-[22px] px-4 py-4" style={{ background: '#F7F7F9' }}>
-                        <p className="text-[10px] font-semibold text-[#ADADAD] uppercase tracking-widest mb-1.5">Browser</p>
-                        <p className="text-[16px] font-bold text-[#0D0D0D]">{selectedMsg.browser_name}</p>
+                        <p className="text-[10px] font-semibold text-[#ADADAD] uppercase tracking-widest mb-1.5">Device</p>
+                        <p className="text-[16px] font-bold text-[#0D0D0D]">{selectedMsg.phone_type ?? 'Unknown'}</p>
+                        {selectedMsg.browser_name && (
+                          <p className="text-[12px] text-[#ADADAD] mt-0.5">{selectedMsg.browser_name}</p>
+                        )}
                       </div>
                     )}
 
