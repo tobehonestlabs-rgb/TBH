@@ -124,11 +124,11 @@ const handleFinish = async () => {
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <main className="min-h-screen bg-white flex flex-col" style={{ fontFamily: "'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif" }}>
+    <main className="h-full bg-white flex flex-col overflow-hidden" style={{ fontFamily: "'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif" }}>
 
       {/* ── STEP 1: Username + Birth Year ── */}
       {step === 'profile' && (
-        <div className="flex flex-col flex-1 px-7 pt-14 pb-8">
+        <div className="flex flex-col flex-1 px-7 pt-14 pb-8 overflow-y-auto">
           <div className="flex-1">
             <h1 className="text-[28px] font-bold text-[#0D0D0D]">Almost there 👋</h1>
             <p className="text-sm text-[#888] mt-1 mb-9">Pick a username and your birth year.</p>
@@ -162,7 +162,7 @@ const handleFinish = async () => {
           <button
             onClick={handleProfileNext}
             disabled={username.trim().length < 2 || !birthYear}
-            className="w-full h-[56px] rounded-[32px] bg-[#0D0D0D] text-white font-semibold text-xl disabled:bg-[#D8D8D8] transition active:scale-95"
+            className="w-full h-[56px] rounded-[32px] bg-[#0D0D0D] text-white font-semibold text-xl disabled:bg-[#D8D8D8] transition active:scale-95 flex-shrink-0"
           >
             Next
           </button>
@@ -171,7 +171,7 @@ const handleFinish = async () => {
 
       {/* ── STEP 2: Profile Picture ── */}
       {step === 'photo' && (
-        <div className="flex flex-col flex-1 px-7 pt-14 pb-8 items-center">
+        <div className="flex flex-col flex-1 px-7 pt-14 pb-8 items-center overflow-y-auto">
           <div className="flex flex-col items-center flex-1 w-full">
 
             {/* Avatar preview */}
@@ -214,7 +214,7 @@ const handleFinish = async () => {
           <button
             onClick={handleFinish}
             disabled={!imageFile || loading}
-            className="w-full h-[56px] rounded-[32px] bg-[#0D0D0D] text-white font-semibold text-xl disabled:bg-[#D8D8D8] transition active:scale-95 flex items-center justify-center"
+            className="w-full h-[56px] rounded-[32px] bg-[#0D0D0D] text-white font-semibold text-xl disabled:bg-[#D8D8D8] transition active:scale-95 flex items-center justify-center flex-shrink-0"
           >
             {loading
               ? <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -226,7 +226,7 @@ const handleFinish = async () => {
           <button
             onClick={handleFinish}
             disabled={loading}
-            className="mt-3 text-sm text-[#AAAAAA] underline"
+            className="mt-3 text-sm text-[#AAAAAA] underline flex-shrink-0"
           >
             Skip for now
           </button>
