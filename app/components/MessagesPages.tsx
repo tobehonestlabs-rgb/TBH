@@ -42,6 +42,348 @@ function timeAgo(iso: string): string {
   } catch { return 'now' }
 }
 
+// ── Canvas helpers for share card generation ──
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = src
+  })
+}
+
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.lineTo(x + w - r, y)
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r)
+  ctx.lineTo(x + w, y + h - r)
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
+  ctx.lineTo(x + r, y + h)
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r)
+  ctx.lineTo(x, y + r)
+  ctx.quadraticCurveTo(x, y, x + r, y)
+  ctx.closePath()
+}
+
+function wrapText(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
+  const words = text.split(' ')
+  const lines: string[] = []
+  let cur = ''
+  for (const w of words) {
+    const test = cur ? `${cur} ${w}` : w
+    if (ctx.measureText(test).width <= maxW) { cur = test }
+    else { if (cur) lines.push(cur); cur = w }
+  }
+  if (cur) lines.push(cur)
+  return lines
+}
+
+async function generateReplyCard(
+  messageText: string,
+  replyText: string,
+  imageUrl: string | null,
+  logoSrc: string,
+  userPfp: string | null,
+): Promise<Blob> {
+  return new Promise(async (resolve) => {
+    const W = 1080, H = 1920
+    const canvas = document.createElement('canvas')
+    canvas.width = W; canvas.height = H
+    const ctx = canvas.getContext('2d')!
+
+    let pfpImg: HTMLImageElement | null = null
+    if (userPfp) pfpImg = await loadImage(userPfp).catch(() => null)
+
+    if (pfpImg) {
+      ctx.save()
+      ctx.filter = 'blur(48px) brightness(0.3) saturate(1.4)'
+      ctx.drawImage(pfpImg, -80, -80, W + 160, H + 160)
+      ctx.filter = 'none'
+      ctx.restore()
+    } else {
+      ctx.fillStyle = '#0A0A0C'
+      ctx.fillRect(0, 0, W, H)
+    }
+
+    ctx.fillStyle = 'rgba(0,0,0,0.52)'
+    ctx.fillRect(0, 0, W, H)
+
+    const vignette = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.85)
+    vignette.addColorStop(0, 'transparent')
+    vignette.addColorStop(1, 'rgba(0,0,0,0.4)')
+    ctx.fillStyle = vignette
+    ctx.fillRect(0, 0, W, H)
+
+    const emojiPositions = [
+      { src: '/assets/poop.svg',    size: 180, x: 60,  y: 120,  rot: -15, opacity: 0.18 },
+      { src: '/assets/hot.svg',     size: 220, x: 780, y: 80,   rot: 12,  opacity: 0.18 },
+      { src: '/assets/nerd.svg',    size: 160, x: 860, y: 600,  rot: -8,  opacity: 0.15 },
+      { src: '/assets/Deamon.svg',  size: 240, x: 40,  y: 900,  rot: 18,  opacity: 0.18 },
+      { src: '/assets/Excited.svg', size: 190, x: 800, y: 1200, rot: -20, opacity: 0.15 },
+      { src: '/assets/Skull.svg',   size: 160, x: 100, y: 1500, rot: 10,  opacity: 0.15 },
+    ]
+    for (const e of emojiPositions) {
+      const img = await loadImage(e.src).catch(() => null)
+      if (!img) continue
+      ctx.save()
+      ctx.globalAlpha = e.opacity
+      ctx.translate(e.x + e.size / 2, e.y + e.size / 2)
+      ctx.rotate((e.rot * Math.PI) / 180)
+      ctx.drawImage(img, -e.size / 2, -e.size / 2, e.size, e.size)
+      ctx.restore()
+    }
+    ctx.globalAlpha = 1
+
+    const logo = await loadImage(logoSrc).catch(() => null)
+    if (logo) {
+      const lw = 200, lh = Math.round(lw * logo.height / logo.width)
+      const offscreen = document.createElement('canvas')
+      offscreen.width = lw; offscreen.height = lh
+      const oc = offscreen.getContext('2d')!
+      oc.drawImage(logo, 0, 0, lw, lh)
+      oc.globalCompositeOperation = 'source-in'
+      oc.fillStyle = '#FFFFFF'
+      oc.fillRect(0, 0, lw, lh)
+      ctx.globalAlpha = 0.9
+      ctx.drawImage(offscreen, (W - lw) / 2, 90, lw, lh)
+      ctx.globalAlpha = 1
+    }
+
+    const hPad = 72, boxW = W - hPad * 2, innerPad = 48
+    let y = 320
+
+    let msgImg: HTMLImageElement | null = null
+    if (imageUrl) msgImg = await loadImage(imageUrl).catch(() => null)
+
+    ctx.font = '52px -apple-system, sans-serif'
+    const msgLines = wrapText(ctx, messageText || '', boxW - innerPad * 2)
+    const msgLineH = 68
+    const imgH = msgImg ? Math.round((boxW - innerPad * 2) * 0.6) : 0
+    const senderBoxH = innerPad + 60 + 20 + imgH + (imgH && messageText ? 28 : 0) + msgLines.length * msgLineH + innerPad
+
+    ctx.fillStyle = 'rgba(255,255,255,0.10)'
+    roundRect(ctx, hPad, y, boxW, senderBoxH, 40)
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)'
+    ctx.lineWidth = 2
+    roundRect(ctx, hPad, y, boxW, senderBoxH, 40)
+    ctx.stroke()
+
+    ctx.font = 'bold 40px -apple-system, sans-serif'
+    const anonText = '🔒  ANONYMOUS'
+    const anonW = ctx.measureText(anonText).width + 48
+    ctx.fillStyle = 'rgba(255,255,255,0.08)'
+    roundRect(ctx, hPad + innerPad, y + innerPad, anonW, 56, 28)
+    ctx.fill()
+    ctx.fillStyle = 'rgba(255,255,255,0.65)'
+    ctx.textAlign = 'left'
+    ctx.fillText(anonText, hPad + innerPad + 24, y + innerPad + 40)
+
+    let contentY = y + innerPad + 56 + 24
+
+    if (msgImg) {
+      ctx.save()
+      roundRect(ctx, hPad + innerPad, contentY, boxW - innerPad * 2, imgH, 24)
+      ctx.clip()
+      ctx.drawImage(msgImg, hPad + innerPad, contentY, boxW - innerPad * 2, imgH)
+      ctx.restore()
+      contentY += imgH + (messageText ? 28 : 0)
+    }
+
+    if (messageText) {
+      ctx.font = '52px -apple-system, sans-serif'
+      ctx.fillStyle = '#FFFFFF'
+      ctx.textAlign = 'left'
+      msgLines.forEach((line, i) => {
+        ctx.fillText(line, hPad + innerPad, contentY + msgLineH * i + 48)
+      })
+    }
+
+    y += senderBoxH + 52
+
+    ctx.font = 'bold 68px -apple-system, sans-serif'
+    const replyLines = wrapText(ctx, replyText, boxW - innerPad * 2)
+    const replyLineH = 86
+    const replyBoxH = innerPad + 60 + 28 + replyLines.length * replyLineH + innerPad
+
+    ctx.save()
+    ctx.shadowColor = 'rgba(255,107,107,0.4)'
+    ctx.shadowBlur = 60
+    ctx.fillStyle = 'rgba(255,107,107,0.01)'
+    roundRect(ctx, hPad, y, boxW, replyBoxH, 40)
+    ctx.fill()
+    ctx.restore()
+
+    ctx.fillStyle = 'rgba(255,255,255,0.13)'
+    roundRect(ctx, hPad, y, boxW, replyBoxH, 40)
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(255,107,107,0.35)'
+    ctx.lineWidth = 2
+    roundRect(ctx, hPad, y, boxW, replyBoxH, 40)
+    ctx.stroke()
+
+    ctx.font = 'bold 40px -apple-system, sans-serif'
+    ctx.fillStyle = 'rgba(255,107,107,0.9)'
+    ctx.textAlign = 'left'
+    ctx.fillText('ME', hPad + innerPad, y + innerPad + 42)
+
+    ctx.font = 'bold 68px -apple-system, sans-serif'
+    ctx.fillStyle = '#FFFFFF'
+    ctx.shadowColor = 'rgba(0,0,0,0.3)'
+    ctx.shadowBlur = 8
+    replyLines.forEach((line, i) => {
+      ctx.fillText(line, hPad + innerPad, y + innerPad + 60 + 28 + replyLineH * i + 60)
+    })
+    ctx.shadowBlur = 0
+
+    ctx.font = '40px -apple-system, sans-serif'
+    ctx.fillStyle = 'rgba(255,255,255,0.35)'
+    ctx.textAlign = 'center'
+    ctx.fillText('tbhonest.net', W / 2, H - 80)
+
+    canvas.toBlob(b => resolve(b!), 'image/png', 1.0)
+  })
+}
+
+async function generateMessageCard(
+  messageText: string,
+  imageUrl: string | null,
+  logoSrc: string,
+  userPfp: string | null,
+): Promise<Blob> {
+  return new Promise(async (resolve) => {
+    const W = 1080, H = 1920
+    const canvas = document.createElement('canvas')
+    canvas.width = W; canvas.height = H
+    const ctx = canvas.getContext('2d')!
+
+    let pfpImg: HTMLImageElement | null = null
+    if (userPfp) pfpImg = await loadImage(userPfp).catch(() => null)
+
+    if (pfpImg) {
+      ctx.save()
+      ctx.filter = 'blur(48px) brightness(0.3) saturate(1.4)'
+      ctx.drawImage(pfpImg, -80, -80, W + 160, H + 160)
+      ctx.filter = 'none'
+      ctx.restore()
+    } else {
+      ctx.fillStyle = '#0D0D0D'
+      ctx.fillRect(0, 0, W, H)
+    }
+
+    ctx.fillStyle = 'rgba(0,0,0,0.5)'
+    ctx.fillRect(0, 0, W, H)
+
+    const vignette = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.85)
+    vignette.addColorStop(0, 'transparent')
+    vignette.addColorStop(1, 'rgba(0,0,0,0.4)')
+    ctx.fillStyle = vignette
+    ctx.fillRect(0, 0, W, H)
+
+    const emojiPositions = [
+      { src: '/assets/poop.svg',    size: 180, x: 60,  y: 120,  rot: -15, opacity: 0.18 },
+      { src: '/assets/hot.svg',     size: 220, x: 780, y: 80,   rot: 12,  opacity: 0.18 },
+      { src: '/assets/nerd.svg',    size: 160, x: 860, y: 600,  rot: -8,  opacity: 0.15 },
+      { src: '/assets/Deamon.svg',  size: 240, x: 40,  y: 900,  rot: 18,  opacity: 0.18 },
+      { src: '/assets/Excited.svg', size: 190, x: 800, y: 1200, rot: -20, opacity: 0.15 },
+      { src: '/assets/Skull.svg',   size: 160, x: 100, y: 1500, rot: 10,  opacity: 0.15 },
+    ]
+    for (const e of emojiPositions) {
+      const img = await loadImage(e.src).catch(() => null)
+      if (!img) continue
+      ctx.save()
+      ctx.globalAlpha = e.opacity
+      ctx.translate(e.x + e.size / 2, e.y + e.size / 2)
+      ctx.rotate((e.rot * Math.PI) / 180)
+      ctx.drawImage(img, -e.size / 2, -e.size / 2, e.size, e.size)
+      ctx.restore()
+    }
+    ctx.globalAlpha = 1
+
+    const logo = await loadImage(logoSrc).catch(() => null)
+    if (logo) {
+      const lw = 220, lh = Math.round(lw * logo.height / logo.width)
+      const offscreen = document.createElement('canvas')
+      offscreen.width = lw; offscreen.height = lh
+      const oc = offscreen.getContext('2d')!
+      oc.drawImage(logo, 0, 0, lw, lh)
+      oc.globalCompositeOperation = 'source-in'
+      oc.fillStyle = '#FFFFFF'
+      oc.fillRect(0, 0, lw, lh)
+      ctx.globalAlpha = 0.9
+      ctx.drawImage(offscreen, (W - lw) / 2, 100, lw, lh)
+      ctx.globalAlpha = 1
+    }
+
+    ctx.font = 'bold 44px -apple-system, sans-serif'
+    const pillText = '🔒  Anonymous message'
+    const pillW = ctx.measureText(pillText).width + 64
+    const pillH = 72
+    const pillX = (W - pillW) / 2
+    const pillY = 320
+    ctx.fillStyle = 'rgba(255,255,255,0.12)'
+    roundRect(ctx, pillX, pillY, pillW, pillH, pillH / 2)
+    ctx.fill()
+    ctx.fillStyle = 'rgba(255,255,255,0.7)'
+    ctx.textAlign = 'center'
+    ctx.fillText(pillText, W / 2, pillY + 48)
+
+    if (imageUrl) {
+      const img = await loadImage(imageUrl).catch(() => null)
+      if (img) {
+        const imgS = 860, imgY = 450
+        ctx.save()
+        roundRect(ctx, (W - imgS) / 2, imgY, imgS, imgS, 48)
+        ctx.clip()
+        ctx.drawImage(img, (W - imgS) / 2, imgY, imgS, imgS)
+        ctx.restore()
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)'
+        ctx.lineWidth = 3
+        roundRect(ctx, (W - imgS) / 2, imgY, imgS, imgS, 48)
+        ctx.stroke()
+      }
+      if (messageText) {
+        ctx.font = 'bold 72px -apple-system, sans-serif'
+        ctx.fillStyle = '#FFFFFF'
+        ctx.textAlign = 'center'
+        ctx.shadowColor = 'rgba(0,0,0,0.6)'
+        ctx.shadowBlur = 20
+        const lines = wrapText(ctx, messageText, W - 180)
+        lines.forEach((line, i) => ctx.fillText(line, W / 2, 1390 + i * 96))
+        ctx.shadowBlur = 0
+      }
+    } else {
+      ctx.textAlign = 'center'
+      ctx.fillStyle = '#FFFFFF'
+      ctx.shadowColor = 'rgba(0,0,0,0.5)'
+      ctx.shadowBlur = 28
+      let fontSize = 210
+      while (fontSize > 48) {
+        ctx.font = `bold ${fontSize}px -apple-system, sans-serif`
+        const lines = wrapText(ctx, messageText, W - 180)
+        const totalH = lines.length * fontSize * 1.25
+        if (totalH < H - 600) {
+          const startY = H / 2 - totalH / 2 + fontSize * 0.8
+          lines.forEach((line, i) => ctx.fillText(line, W / 2, startY + i * fontSize * 1.25))
+          break
+        }
+        fontSize -= 8
+      }
+      ctx.shadowBlur = 0
+    }
+
+    ctx.font = '40px -apple-system, sans-serif'
+    ctx.fillStyle = 'rgba(255,255,255,0.4)'
+    ctx.textAlign = 'center'
+    ctx.fillText('tbhonest.net', W / 2, H - 80)
+
+    canvas.toBlob(b => resolve(b!), 'image/png', 1.0)
+  })
+}
+
 type ConvMsg = {
   id: string
   sender_id: string
@@ -63,6 +405,13 @@ export default function MessagesPage({ onUnreadChange, isActive }: Props) {
   const [senderCount, setSenderCount]   = useState<number | null>(null)
   const [loadingInsights, setLoadingInsights] = useState(false)
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
+  const [userPfp, setUserPfp]           = useState<string | null>(null)
+  const [userLink, setUserLink]         = useState('')
+  const [messageCardBlob, setMessageCardBlob] = useState<Blob | null>(null)
+  const [replyCardBlob, setReplyCardBlob]     = useState<Blob | null>(null)
+  const [cardGenerating, setCardGenerating]   = useState(false)
+  const [sharing, setSharing]           = useState(false)
+  const [replySending, setReplySending] = useState(false)
   const userIdRef = useRef<string | null>(null)
 
   // Conversation
@@ -102,6 +451,13 @@ export default function MessagesPage({ onUnreadChange, isActive }: Props) {
         setLoading(false)
       }
 
+      const { data: profile } = await supabaseClient
+        .from('users_table').select('slug, pfp').eq('user_id', session.user.id).single()
+      if (mounted) {
+        if (profile?.pfp) setUserPfp(profile.pfp)
+        if (profile?.slug) setUserLink(`${window.location.origin}/send/${profile.slug}`)
+      }
+
       ch = supabaseClient.channel(`inbox-${session.user.id}`)
       ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `to_user=eq.${session.user.id}` }, (payload) => {
         if (mounted) { setMessages(prev => [payload.new as Message, ...prev]); onUnreadChange(true) }
@@ -125,6 +481,7 @@ export default function MessagesPage({ onUnreadChange, isActive }: Props) {
     setSelectedMsg(msg); setSheetClosing(false); setImageBlurred(true)
     setShowFullscreen(false); setShowReply(false); setReplyText('')
     setShowInsights(false); setSenderCount(null); setShowConv(false); setConvId(null)
+    setMessageCardBlob(null); setReplyCardBlob(null); setSharing(false); setReplySending(false)
   }
 
   const closeSheet = () => {
@@ -133,6 +490,7 @@ export default function MessagesPage({ onUnreadChange, isActive }: Props) {
     setTimeout(() => {
       setSelectedMsg(null); setSheetClosing(false); setShowReply(false)
       setReplyText(''); setShowInsights(false); setSenderCount(null); setConvId(null)
+      setMessageCardBlob(null); setReplyCardBlob(null)
     }, 300)
   }
 
@@ -170,6 +528,35 @@ export default function MessagesPage({ onUnreadChange, isActive }: Props) {
       .subscribe()
     convChannelRef.current = ch
   }
+
+  // Pre-generate message share card whenever a message is opened
+  useEffect(() => {
+    if (!selectedMsg) { setMessageCardBlob(null); return }
+    setCardGenerating(true)
+    const logoSrc = `${window.location.origin}/assets/TBH_Title_Logo.svg`
+    generateMessageCard(selectedMsg.content || '', selectedMsg.media_url || null, logoSrc, userPfp)
+      .then(blob => setMessageCardBlob(blob))
+      .catch(() => {})
+      .finally(() => setCardGenerating(false))
+  }, [selectedMsg, userPfp])
+
+  // Pre-generate reply card debounced 600ms after user stops typing
+  useEffect(() => {
+    if (!showReply || !replyText.trim()) { setReplyCardBlob(null); return }
+    const logoSrc = `${window.location.origin}/assets/TBH_Title_Logo.svg`
+    const t = setTimeout(() => {
+      generateReplyCard(
+        selectedMsg?.content || '',
+        replyText,
+        selectedMsg?.media_url || null,
+        logoSrc,
+        userPfp,
+      )
+        .then(blob => setReplyCardBlob(blob))
+        .catch(() => {})
+    }, 600)
+    return () => clearTimeout(t)
+  }, [replyText, showReply, selectedMsg, userPfp])
 
   const startConversation = async () => {
     if (!selectedMsg) return
@@ -218,18 +605,43 @@ export default function MessagesPage({ onUnreadChange, isActive }: Props) {
   }
 
   const handleShare = async () => {
-    if (!selectedMsg) return
-    const text = selectedMsg.content || ''
+    if (!selectedMsg || sharing || !messageCardBlob) return
+    setSharing(true)
     try {
-      if (navigator.share) await navigator.share({ text })
-      else await navigator.clipboard.writeText(text)
-    } catch {}
+      const file = new File([messageCardBlob], 'tbh.png', { type: 'image/png' })
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], text: userLink })
+        return
+      }
+      if (navigator.share) { await navigator.share({ url: userLink || window.location.origin }); return }
+      const url = URL.createObjectURL(messageCardBlob)
+      const a = document.createElement('a'); a.href = url; a.download = 'tbh.png'
+      document.body.appendChild(a); a.click(); document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 10000)
+    } catch (e: any) { if (e?.name !== 'AbortError') console.error('Share failed', e) }
+    finally { setSharing(false) }
   }
 
   const handleSendReply = async () => {
-    if (!replyText.trim()) return
-    try { if (navigator.share) await navigator.share({ text: replyText.trim() }) } catch {}
-    setShowReply(false); setReplyText('')
+    if (!replyText.trim() || replySending || !replyCardBlob) return
+    setReplySending(true)
+    try {
+      const file = new File([replyCardBlob], 'tbh.png', { type: 'image/png' })
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], text: userLink })
+        setShowReply(false); setReplyText(''); setReplyCardBlob(null); return
+      }
+      if (navigator.share) {
+        await navigator.share({ url: userLink || window.location.origin })
+        setShowReply(false); setReplyText(''); setReplyCardBlob(null); return
+      }
+      const url = URL.createObjectURL(replyCardBlob)
+      const a = document.createElement('a'); a.href = url; a.download = 'tbh-reply.png'
+      document.body.appendChild(a); a.click(); document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 10000)
+      setShowReply(false); setReplyText(''); setReplyCardBlob(null)
+    } catch (e: any) { if (e?.name !== 'AbortError') console.error('Reply share failed', e) }
+    finally { setReplySending(false) }
   }
 
   if (loading) {
@@ -423,12 +835,21 @@ export default function MessagesPage({ onUnreadChange, isActive }: Props) {
                       <textarea
                         value={replyText} onChange={e => setReplyText(e.target.value)}
                         placeholder="Write your reply…" autoFocus rows={4}
-                        className="w-full rounded-[20px] bg-[#F7F7F9] px-4 py-3.5 text-[16px] text-[#0D0D0D] outline-none resize-none mb-4"
+                        className="w-full rounded-[20px] bg-[#F7F7F9] px-4 py-3.5 text-[16px] text-[#0D0D0D] outline-none resize-none mb-3"
                         style={{ fontFamily: 'inherit' }}
                       />
-                      <button onClick={handleSendReply} disabled={!replyText.trim()}
-                        className="w-full py-[15px] rounded-full bg-[#0D0D0D] text-white font-bold text-[15px] active:scale-95 transition-transform disabled:opacity-40">
-                        Send Reply
+                      {replyText.trim() && !replyCardBlob && (
+                        <p className="text-[11px] text-[#C8C8C8] text-center mb-3">Preparing card…</p>
+                      )}
+                      <button
+                        onClick={handleSendReply}
+                        disabled={!replyText.trim() || replySending || !replyCardBlob}
+                        className="w-full py-[15px] rounded-full bg-[#0D0D0D] text-white font-bold text-[15px] active:scale-95 transition-transform disabled:opacity-40 flex items-center justify-center gap-2"
+                      >
+                        {replySending
+                          ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          : 'Share Reply Card'
+                        }
                       </button>
                     </>
                   )}
@@ -570,7 +991,17 @@ export default function MessagesPage({ onUnreadChange, isActive }: Props) {
             {!showInsights && !showConv && !showReply && (
               <div className="px-5 pb-8 pt-2.5 flex gap-3 border-t border-[#F0F0F0] flex-shrink-0">
                 <button onClick={() => setShowReply(true)} className="flex-1 py-[15px] rounded-full bg-[#0D0D0D] text-white font-bold text-[15px] active:scale-95 transition-transform">Reply</button>
-                <button onClick={handleShare} className="flex-1 py-[15px] rounded-full font-bold text-[15px] active:scale-95 transition-transform" style={{ background: '#F2F2F2', color: '#0D0D0D' }}>Share</button>
+                <button
+                  onClick={handleShare}
+                  disabled={sharing || cardGenerating || !messageCardBlob}
+                  className="flex-1 py-[15px] rounded-full font-bold text-[15px] active:scale-95 transition-transform disabled:opacity-50 flex items-center justify-center"
+                  style={{ background: '#F2F2F2', color: '#0D0D0D' }}
+                >
+                  {(sharing || cardGenerating)
+                    ? <div className="w-5 h-5 border-2 border-[#0D0D0D] border-t-transparent rounded-full animate-spin" />
+                    : 'Share'
+                  }
+                </button>
               </div>
             )}
           </div>
