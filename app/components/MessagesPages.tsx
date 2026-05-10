@@ -453,7 +453,7 @@ export default function MessagesPage({ onUnreadChange, isActive }: Props) {
       }
 
       const { data: profile } = await supabaseClient
-        .from('users_table').select('slug, pfp').eq('user_id', session.user.id).single()
+        .from('users_table').select('slug, pfp').eq('user_id', session.user.id).maybeSingle()
       if (mounted) {
         if (profile?.pfp) setUserPfp(profile.pfp)
         if (profile?.slug) setUserLink(`${window.location.origin}/send/${profile.slug}`)

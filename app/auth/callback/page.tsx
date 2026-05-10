@@ -23,7 +23,7 @@ export default function AuthCallbackPage() {
         .from('users_table')
         .select('user_id')
         .eq('user_id', session.user.id)
-        .single()
+        .maybeSingle()
 
       router.replace(profile ? '/home' : '/onboarding')
     }
