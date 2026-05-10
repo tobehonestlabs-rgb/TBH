@@ -84,28 +84,33 @@ const handleFinish = async () => {
       // Non-blocking — if it fails, just skip it
     }
 
-    const slug = generateSlug(username.trim())
+    const { data: existing } = await supabaseClient
+      .from('users_table').select('user_id').eq('user_id', user.id).single()
+
+    const slug = existing ? undefined : generateSlug(username.trim())
     const now = new Date().toISOString()
 
-    const { error: insertError } = await supabaseClient.from('users_table').insert({
+    const { error: insertError } = await supabaseClient.from('users_table').upsert({
       user_id: user.id,
       username: username.trim(),
       email: user.email,
-      slug,
+      ...(slug ? { slug } : {}),
       birthdate: birthYear,
       pfp: pfpUrl || null,
       created_at: now,
       active_subscription: false,
       user_ip_address: ipAddress,
-    })
+    }, { onConflict: 'user_id' })
 
     if (insertError) throw insertError
 
-    await supabaseClient.from('links').insert({
-      user_id: user.id,
-      dynamic_link: `tbhonest.net/send/${slug}`,
-      created_at: now,
-    })
+    if (!existing && slug) {
+      await supabaseClient.from('links').insert({
+        user_id: user.id,
+        dynamic_link: `tbhonest.net/send/${slug}`,
+        created_at: now,
+      })
+    }
 
     router.push('/home')
   } catch (e: unknown) {
