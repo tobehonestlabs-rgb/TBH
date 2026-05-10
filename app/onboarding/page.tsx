@@ -59,6 +59,11 @@ const handleFinish = async () => {
     const { data: { user } } = await supabaseClient.auth.getUser()
     if (!user) throw new Error('Not authenticated')
 
+    // Profile already exists — just go home, no insert needed
+    const { data: existing } = await supabaseClient
+      .from('users_table').select('user_id').eq('user_id', user.id).single()
+    if (existing) { router.push('/home'); return }
+
     let pfpUrl = ''
 
     if (imageFile) {
@@ -80,37 +85,32 @@ const handleFinish = async () => {
       const ipRes = await fetch('https://api.ipify.org?format=json')
       const ipData = await ipRes.json()
       ipAddress = ipData.ip ?? null
-    } catch {  
-      // Non-blocking — if it fails, just skip it
+    } catch {
+      // Non-blocking
     }
 
-    const { data: existing } = await supabaseClient
-      .from('users_table').select('user_id').eq('user_id', user.id).single()
-
-    const slug = existing ? undefined : generateSlug(username.trim())
+    const slug = generateSlug(username.trim())
     const now = new Date().toISOString()
 
-    const { error: insertError } = await supabaseClient.from('users_table').upsert({
+    const { error: insertError } = await supabaseClient.from('users_table').insert({
       user_id: user.id,
       username: username.trim(),
       email: user.email,
-      ...(slug ? { slug } : {}),
+      slug,
       birthdate: birthYear,
       pfp: pfpUrl || null,
       created_at: now,
       active_subscription: false,
       user_ip_address: ipAddress,
-    }, { onConflict: 'user_id' })
+    })
 
     if (insertError) throw insertError
 
-    if (!existing && slug) {
-      await supabaseClient.from('links').insert({
-        user_id: user.id,
-        dynamic_link: `tbhonest.net/send/${slug}`,
-        created_at: now,
-      })
-    }
+    await supabaseClient.from('links').insert({
+      user_id: user.id,
+      dynamic_link: `tbhonest.net/send/${slug}`,
+      created_at: now,
+    })
 
     router.push('/home')
   } catch (e: unknown) {
