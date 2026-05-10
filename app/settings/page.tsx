@@ -22,7 +22,7 @@ export default function SettingsPage() {
         .from('users_table')
         .select('username, pfp, slug')
         .eq('user_id', session.user.id)
-        .single()
+        .maybeSingle()
 
       if (data) {
         setUsername(data.username ?? '')
