@@ -61,7 +61,7 @@ const handleFinish = async () => {
 
     // Profile already exists — just go home, no insert needed
     const { data: existing } = await supabaseClient
-      .from('users_table').select('user_id').eq('user_id', user.id).single()
+      .from('users_table').select('user_id').eq('user_id', user.id).maybeSingle()
     if (existing) { router.push('/home'); return }
 
     let pfpUrl = ''

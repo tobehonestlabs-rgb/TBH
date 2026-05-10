@@ -35,7 +35,7 @@ export default function HomePage() {
         .from('users_table')
         .select('*')
         .eq('user_id', session.user.id)
-        .single()
+        .maybeSingle()
  
       if (!data) { router.push('/onboarding'); return }
       setProfile(data)
