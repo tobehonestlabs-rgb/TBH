@@ -1,18 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { getServerSupabase } from '@/lib/serverSupabase'
+
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
 const TABLE = process.env.NEXT_PUBLIC_SUPABASE_MESSAGE_TABLE || 'messages'
 
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
-    )
+    const supabase = getServerSupabase()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
