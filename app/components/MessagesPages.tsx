@@ -778,8 +778,8 @@ export default function MessagesPage({ onUnreadChange, isActive }: Props) {
 
                       {/* Message bubble */}
                       {textContent && (
-                        <div className="w-full rounded-[28px] px-6 py-7 mb-3 flex items-center justify-center" style={{ background: '#F7F7F9', minHeight: 120 }}>
-                          <p className="text-[#0D0D0D] font-semibold text-center leading-snug"
+                        <div className="w-full rounded-[28px] px-6 py-7 mb-3 flex items-center justify-center" style={{ background: 'linear-gradient(145deg, #0D0D0D 0%, #1C1C2E 55%, #2D1B69 100%)', minHeight: 120 }}>
+                          <p className="font-semibold text-center leading-snug text-white"
                             style={{ fontSize: textContent.length > 100 ? '18px' : textContent.length > 50 ? '22px' : '28px' }}>
                             {textContent}
                           </p>

@@ -291,9 +291,9 @@ export default function SendMessagePage() {
   if (!agreedToTerms) {
     return (
       <main style={{
-        minHeight: '100svh', background: themeGradient,
+        height: '100%', overflowY: 'auto', background: themeGradient,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '24px', fontFamily: font, position: 'relative', overflow: 'hidden',
+        padding: '24px', fontFamily: font, position: 'relative',
       }}>
         <FloatingEmojis />
         <style>{GLOBAL_STYLES}</style>
@@ -372,10 +372,10 @@ export default function SendMessagePage() {
   if (success) {
     return (
       <main style={{
-        minHeight: '100svh', background: themeGradient,
+        height: '100%', overflowY: 'auto', background: themeGradient,
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         justifyContent: 'center', padding: '32px 24px', fontFamily: font, gap: '24px',
-        position: 'relative', overflow: 'hidden',
+        position: 'relative',
       }}>
         <FloatingEmojis />
         <style>{GLOBAL_STYLES}</style>
@@ -496,10 +496,10 @@ export default function SendMessagePage() {
       />
     )}
     <main style={{
-      minHeight: '100svh', background: themeGradient,
+      height: '100%', overflowY: 'auto', background: themeGradient,
       fontFamily: font, display: 'flex', flexDirection: 'column',
       alignItems: 'center', padding: '0 20px 48px',
-      position: 'relative', overflow: 'hidden',
+      position: 'relative',
     }}>
       <InAppBrowserBanner />
       <FloatingEmojis />

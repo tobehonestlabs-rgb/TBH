@@ -46,8 +46,10 @@ export default function ChatPage() {
   const [input, setInput]       = useState('')
   const [sending, setSending]   = useState(false)
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
-  const bottomRef  = useRef<HTMLDivElement>(null)
-  const channelRef = useRef<ReturnType<typeof supabaseClient.channel> | null>(null)
+  const bottomRef   = useRef<HTMLDivElement>(null)
+  const channelRef  = useRef<ReturnType<typeof supabaseClient.channel> | null>(null)
+  const pollRef     = useRef<ReturnType<typeof setInterval> | null>(null)
+  const selectedRef = useRef<Conversation | null>(null)
 
   useEffect(() => { setPortalTarget(document.getElementById('app-shell')) }, [])
 
@@ -59,9 +61,11 @@ export default function ChatPage() {
   }, [])
 
   const openConv = async (conv: Conversation) => {
-    // Tear down previous subscription
+    // Tear down previous subscription + poll
     if (channelRef.current) { supabaseClient.removeChannel(channelRef.current).catch(() => {}); channelRef.current = null }
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
 
+    selectedRef.current = conv
     setSelected(conv); setMsgs([])
 
     const r = await fetch(`/api/conversations/${conv.id}/messages`)
@@ -108,15 +112,35 @@ export default function ChatPage() {
       .subscribe()
 
     channelRef.current = ch
+
+    // Polling fallback — covers cases where Realtime isn't enabled on the table
+    pollRef.current = setInterval(async () => {
+      if (!selectedRef.current) return
+      try {
+        const res = await fetch(`/api/conversations/${selectedRef.current.id}/messages`)
+        const data = await res.json()
+        const fetched: ConvMsg[] = data.messages ?? []
+        setMsgs(prev => {
+          const existingIds = new Set(prev.map(m => m.id))
+          const newOnes = fetched.filter(m => !existingIds.has(m.id))
+          if (newOnes.length === 0) return prev
+          setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+          return [...prev, ...newOnes]
+        })
+      } catch {}
+    }, 4000)
   }
 
   const closeConv = () => {
     if (channelRef.current) { supabaseClient.removeChannel(channelRef.current).catch(() => {}); channelRef.current = null }
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+    selectedRef.current = null
     setSelected(null); setMsgs([])
   }
 
   useEffect(() => () => {
     if (channelRef.current) supabaseClient.removeChannel(channelRef.current).catch(() => {})
+    if (pollRef.current) clearInterval(pollRef.current)
   }, [])
 
   const send = async () => {
