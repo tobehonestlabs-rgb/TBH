@@ -48,7 +48,7 @@ export default function SettingsPage() {
 
   return (
     <main
-      className="min-h-screen bg-[#F5F5F7] flex flex-col"
+      className="h-full bg-[#F5F5F7] flex flex-col overflow-y-auto"
       style={{ fontFamily: font }}
     >
       {/* ── Top bar ── */}
