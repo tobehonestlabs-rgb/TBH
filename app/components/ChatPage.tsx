@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { supabaseClient } from '@/lib/supabaseClient'
 
@@ -37,28 +37,147 @@ function timeAgo(iso: string): string {
   } catch { return '' }
 }
 
-export default function ChatPage() {
-  const [convs, setConvs]       = useState<Conversation[]>([])
-  const [loading, setLoading]   = useState(true)
-  const [myUserId, setMyUserId] = useState<string | null>(null)
-  const [selected, setSelected] = useState<Conversation | null>(null)
-  const [msgs, setMsgs]         = useState<ConvMsg[]>([])
-  const [input, setInput]       = useState('')
-  const [sending, setSending]   = useState(false)
-  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
-  const bottomRef   = useRef<HTMLDivElement>(null)
-  const channelRef  = useRef<ReturnType<typeof supabaseClient.channel> | null>(null)
-  const pollRef     = useRef<ReturnType<typeof setInterval> | null>(null)
-  const selectedRef = useRef<Conversation | null>(null)
+const LS_FAVORITES = 'tbh_conv_favorites'
+const LS_NAMES     = 'tbh_conv_names'
+const LS_LASTSEEN  = 'tbh_conv_lastseen'
 
-  useEffect(() => { setPortalTarget(document.getElementById('app-shell')) }, [])
+function loadFavorites(): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(LS_FAVORITES) ?? '[]')) } catch { return new Set() }
+}
+function saveFavorites(s: Set<string>) {
+  try { localStorage.setItem(LS_FAVORITES, JSON.stringify(Array.from(s))) } catch {}
+}
+function loadNames(): Record<string, string> {
+  try { return JSON.parse(localStorage.getItem(LS_NAMES) ?? '{}') } catch { return {} }
+}
+function saveNames(n: Record<string, string>) {
+  try { localStorage.setItem(LS_NAMES, JSON.stringify(n)) } catch {}
+}
+function loadLastSeen(): Record<string, number> {
+  try { return JSON.parse(localStorage.getItem(LS_LASTSEEN) ?? '{}') } catch { return {} }
+}
+function saveLastSeen(n: Record<string, number>) {
+  try { localStorage.setItem(LS_LASTSEEN, JSON.stringify(n)) } catch {}
+}
+
+export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: boolean) => void }) {
+  const [convs, setConvs]           = useState<Conversation[]>([])
+  const [loading, setLoading]       = useState(true)
+  const [myUserId, setMyUserId]     = useState<string | null>(null)
+  const [selected, setSelected]     = useState<Conversation | null>(null)
+  const [msgs, setMsgs]             = useState<ConvMsg[]>([])
+  const [loadingMsgs, setLoadingMsgs] = useState(false)
+  const [input, setInput]           = useState('')
+  const [sending, setSending]       = useState(false)
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
+
+  // Favorites, names, last-seen
+  const [favorites, setFavorites]   = useState<Set<string>>(new Set())
+  const [convNames, setConvNames]   = useState<Record<string, string>>({})
+  const [lastSeenAt, setLastSeenAt] = useState<Record<string, number>>({})
+
+  // Rename modal
+  const [renameConvId, setRenameConvId]   = useState<string | null>(null)
+  const [renameValue, setRenameValue]     = useState('')
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const bottomRef    = useRef<HTMLDivElement>(null)
+  const channelRef   = useRef<ReturnType<typeof supabaseClient.channel> | null>(null)
+  const pollRef      = useRef<ReturnType<typeof setInterval> | null>(null)
+  const listPollRef  = useRef<ReturnType<typeof setInterval> | null>(null)
+  const selectedRef  = useRef<Conversation | null>(null)
 
   useEffect(() => {
-    fetch('/api/conversations')
-      .then(r => r.json())
-      .then(d => { setConvs(d.conversations ?? []); setMyUserId(d.userId ?? null); setLoading(false) })
-      .catch(() => setLoading(false))
+    setPortalTarget(document.getElementById('app-shell'))
+    setFavorites(loadFavorites())
+    setConvNames(loadNames())
+    setLastSeenAt(loadLastSeen())
   }, [])
+
+  const fetchConvs = useCallback(async () => {
+    try {
+      const r = await fetch('/api/conversations')
+      const d = await r.json()
+      const list: Conversation[] = d.conversations ?? []
+      setConvs(list)
+      setMyUserId(d.userId ?? null)
+      return list
+    } catch { return [] }
+  }, [])
+
+  useEffect(() => {
+    fetchConvs().then(list => {
+      setLoading(false)
+      // Check unread after initial load
+      checkUnread(list, loadLastSeen())
+    })
+
+    // Poll conversation list every 10s to detect new messages
+    listPollRef.current = setInterval(() => {
+      fetchConvs().then(list => {
+        checkUnread(list, loadLastSeen())
+      })
+    }, 10000)
+
+    return () => {
+      if (listPollRef.current) clearInterval(listPollRef.current)
+    }
+  }, [fetchConvs])
+
+  const checkUnread = useCallback((list: Conversation[], seen: Record<string, number>) => {
+    const hasAny = list.some(c => {
+      if (!c.last_message_at) return false
+      const t = new Date(c.last_message_at).getTime()
+      return t > (seen[c.id] ?? 0)
+    })
+    onUnreadChange?.(hasAny)
+  }, [onUnreadChange])
+
+  // Re-check unread whenever convs or lastSeenAt change
+  useEffect(() => {
+    checkUnread(convs, lastSeenAt)
+  }, [convs, lastSeenAt, checkUnread])
+
+  const toggleFavorite = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setFavorites(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      saveFavorites(next)
+      return next
+    })
+  }
+
+  const openRename = (conv: Conversation, e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    setRenameConvId(conv.id)
+    setRenameValue(convNames[conv.id] ?? conv.last_message ?? '')
+  }
+
+  const commitRename = () => {
+    if (!renameConvId) return
+    const trimmed = renameValue.trim()
+    setConvNames(prev => {
+      const next = { ...prev }
+      if (trimmed) next[renameConvId] = trimmed
+      else delete next[renameConvId]
+      saveNames(next)
+      return next
+    })
+    setRenameConvId(null)
+  }
+
+  const convDisplayName = (conv: Conversation) =>
+    convNames[conv.id] || conv.last_message || 'New conversation'
+
+  const sortedConvs = [...convs].sort((a, b) => {
+    const aFav = favorites.has(a.id) ? 1 : 0
+    const bFav = favorites.has(b.id) ? 1 : 0
+    if (bFav !== aFav) return bFav - aFav
+    const aT = a.last_message_at ? new Date(a.last_message_at).getTime() : 0
+    const bT = b.last_message_at ? new Date(b.last_message_at).getTime() : 0
+    return bT - aT
+  })
 
   const openConv = async (conv: Conversation) => {
     // Tear down previous subscription + poll
@@ -66,12 +185,23 @@ export default function ChatPage() {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
 
     selectedRef.current = conv
-    setSelected(conv); setMsgs([])
+    setSelected(conv)
+    setMsgs([])
+    setLoadingMsgs(true)
+
+    // Mark as seen
+    const now = Date.now()
+    setLastSeenAt(prev => {
+      const next = { ...prev, [conv.id]: now }
+      saveLastSeen(next)
+      return next
+    })
 
     const r = await fetch(`/api/conversations/${conv.id}/messages`)
     const d = await r.json()
     const loaded: ConvMsg[] = d.messages ?? []
     setMsgs(loaded)
+    setLoadingMsgs(false)
     setTimeout(() => bottomRef.current?.scrollIntoView(), 50)
 
     // Mark incoming messages as read
@@ -92,7 +222,6 @@ export default function ChatPage() {
           return [...prev, newMsg]
         })
         setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
-        // Auto-mark as read if it's from the other side
         setMyUserId(uid => {
           if (uid && newMsg.sender_id !== uid) {
             fetch(`/api/conversations/${conv.id}/read`, { method: 'POST' }).catch(() => {})
@@ -113,7 +242,7 @@ export default function ChatPage() {
 
     channelRef.current = ch
 
-    // Polling fallback — covers cases where Realtime isn't enabled on the table
+    // Polling fallback
     pollRef.current = setInterval(async () => {
       if (!selectedRef.current) return
       try {
@@ -135,12 +264,16 @@ export default function ChatPage() {
     if (channelRef.current) { supabaseClient.removeChannel(channelRef.current).catch(() => {}); channelRef.current = null }
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
     selectedRef.current = null
-    setSelected(null); setMsgs([])
+    setSelected(null)
+    setMsgs([])
+    // Refresh list on close to pick up any new last_message_at
+    fetchConvs()
   }
 
   useEffect(() => () => {
     if (channelRef.current) supabaseClient.removeChannel(channelRef.current).catch(() => {})
     if (pollRef.current) clearInterval(pollRef.current)
+    if (listPollRef.current) clearInterval(listPollRef.current)
   }, [])
 
   const send = async () => {
@@ -164,13 +297,12 @@ export default function ChatPage() {
     setSending(false)
   }
 
-  // Last sent message that's been read
   const lastReadSentId = [...msgs].reverse().find(m => m.sender_id === myUserId && m.is_read)?.id
 
   if (loading) {
     return (
       <div className="flex flex-col gap-3 px-4 pt-3">
-        {[1, 2].map(i => <div key={i} className="h-[72px] rounded-[20px] bg-[#F5F5F5] animate-pulse" />)}
+        {[1, 2, 3].map(i => <div key={i} className="h-[72px] rounded-[20px] bg-[#F5F5F5] animate-pulse" />)}
       </div>
     )
   }
@@ -194,34 +326,111 @@ export default function ChatPage() {
   return (
     <>
       <div className="flex flex-col pt-2 pb-10">
-        {convs.map(conv => {
-          const isParticipant2 = conv.participant_2 === myUserId
+        {sortedConvs.map(conv => {
+          const isFav = favorites.has(conv.id)
+          const seenTs = lastSeenAt[conv.id] ?? 0
+          const lastMsgTs = conv.last_message_at ? new Date(conv.last_message_at).getTime() : 0
+          const isUnread = lastMsgTs > seenTs
+
           return (
             <button
               key={conv.id}
               onClick={() => openConv(conv)}
+              onTouchStart={() => {
+                longPressTimer.current = setTimeout(() => openRename(conv), 600)
+              }}
+              onTouchEnd={() => {
+                if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null }
+              }}
+              onTouchMove={() => {
+                if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null }
+              }}
               className="w-full text-left mx-4 my-[5px] rounded-[20px] bg-white active:scale-[0.97] transition-transform"
               style={{ width: 'calc(100% - 32px)', boxShadow: '0 2px 10px rgba(0,0,0,0.07)' }}
             >
               <div className="flex items-center gap-3 p-[14px]">
-                <div className="w-11 h-11 rounded-full bg-[#F5F5F5] flex items-center justify-center flex-shrink-0">
-                  <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="#888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <circle cx="12" cy="7" r="4" stroke="#888" strokeWidth="2"/>
-                  </svg>
+                {/* Avatar */}
+                <div className="relative flex-shrink-0">
+                  <div className="w-11 h-11 rounded-full bg-[#F5F5F5] flex items-center justify-center">
+                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="#888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <circle cx="12" cy="7" r="4" stroke="#888" strokeWidth="2"/>
+                    </svg>
+                  </div>
+                  {isUnread && (
+                    <div className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-[#FF3B30] border-2 border-white" />
+                  )}
                 </div>
+
+                {/* Text */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-[15px] font-semibold text-[#0D0D0D]">
-                    {isParticipant2 ? 'Someone started a chat' : 'Anonymous sender'}
+                  <div className="flex items-center gap-1.5">
+                    {isFav && (
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="#FFD60A" className="flex-shrink-0">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                      </svg>
+                    )}
+                    <p className={`text-[15px] truncate ${isUnread ? 'font-bold text-[#0D0D0D]' : 'font-semibold text-[#0D0D0D]'}`}>
+                      {convDisplayName(conv)}
+                    </p>
+                  </div>
+                  <p className={`text-[12px] truncate ${isUnread ? 'text-[#555]' : 'text-[#ADADAD]'}`}>
+                    {conv.last_message ?? 'No messages yet'}
                   </p>
-                  <p className="text-[12px] text-[#ADADAD] truncate">{conv.last_message ?? 'No messages yet'}</p>
                 </div>
-                {conv.last_message_at && <p className="text-[11px] text-[#CCC] flex-shrink-0">{timeAgo(conv.last_message_at)}</p>}
+
+                {/* Right side: time + star */}
+                <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                  {conv.last_message_at && (
+                    <p className={`text-[11px] ${isUnread ? 'text-[#FF3B30] font-semibold' : 'text-[#CCC]'}`}>
+                      {timeAgo(conv.last_message_at)}
+                    </p>
+                  )}
+                  <button
+                    onClick={e => toggleFavorite(conv.id, e)}
+                    className="w-6 h-6 flex items-center justify-center active:scale-75 transition-transform"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill={isFav ? '#FFD60A' : 'none'} stroke={isFav ? '#FFD60A' : '#CCC'} strokeWidth="2">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
             </button>
           )
         })}
       </div>
+
+      {/* Rename modal */}
+      {renameConvId && portalTarget && createPortal(
+        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }} onClick={() => setRenameConvId(null)}>
+          <div className="bg-white rounded-t-[28px] w-full px-5 pt-3 pb-10" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-center mb-4">
+              <div className="w-10 h-1 rounded-full bg-[#DDD]" />
+            </div>
+            <p className="text-[18px] font-bold text-[#0D0D0D] mb-4">Rename conversation</p>
+            <input
+              autoFocus
+              value={renameValue}
+              onChange={e => setRenameValue(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') commitRename() }}
+              placeholder="Enter a name…"
+              maxLength={60}
+              className="w-full rounded-[14px] bg-[#F5F5F7] px-4 py-3.5 text-[15px] text-[#0D0D0D] outline-none mb-3"
+              style={{ fontFamily: 'inherit' }}
+            />
+            <div className="flex gap-2">
+              <button onClick={() => setRenameConvId(null)} className="flex-1 py-3.5 rounded-[14px] bg-[#F2F2F7] text-[#0D0D0D] font-semibold text-[15px] active:scale-95 transition-transform">
+                Cancel
+              </button>
+              <button onClick={commitRename} className="flex-1 py-3.5 rounded-[14px] bg-[#0D0D0D] text-white font-bold text-[15px] active:scale-95 transition-transform">
+                Save
+              </button>
+            </div>
+          </div>
+        </div>,
+        portalTarget
+      )}
 
       {/* Conversation thread — portaled */}
       {selected && portalTarget && createPortal(
@@ -234,49 +443,63 @@ export default function ChatPage() {
               </svg>
             </button>
             <div className="flex-1 min-w-0">
-              <p className="text-[16px] font-bold text-[#0D0D0D]">Anonymous sender</p>
+              <p className="text-[16px] font-bold text-[#0D0D0D] truncate">{convDisplayName(selected)}</p>
               <p className="text-[11px] text-[#ADADAD]">End-to-end private conversation</p>
             </div>
-            {/* Online indicator */}
-            <div className="w-2 h-2 rounded-full bg-[#2AC642] flex-shrink-0" />
+            {/* Rename button */}
+            <button
+              onClick={() => openRename(selected)}
+              className="w-8 h-8 rounded-full bg-[#F5F5F5] flex items-center justify-center active:scale-90 transition-transform flex-shrink-0"
+            >
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                <path d="M12 20h9" stroke="#555" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
           </div>
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-4 py-5 flex flex-col gap-1.5">
-            {msgs.length === 0 && (
+            {loadingMsgs ? (
               <div className="flex-1 flex items-center justify-center pt-16">
-                <p className="text-[14px] text-[#ADADAD] text-center">Send the first message</p>
+                <div className="w-8 h-8 border-2 border-[#0D0D0D] border-t-transparent rounded-full animate-spin" />
               </div>
-            )}
-            {msgs.map((m, i) => {
-              const isMine = m.sender_id === myUserId
-              const isLastMine = isMine && msgs.slice(i + 1).every(n => n.sender_id !== myUserId)
-              return (
-                <div key={m.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
-                  <div
-                    className="max-w-[78%] px-4 py-3"
-                    style={{
-                      background: isMine ? '#0D0D0D' : '#F2F2F2',
-                      borderRadius: isMine ? '20px 20px 5px 20px' : '20px 20px 20px 5px',
-                    }}
-                  >
-                    <p style={{ color: isMine ? '#FFFFFF' : '#0D0D0D', fontSize: '15px', lineHeight: '1.4' }}>{m.content}</p>
-                  </div>
-                  {/* Time + read receipt under last message from this sender */}
-                  {(isLastMine || (i === msgs.length - 1 && !isMine)) && (
-                    <div className={`flex items-center gap-1 mt-0.5 px-1 ${isMine ? 'flex-row-reverse' : ''}`}>
-                      <span className="text-[10px] text-[#C8C8C8]">{timeAgo(m.created_at)}</span>
-                      {isMine && m.id === lastReadSentId && (
-                        <span className="text-[10px] text-[#2AC642] font-medium">Read</span>
-                      )}
-                      {isMine && m.id !== lastReadSentId && isLastMine && (
-                        <span className="text-[10px] text-[#C8C8C8]">Sent</span>
-                      )}
+            ) : msgs.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center pt-16">
+                <p className="text-[14px] text-[#ADADAD] text-center">No messages yet. Say hello!</p>
+              </div>
+            ) : (
+              msgs.map((m, i) => {
+                const isMine = m.sender_id === myUserId
+                const isLastMine = isMine && msgs.slice(i + 1).every(n => n.sender_id !== myUserId)
+                return (
+                  <div key={m.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
+                    <div
+                      className="max-w-[78%] px-4 py-3"
+                      style={{
+                        background: isMine
+                          ? 'linear-gradient(145deg, #0D0D0D 0%, #1C1C2E 55%, #2D1B69 100%)'
+                          : '#F2F2F2',
+                        borderRadius: isMine ? '20px 20px 5px 20px' : '20px 20px 20px 5px',
+                      }}
+                    >
+                      <p style={{ color: isMine ? '#FFFFFF' : '#0D0D0D', fontSize: '15px', lineHeight: '1.4' }}>{m.content}</p>
                     </div>
-                  )}
-                </div>
-              )
-            })}
+                    {(isLastMine || (i === msgs.length - 1 && !isMine)) && (
+                      <div className={`flex items-center gap-1 mt-0.5 px-1 ${isMine ? 'flex-row-reverse' : ''}`}>
+                        <span className="text-[10px] text-[#C8C8C8]">{timeAgo(m.created_at)}</span>
+                        {isMine && m.id === lastReadSentId && (
+                          <span className="text-[10px] text-[#2AC642] font-medium">Read</span>
+                        )}
+                        {isMine && m.id !== lastReadSentId && isLastMine && (
+                          <span className="text-[10px] text-[#C8C8C8]">Sent</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })
+            )}
             <div ref={bottomRef} />
           </div>
 
@@ -296,9 +519,12 @@ export default function ChatPage() {
               disabled={!input.trim() || sending}
               className="w-10 h-10 rounded-full bg-[#0D0D0D] flex items-center justify-center active:scale-90 transition-transform disabled:opacity-30 flex-shrink-0"
             >
-              <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
-                <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+              {sending
+                ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                : <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
+                    <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+              }
             </button>
           </div>
         </div>,
