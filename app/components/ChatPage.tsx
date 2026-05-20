@@ -366,8 +366,8 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     {isFav && (
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="#FFD60A" className="flex-shrink-0">
-                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="#FF3B30" className="flex-shrink-0">
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
                       </svg>
                     )}
                     <p className={`text-[15px] truncate ${isUnread ? 'font-bold text-[#0D0D0D]' : 'font-semibold text-[#0D0D0D]'}`}>
@@ -379,7 +379,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                   </p>
                 </div>
 
-                {/* Right side: time + star */}
+                {/* Right side: time + heart */}
                 <div className="flex flex-col items-end gap-1 flex-shrink-0">
                   {conv.last_message_at && (
                     <p className={`text-[11px] ${isUnread ? 'text-[#FF3B30] font-semibold' : 'text-[#CCC]'}`}>
@@ -390,8 +390,8 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                     onClick={e => toggleFavorite(conv.id, e)}
                     className="w-6 h-6 flex items-center justify-center active:scale-75 transition-transform"
                   >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill={isFav ? '#FFD60A' : 'none'} stroke={isFav ? '#FFD60A' : '#CCC'} strokeWidth="2">
-                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill={isFav ? '#FF3B30' : 'none'} stroke={isFav ? '#FF3B30' : '#CCC'} strokeWidth="2">
+                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
                     </svg>
                   </button>
                 </div>
