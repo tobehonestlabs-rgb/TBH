@@ -45,7 +45,7 @@ function loadFavorites(): Set<string> {
   try { return new Set(JSON.parse(localStorage.getItem(LS_FAVORITES) ?? '[]')) } catch { return new Set() }
 }
 function saveFavorites(s: Set<string>) {
-  try { localStorage.setItem(LS_FAVORITES, JSON.stringify([...s])) } catch {}
+  try { localStorage.setItem(LS_FAVORITES, JSON.stringify(Array.from(s))) } catch {}
 }
 function loadNames(): Record<string, string> {
   try { return JSON.parse(localStorage.getItem(LS_NAMES) ?? '{}') } catch { return {} }
