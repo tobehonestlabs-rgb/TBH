@@ -22,6 +22,7 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState(0)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [hasUnread, setHasUnread] = useState(false)
+  const [hasUnreadChat, setHasUnreadChat] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
  
   const tabs = ['Play', 'Messages', 'Chat']
@@ -112,6 +113,12 @@ export default function HomePage() {
                     style={{ right: 'calc(50% - 20px)' }}
                   />
                 )}
+                {i === 2 && hasUnreadChat && (
+                  <div
+                    className="absolute top-0 w-[7px] h-[7px] bg-red-500 rounded-full"
+                    style={{ right: 'calc(50% - 16px)' }}
+                  />
+                )}
               </button>
             ))}
 
@@ -161,7 +168,7 @@ export default function HomePage() {
           </div>
           <div className="relative overflow-hidden" style={{ width: '33.333%', flexShrink: 0, height: '100%' }}>
             <div className="h-full overflow-y-auto">
-              <ChatPage/>
+              <ChatPage onUnreadChange={setHasUnreadChat} />
             </div>
           </div>
         </div>
