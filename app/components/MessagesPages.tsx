@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { supabaseClient } from '@/lib/supabaseClient'
-import InsightsMap from './InsightsMap'
 
 type Message = {
   message_id: string
@@ -908,10 +907,11 @@ export default function MessagesPage({ onUnreadChange, isActive }: Props) {
 
                   {/* Map */}
                   {selectedMsg?.latitude && selectedMsg?.longitude ? (
-                    <div className="mb-5">
-                      <InsightsMap
-                        latitude={parseFloat(selectedMsg.latitude)}
-                        longitude={parseFloat(selectedMsg.longitude)}
+                    <div className="w-full rounded-[22px] overflow-hidden mb-5" style={{ height: 170 }}>
+                      <iframe
+                        src={`https://www.openstreetmap.org/export/embed.html?bbox=${+selectedMsg.longitude - 0.06}%2C${+selectedMsg.latitude - 0.06}%2C${+selectedMsg.longitude + 0.06}%2C${+selectedMsg.latitude + 0.06}&layer=mapnik&marker=${selectedMsg.latitude}%2C${selectedMsg.longitude}`}
+                        className="w-full h-full border-0"
+                        title="Approximate sender location"
                       />
                     </div>
                   ) : (
