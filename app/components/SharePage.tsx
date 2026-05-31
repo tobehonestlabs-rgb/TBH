@@ -693,31 +693,30 @@ export default function SharePage({ profile }: Props) {
 
   const handlePlatformShare = async (platformId: string) => {
     if (!profile || generating) return
+
+    // Snapchat: copy link + open Snapchat camera with link as swipe-up attachment
+    if (platformId === 'snapchat') {
+      try { await navigator.clipboard.writeText(shareLink) } catch {}
+      const snapDeep = `snapchat://creativekit/preview?attachmentUrl=${encodeURIComponent(shareLink)}`
+      window.location.href = snapDeep
+      // Fallback after 1.5s (Snapchat not installed) → generic share sheet
+      setTimeout(async () => {
+        if (navigator.share) {
+          try { await navigator.share({ url: shareLink, text: 'tbhonest.net' }) } catch {}
+        }
+      }, 1500)
+      setSharedPlatforms(prev => prev.includes(platformId) ? prev : [...prev, platformId])
+      return
+    }
+
+    // Instagram / WhatsApp: pre-generate the share card, then surface a fresh-gesture "Share" button
+    // (navigator.share with files requires a fresh user gesture — async generation breaks the chain)
     setGenerating(true)
     try {
       const blob = await generateShareCard(profile, promptText, selectedCard, selectedColor.stops, selectedColor.ring)
-      const file = new File([blob], 'tbh-share.png', { type: 'image/png' })
-      try { await navigator.clipboard.writeText(shareLink) } catch {}
-      const shareData = { files: [file], title: 'TBH', text: shareLink }
-      if (navigator.share && navigator.canShare?.(shareData)) {
-        try {
-          await navigator.share(shareData)
-          setSharedPlatforms(prev => prev.includes(platformId) ? prev : [...prev, platformId])
-          return
-        } catch (e: any) { if (e?.name === 'AbortError') return }
-      }
-      if (platformId === 'instagram') {
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url; a.download = 'tbh-share.png'; a.click()
-        setTimeout(() => { URL.revokeObjectURL(url); window.open('instagram://camera', '_blank') }, 800)
-      } else if (platformId === 'snapchat') {
-        window.open(`snapchat://creativekit/preview?attachmentUrl=${encodeURIComponent(shareLink)}`, '_blank')
-      } else if (platformId === 'whatsapp') {
-        window.open(`https://wa.me/?text=${encodeURIComponent('Send me an anonymous photo/message! 🤫🔥')}`, '_blank')
-      }
+      setShareReady({ blob, filename: 'tbh-share.png', isGif: false })
       setSharedPlatforms(prev => prev.includes(platformId) ? prev : [...prev, platformId])
-    } catch (e) { console.error('Platform share failed', e) }
+    } catch (e) { console.error('Platform share card failed', e) }
     finally { setGenerating(false) }
   }
 
@@ -1142,14 +1141,14 @@ export default function SharePage({ profile }: Props) {
             </div>
             <div className="mb-5">
               <p className="text-white font-extrabold text-[18px]">{shareReady.isGif ? 'GIF ready!' : 'Image ready!'}</p>
-              <p className="text-[#555] text-[12px] mt-0.5">Tap the button below to share</p>
+              <p className="text-[#555] text-[12px] mt-0.5">Tap below — then pick your app from the share menu</p>
             </div>
             <button
               onClick={handleShareReady}
               className="w-full py-[17px] rounded-full font-extrabold text-[17px] active:scale-95 transition-transform mb-3"
               style={{ background: '#ffffff', color: '#0D0D0D' }}
             >
-              Share link
+              Share image + link
             </button>
             <button
               onClick={() => setShareReady(null)}
