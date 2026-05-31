@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { supabaseClient } from '@/lib/supabaseClient'
+import InsightsMap from './InsightsMap'
 
 type Message = {
   message_id: string
@@ -667,9 +668,6 @@ export default function MessagesPage({ onUnreadChange, isActive }: Props) {
   const imageUrl       = selectedMsg?.media_url  || null
   const textContent    = selectedMsg?.content    || null
 
-  const mapUrl = selectedMsg?.latitude && selectedMsg?.longitude
-    ? `https://www.openstreetmap.org/export/embed.html?bbox=${+selectedMsg.longitude - 0.06}%2C${+selectedMsg.latitude - 0.06}%2C${+selectedMsg.longitude + 0.06}%2C${+selectedMsg.latitude + 0.06}&layer=mapnik&marker=${selectedMsg.latitude}%2C${selectedMsg.longitude}`
-    : null
 
   return (
     <>
@@ -909,9 +907,12 @@ export default function MessagesPage({ onUnreadChange, isActive }: Props) {
                   </div>
 
                   {/* Map */}
-                  {mapUrl ? (
-                    <div className="w-full rounded-[22px] overflow-hidden mb-5" style={{ height: 170 }}>
-                      <iframe src={mapUrl} className="w-full h-full border-0" title="Approximate sender location" />
+                  {selectedMsg?.latitude && selectedMsg?.longitude ? (
+                    <div className="mb-5">
+                      <InsightsMap
+                        latitude={parseFloat(selectedMsg.latitude)}
+                        longitude={parseFloat(selectedMsg.longitude)}
+                      />
                     </div>
                   ) : (
                     <div className="w-full rounded-[22px] mb-5 flex items-center justify-center border border-[#EBEBEB]" style={{ height: 80 }}>

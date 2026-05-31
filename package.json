@@ -11,9 +11,13 @@
   "dependencies": {
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.104.1",
+    "@types/leaflet": "^1.9.21",
+    "@types/mapbox-gl": "^3.4.1",
     "@vercel/analytics": "^2.0.1",
     "firebase": "^12.12.1",
     "gifenc": "^1.0.3",
+    "leaflet": "^1.9.4",
+    "mapbox-gl": "^3.24.0",
     "next": "^14.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"

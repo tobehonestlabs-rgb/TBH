@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
 import InAppBrowserBanner from '@/app/components/InAppBrowserBanner'
 import ImageEditor from '@/app/components/ImageEditor'
+import { getT, type T } from '@/lib/i18n'
 
 const SUGGESTIONS = [
   "You deserve a kiss 😘",
@@ -105,6 +106,7 @@ export default function SendMessagePage() {
   const { slug } = useParams<{ slug: string }>()
   const router = useRouter()
 
+  const [t, setT] = useState<T>(() => getT())
   const [recipient, setRecipient] = useState<RecipientProfile | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -139,6 +141,9 @@ export default function SendMessagePage() {
     ((e.currentTarget as HTMLButtonElement).style.transform = 'scale(0.96)')
   const btnRelease = (e: React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement>) =>
     ((e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)')
+
+  // Resolve locale once on client
+  useEffect(() => { setT(getT()) }, [])
 
   // Fetch IP and country eagerly on mount
   useEffect(() => {
@@ -272,15 +277,15 @@ export default function SendMessagePage() {
   } catch (err: any) {
     console.error('[send] failed:', err)
     if (err?.name === 'AbortError') {
-      setError('Request timed out. Check your connection and try again.')
+      setError(t.requestTimeout)
     } else if (err?.status === 413) {
-      setError('Image too large. Try a smaller photo.')
+      setError(t.imageTooLarge)
     } else if (err?.status >= 500) {
-      setError(`Server error (${err.status}). Please try again in a moment.`)
+      setError(`${t.serverError} (${err.status})`)
     } else if (err?.status) {
-      setError(`Failed to send (${err.status})${err.detail ? ': ' + err.detail : ''}`)
+      setError(`${t.failedToSend} (${err.status})${err.detail ? ': ' + err.detail : ''}`)
     } else {
-      setError('Failed to send. Check your connection.')
+      setError(t.failedToSend)
     }
   } finally {
     clearTimeout(timeout)
@@ -324,17 +329,17 @@ export default function SendMessagePage() {
               </div>
             )}
 
-            <p style={{ fontSize: '22px', fontWeight: '800', color: '#FFFFFF', margin: 0 }}>Before you send</p>
+            <p style={{ fontSize: '22px', fontWeight: '800', color: '#FFFFFF', margin: 0 }}>{t.beforeSend}</p>
             <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', margin: 0, textAlign: 'center' }}>
-              These are strictly prohibited on TBH
+              {t.prohibited}
             </p>
 
             <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {[
-                { emoji: '🚫', text: 'Harassment & bullying' },
-                { emoji: '⚠️', text: 'Harmful content' },
-                { emoji: '🚨', text: 'Inappropriate or sexual content involving children' },
-                { emoji: '👺', text: 'No slurs, stay respectful' },
+                { emoji: '🚫', text: t.harassment },
+                { emoji: '⚠️', text: t.harmful },
+                { emoji: '🚨', text: t.sexualContent },
+                { emoji: '👺', text: t.noSlurs },
               ].map(item => (
                 <div key={item.text} style={{
                   display: 'flex', alignItems: 'center', gap: '12px',
@@ -356,11 +361,11 @@ export default function SendMessagePage() {
                 cursor: 'pointer', transition: 'transform 0.12s ease', fontFamily: font, marginTop: '8px',
               }}
             >
-              I agree, continue →
+              {t.agree}
             </button>
 
             <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)', textAlign: 'center', margin: 0 }}>
-              Violations may result in permanent ban
+              {t.violations}
             </p>
           </div>
         </div>
@@ -400,9 +405,9 @@ export default function SendMessagePage() {
               </div>
             )}
            <img src="/assets/Party.svg" alt="" style={{ width: '56px', height: '56px' }} />
-            <p style={{ fontSize: '24px', fontWeight: '800', color: '#fff', margin: '4px 0 0' }}>Sent!</p>
+            <p style={{ fontSize: '24px', fontWeight: '800', color: '#fff', margin: '4px 0 0' }}>{t.delivered}</p>
             <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', textAlign: 'center', margin: 0 }}>
-              Your anonymous message to{' '}
+              {t.deliveredTo}{' '}
               <span style={{ color: accentColor, fontWeight: '700' }}>@{recipient?.username ?? slug}</span>{' '}
               was delivered.
             </p>
@@ -426,7 +431,7 @@ export default function SendMessagePage() {
     >
       {liveCount.toLocaleString()}
     </span>
-    {' '} people are receiving messages right now
+    {' '} {t.peopleReceiving}
   </p>
 
   <style>{`
@@ -457,7 +462,7 @@ export default function SendMessagePage() {
               <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
                 <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              Send another
+              {t.sendAnother}
             </button>
 
             <button
@@ -475,7 +480,7 @@ export default function SendMessagePage() {
                 <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="white" strokeWidth="2" strokeLinecap="round"/>
                 <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="white" strokeWidth="2" strokeLinecap="round"/>
               </svg>
-              Get my own link
+              {t.getMyLink}
             </button>
           </div>
         </div>
@@ -510,7 +515,7 @@ export default function SendMessagePage() {
         {/* Header */}
         <div style={{ paddingTop: '56px', paddingBottom: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
           <img src="/assets/TBH_Simple_Logo.svg" alt="TBH" style={{ height: '44px', filter: 'invert(1)' }} />
-          <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.55)', margin: 0 }}>send anything anonymously</p>
+          <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.55)', margin: 0 }}>{t.anonymousMessaging}</p>
         </div>
 
         {/* Message card */}
@@ -541,7 +546,7 @@ export default function SendMessagePage() {
               }
             </div>
             <p style={{ fontSize: '16px', fontWeight: '700', color: '#fff', margin: 0 }}>
-              Message for <span style={{ color: accentColor }}>@{recipient?.username ?? slug}</span>
+              {t.messageFor} <span style={{ color: accentColor }}>@{recipient?.username ?? slug}</span>
             </p>
           </div>
 
@@ -559,7 +564,7 @@ export default function SendMessagePage() {
             <textarea
               required rows={5} maxLength={1000}
               value={message} onChange={e => setMessage(e.target.value)}
-              placeholder="Write your message here..."
+              placeholder={t.writePlaceholder}
               style={{
                 width: '100%', padding: '4px 4px 40px',
                 fontSize: '18px', fontWeight: '600', color: '#FFF',
@@ -636,7 +641,7 @@ export default function SendMessagePage() {
                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 <circle cx="12" cy="13" r="4" stroke="currentColor" strokeWidth="2"/>
               </svg>
-              Add a photo
+              {t.addPhoto}
             </button>
           )}
 
@@ -666,16 +671,16 @@ export default function SendMessagePage() {
             {isSubmitting ? (
               <>
                 <div className="ios-arc" />
-                <span style={{ fontSize: '16px', fontWeight: '700', opacity: 0.9 }}>Sending…</span>
+                <span style={{ fontSize: '16px', fontWeight: '700', opacity: 0.9 }}>{t.sending}</span>
               </>
-            ) : 'Send anonymously'}
+            ) : t.sendAnonymously}
           </button>
         </div>
 
         {/* CTA */}
         <div style={{ marginTop: '32px', textAlign: 'center' }}>
           <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.35)', margin: '0 0 10px' }}>
-            Want to receive anonymous messages too?
+            {t.wantLink}
           </p>
           <button
             onClick={() => router.push('/')}
@@ -693,7 +698,7 @@ export default function SendMessagePage() {
               <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="white" strokeWidth="2" strokeLinecap="round"/>
               <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="white" strokeWidth="2" strokeLinecap="round"/>
             </svg>
-            Get my own link
+            {t.getMyLink}
           </button>
         </div>
 
