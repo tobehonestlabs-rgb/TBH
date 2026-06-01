@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { supabaseClient } from '@/lib/supabaseClient'
+import GifPicker, { GifResult } from './GifPicker'
 
 type Conversation = {
   id: string
@@ -17,7 +18,8 @@ type Conversation = {
 type ConvMsg = {
   id: string
   sender_id: string
-  content: string
+  content: string | null
+  gif_url?: string | null
   created_at: string
   is_read: boolean
 }
@@ -75,6 +77,9 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
   const [favorites, setFavorites]   = useState<Set<string>>(new Set())
   const [convNames, setConvNames]   = useState<Record<string, string>>({})
   const [lastSeenAt, setLastSeenAt] = useState<Record<string, number>>({})
+
+  // GIF picker
+  const [showGifPicker, setShowGifPicker] = useState(false)
 
   // Rename modal
   const [renameConvId, setRenameConvId]   = useState<string | null>(null)
@@ -266,6 +271,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
     selectedRef.current = null
     setSelected(null)
     setMsgs([])
+    setShowGifPicker(false)
     // Refresh list on close to pick up any new last_message_at
     fetchConvs()
   }
@@ -290,6 +296,27 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
         setMsgs(prev => prev.find(m => m.id === message.id) ? prev : [...prev, message])
         setConvs(prev => prev.map(c => c.id === selected.id
           ? { ...c, last_message: text, last_message_at: new Date().toISOString() }
+          : c))
+        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+      }
+    } catch {}
+    setSending(false)
+  }
+
+  const sendGif = async (gif: GifResult) => {
+    if (!selected || sending) return
+    setSending(true)
+    setShowGifPicker(false)
+    try {
+      const r = await fetch(`/api/conversations/${selected.id}/messages`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gif_url: gif.url }),
+      })
+      const { message } = await r.json()
+      if (message) {
+        setMsgs(prev => prev.find(m => m.id === message.id) ? prev : [...prev, message])
+        setConvs(prev => prev.map(c => c.id === selected.id
+          ? { ...c, last_message: '🎬 GIF', last_message_at: new Date().toISOString() }
           : c))
         setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
       }
@@ -474,6 +501,9 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                 const isLastMine = isMine && msgs.slice(i + 1).every(n => n.sender_id !== myUserId)
                 return (
                   <div key={m.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
+                    {m.gif_url ? (
+                      <img src={m.gif_url} alt="GIF" className="max-w-[220px] rounded-[16px] block" style={{ border: isMine ? '2px solid rgba(100,80,200,0.3)' : '2px solid #E8E8E8' }} />
+                    ) : (
                     <div
                       className="max-w-[78%] px-4 py-3"
                       style={{
@@ -485,6 +515,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                     >
                       <p style={{ color: isMine ? '#FFFFFF' : '#0D0D0D', fontSize: '15px', lineHeight: '1.4' }}>{m.content}</p>
                     </div>
+                    )}
                     {(isLastMine || (i === msgs.length - 1 && !isMine)) && (
                       <div className={`flex items-center gap-1 mt-0.5 px-1 ${isMine ? 'flex-row-reverse' : ''}`}>
                         <span className="text-[10px] text-[#C8C8C8]">{timeAgo(m.created_at)}</span>
@@ -504,28 +535,45 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
           </div>
 
           {/* Input */}
-          <div className="px-4 pb-8 pt-3 border-t border-[#F2F2F2] flex gap-2 flex-shrink-0">
-            <input
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); send() } }}
-              placeholder="Message…"
-              maxLength={500}
-              className="flex-1 rounded-full bg-[#F5F5F5] px-4 py-3 text-[15px] text-[#0D0D0D] outline-none"
-              style={{ fontFamily: 'inherit' }}
-            />
-            <button
-              onClick={send}
-              disabled={!input.trim() || sending}
-              className="w-10 h-10 rounded-full bg-[#0D0D0D] flex items-center justify-center active:scale-90 transition-transform disabled:opacity-30 flex-shrink-0"
-            >
-              {sending
-                ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                : <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
-                    <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-              }
-            </button>
+          <div className="px-4 pb-8 pt-3 border-t border-[#F2F2F2] flex-shrink-0">
+            {showGifPicker && (
+              <div className="relative h-0 mb-[316px]">
+                <GifPicker
+                  onSelect={gif => sendGif(gif)}
+                  onClose={() => setShowGifPicker(false)}
+                />
+              </div>
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowGifPicker(p => !p)}
+                className="w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition-transform flex-shrink-0 text-[18px]"
+                style={{ background: showGifPicker ? '#0D0D0D' : '#F5F5F5' }}
+              >
+                <span style={{ filter: showGifPicker ? 'brightness(0) invert(1)' : 'none' }}>🎬</span>
+              </button>
+              <input
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); send() } }}
+                placeholder="Message…"
+                maxLength={500}
+                className="flex-1 rounded-full bg-[#F5F5F5] px-4 py-3 text-[15px] text-[#0D0D0D] outline-none"
+                style={{ fontFamily: 'inherit' }}
+              />
+              <button
+                onClick={send}
+                disabled={!input.trim() || sending}
+                className="w-10 h-10 rounded-full bg-[#0D0D0D] flex items-center justify-center active:scale-90 transition-transform disabled:opacity-30 flex-shrink-0"
+              >
+                {sending
+                  ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  : <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
+                      <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                }
+              </button>
+            </div>
           </div>
         </div>,
         portalTarget
