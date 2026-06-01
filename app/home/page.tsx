@@ -15,6 +15,8 @@ export type UserProfile = {
   slug: string | null
   pfp: string | null
   birthdate: number | null
+  active_subscription: boolean
+  email: string | null
 }
  
 export default function HomePage() {
@@ -163,7 +165,7 @@ export default function HomePage() {
           </div>
           <div className="relative overflow-hidden" style={{ width: '33.333%', flexShrink: 0, height: '100%' }}>
             <div className="h-full overflow-y-auto">
-              <MessagesPage onUnreadChange={setHasUnread} isActive={activeTab === 1} />
+              <MessagesPage onUnreadChange={setHasUnread} isActive={activeTab === 1} profile={profile} />
             </div>
           </div>
           <div className="relative overflow-hidden" style={{ width: '33.333%', flexShrink: 0, height: '100%' }}>

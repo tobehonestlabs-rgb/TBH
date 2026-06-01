@@ -28,12 +28,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { content } = await req.json()
-    if (!content?.trim()) return NextResponse.json({ error: 'Empty message' }, { status: 400 })
+    const { content, gif_url } = await req.json()
+    if (!content?.trim() && !gif_url) return NextResponse.json({ error: 'Empty message' }, { status: 400 })
+
+    const insertData: Record<string, any> = {
+      conversation_id: params.id,
+      sender_id: user.id,
+    }
+    if (content?.trim()) insertData.content = content.trim()
+    if (gif_url)         insertData.gif_url = gif_url
 
     const { data, error } = await supabaseAdmin
       .from('conversation_messages')
-      .insert({ conversation_id: params.id, sender_id: user.id, content: content.trim() })
+      .insert(insertData)
       .select()
       .single()
 
@@ -42,7 +49,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     // Update conversation last_message
     await supabaseAdmin
       .from('conversations')
-      .update({ last_message: content.trim(), last_message_at: new Date().toISOString() })
+      .update({
+        last_message:    content?.trim() ?? '🎬 GIF',
+        last_message_at: new Date().toISOString(),
+      })
       .eq('id', params.id)
 
     return NextResponse.json({ message: data })
