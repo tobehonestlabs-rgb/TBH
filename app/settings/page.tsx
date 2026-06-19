@@ -42,7 +42,10 @@ export default function SettingsPage() {
       const res = await fetch('/api/user/delete', { method: 'POST' })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
-        setDeleteError(body?.error ?? 'Could not delete account. Please try again.')
+        const detail = Array.isArray(body?.details)
+          ? body.details.map((item: any) => `${item.step}: ${item.message}`).join('; ')
+          : body?.details
+        setDeleteError(detail || body?.error || 'Could not delete account. Please try again.')
         setDeleting(false)
         return
       }
