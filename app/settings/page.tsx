@@ -12,6 +12,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -36,12 +37,21 @@ export default function SettingsPage() {
 
   const handleDeleteAccount = async () => {
     setDeleting(true)
+    setDeleteError(null)
     try {
       const res = await fetch('/api/user/delete', { method: 'POST' })
-      if (!res.ok) { setDeleting(false); return }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setDeleteError(body?.error ?? 'Could not delete account. Please try again.')
+        setDeleting(false)
+        return
+      }
       await supabaseClient.auth.signOut()
       router.push('/')
-    } catch { setDeleting(false) }
+    } catch {
+      setDeleteError('Could not delete account. Please try again.')
+      setDeleting(false)
+    }
   }
 
   const font = "-apple-system, 'SF Pro Display', BlinkMacSystemFont, sans-serif"
@@ -193,6 +203,11 @@ export default function SettingsPage() {
               This will permanently delete your profile, messages, and all your data. This cannot be undone.
             </p>
             <div className="flex flex-col gap-3">
+              {deleteError && (
+                <p className="text-[13px] text-[#FF3B30] text-center leading-relaxed">
+                  {deleteError}
+                </p>
+              )}
               <button
                 onClick={handleDeleteAccount}
                 disabled={deleting}
