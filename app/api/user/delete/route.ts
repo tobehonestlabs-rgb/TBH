@@ -10,6 +10,12 @@ const AVATARS_BUCKET = process.env.NEXT_PUBLIC_SUPABASE_AVATAR_BUCKET || 'avatar
 type CleanupError = {
   step: string
   message: string
+  code?: string
+}
+
+type SupabaseLikeError = {
+  message: string
+  code?: string
 }
 
 function storagePathFromPublicUrl(url: string | null, bucket: string) {
@@ -24,12 +30,18 @@ function storagePathFromPublicUrl(url: string | null, bucket: string) {
 
 async function deleteStep(
   step: string,
-  query: PromiseLike<{ error: { message: string } | null }>,
-  errors: CleanupError[]
+  query: PromiseLike<{ error: SupabaseLikeError | null }>,
+  errors: CleanupError[],
+  options: { optional?: boolean } = {}
 ) {
   const { error } = await query
   if (error) {
-    errors.push({ step, message: error.message })
+    if (options.optional && (error.code === '42P01' || error.code === '42703')) {
+      console.warn('[delete-account] skipped optional cleanup:', { step, error })
+      return
+    }
+
+    errors.push({ step, message: error.message, code: error.code })
   }
 }
 
@@ -39,14 +51,14 @@ async function removeStorageFiles(bucket: string, paths: Array<string | null>, e
 
   const { error } = await supabaseAdmin.storage.from(bucket).remove(uniquePaths)
   if (error) {
-    errors.push({ step: `remove ${bucket} files`, message: error.message })
+    console.warn('[delete-account] storage cleanup skipped:', { bucket, paths: uniquePaths, error })
   }
 }
 
 async function removeStoragePrefix(bucket: string, prefix: string, errors: CleanupError[]) {
   const { data, error } = await supabaseAdmin.storage.from(bucket).list(prefix)
   if (error) {
-    errors.push({ step: `list ${bucket}/${prefix}`, message: error.message })
+    console.warn('[delete-account] storage prefix cleanup skipped:', { bucket, prefix, error })
     return
   }
 
@@ -89,7 +101,15 @@ export async function POST(_req: NextRequest) {
       .or(`participant_1.eq.${user.id},participant_2.eq.${user.id}`)
 
     if (conversationsReadError) {
-      errors.push({ step: 'read conversations', message: conversationsReadError.message })
+      if (conversationsReadError.code === '42P01' || conversationsReadError.code === '42703') {
+        console.warn('[delete-account] skipped optional conversations lookup:', conversationsReadError)
+      } else {
+        errors.push({
+          step: 'read conversations',
+          message: conversationsReadError.message,
+          code: conversationsReadError.code,
+        })
+      }
     }
 
     const conversationIds = (conversations ?? [])
@@ -100,19 +120,22 @@ export async function POST(_req: NextRequest) {
       await deleteStep(
         'conversation_messages by conversation',
         supabaseAdmin.from('conversation_messages').delete().in('conversation_id', conversationIds),
-        errors
+        errors,
+        { optional: true }
       )
       await deleteStep(
         'conversations',
         supabaseAdmin.from('conversations').delete().in('id', conversationIds),
-        errors
+        errors,
+        { optional: true }
       )
     }
 
     await deleteStep(
       'conversation_messages by sender',
       supabaseAdmin.from('conversation_messages').delete().eq('sender_id', user.id),
-      errors
+      errors,
+      { optional: true }
     )
     await deleteStep(
       'messages to user',
@@ -132,7 +155,8 @@ export async function POST(_req: NextRequest) {
     await deleteStep(
       'user_ip_mapping',
       supabaseAdmin.from('user_ip_mapping').delete().eq('user_id', user.id),
-      errors
+      errors,
+      { optional: true }
     )
 
     if (slug) {
@@ -140,13 +164,7 @@ export async function POST(_req: NextRequest) {
     }
     await removeStorageFiles(
       AVATARS_BUCKET,
-      [
-        avatarPath,
-        `${user.id}_pfp.jpg`,
-        `${user.id}_pfp.jpeg`,
-        `${user.id}_pfp.png`,
-        `${user.id}_pfp.webp`,
-      ],
+      [avatarPath],
       errors
     )
 
