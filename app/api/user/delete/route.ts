@@ -4,6 +4,7 @@ import { getServerSupabase } from '@/lib/serverSupabase'
 
 const MESSAGES_TABLE = process.env.NEXT_PUBLIC_SUPABASE_MESSAGE_TABLE || 'messages'
 const USERS_TABLE = process.env.NEXT_PUBLIC_SUPABASE_USERS_TABLE || 'users_table'
+const SHARE_LINKS_TABLE = process.env.NEXT_PUBLIC_SUPABASE_SHARE_LINKS_TABLE || 'share_links'
 const MESSAGE_IMAGES_BUCKET = process.env.NEXT_PUBLIC_SUPABASE_BUCKET || 'images'
 const AVATARS_BUCKET = process.env.NEXT_PUBLIC_SUPABASE_AVATAR_BUCKET || 'avatars'
 
@@ -148,8 +149,8 @@ export async function POST(_req: NextRequest) {
       errors
     )
     await deleteStep(
-      'links',
-      supabaseAdmin.from('links').delete().eq('user_id', user.id),
+      SHARE_LINKS_TABLE,
+      supabaseAdmin.from(SHARE_LINKS_TABLE).delete().eq('user_id', user.id),
       errors
     )
     await deleteStep(

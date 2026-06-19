@@ -5,6 +5,8 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
 
+const SHARE_LINKS_TABLE = process.env.NEXT_PUBLIC_SUPABASE_SHARE_LINKS_TABLE || 'share_links'
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Step = 'profile' | 'photo'
 
@@ -106,7 +108,7 @@ const handleFinish = async () => {
 
     if (insertError) throw insertError
 
-    await supabaseClient.from('links').insert({
+    await supabaseClient.from(SHARE_LINKS_TABLE).insert({
       user_id: user.id,
       dynamic_link: `tbhonest.net/send/${slug}`,
       created_at: now,
