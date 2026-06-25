@@ -12,22 +12,39 @@ export default function NotificationSetup() {
   const [activating, setActivating] = useState(false)
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (!('serviceWorker' in navigator) || !('Notification' in window)) return
-    if (!VAPID_KEY) return
+    const checkAndPrompt = async () => {
+      if (typeof window === 'undefined') return
+      if (!('serviceWorker' in navigator) || !('Notification' in window)) return
+      if (!VAPID_KEY) return
 
-    if (Notification.permission !== 'default') {
-      if (Notification.permission === 'granted') {
-        setupPushNotifications(false)
+      // Check if user already has notifications enabled in DB
+      const { data: { session } } = await supabaseClient.auth.getSession()
+      if (session) {
+        const { data: userData } = await supabaseClient
+          .from('users_table')
+          .select('web_notification_on')
+          .eq('user_id', session.user.id)
+          .maybeSingle()
+        if (userData?.web_notification_on) {
+          return
+        }
       }
-      return
+
+      if (Notification.permission !== 'default') {
+        if (Notification.permission === 'granted') {
+          setupPushNotifications(false)
+        }
+        return
+      }
+
+      const choice = window.localStorage.getItem(NOTIFICATION_PROMPT_CHOICE_KEY)
+      if (choice === 'dismissed' || choice === 'activated') return
+
+      const timeout = window.setTimeout(() => setShowPrompt(true), 900)
+      return () => window.clearTimeout(timeout)
     }
 
-    const choice = window.localStorage.getItem(NOTIFICATION_PROMPT_CHOICE_KEY)
-    if (choice === 'dismissed' || choice === 'activated') return
-
-    const timeout = window.setTimeout(() => setShowPrompt(true), 900)
-    return () => window.clearTimeout(timeout)
+    checkAndPrompt()
   }, [])
 
   const handleActivate = async () => {
@@ -152,7 +169,7 @@ async function setupPushNotifications(askPermission: boolean) {
 
     await supabaseClient
       .from('users_table')
-      .update({ fcm_token: token })
+      .update({ fcm_token: token, web_notification_on: true })
       .eq('user_id', session.user.id)
 
     return true

@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { Analytics } from "@vercel/analytics/next"
-
+import NotificationInitializer from './NotificationInitializer';
 export const metadata: Metadata = {
   title: 'TBH - Receive Anonymous Messages, Voices & Photos',
   description: 'TBH lets you receive anonymous messages, voices, and photos from peers with intuitive hints about the sender. Join over 100M users.',
@@ -53,6 +53,7 @@ export default function RootLayout({
             {children}
           </div>
         </div>
+         <NotificationInitializer /> 
         <Analytics />
       </body>
     </html>
