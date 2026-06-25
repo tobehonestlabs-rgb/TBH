@@ -180,7 +180,7 @@ export default function SettingsPage() {
           </button>
         </Section>
 
-        <p className="text-center text-[11px] text-[#BBB] tracking-wide">TBH · v1.0.0</p>
+        <p className="text-center text-[11px] text-[#BBB] tracking-wide">TBH · v1.0.0 made with ❤️</p>
       </div>
 
       {/* ── Delete account confirm sheet ── */}

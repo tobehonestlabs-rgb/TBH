@@ -80,6 +80,23 @@ const handleFinish = async () => {
         .getPublicUrl(fileName)
       pfpUrl = urlData.publicUrl
     }
+  // ── NEW: fingerprint state ──
+  const [fingerprint, setFingerprint] = useState<string | null>(null)
+
+  // ── NEW: generate fingerprint on mount ──
+  useEffect(() => {
+    const getFingerprint = async () => {
+      try {
+        const fp = await FingerprintJS.load()
+        const result = await fp.get()
+        setFingerprint(result.visitorId)
+      } catch {
+        // fallback
+        setFingerprint(`fallback_${Math.random().toString(36).substring(2, 10)}`)
+      }
+    }
+    getFingerprint()
+  }, [])
 
     // Fetch IP address
     let ipAddress: string | null = null
@@ -104,6 +121,9 @@ const handleFinish = async () => {
       created_at: now,
       active_subscription: false,
       user_ip_address: ipAddress,
+      is_sharing: false, 
+      fingerprint: fingerprint, 
+      web_notification: false, 
     })
 
     if (insertError) throw insertError
