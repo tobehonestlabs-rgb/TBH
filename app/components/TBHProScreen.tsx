@@ -17,9 +17,9 @@ const FEATURES = [
 ]
 
 export default function TBHProScreen({ onClose, onSuccess }: Props) {
-  const [loading, setLoading]             = useState(false)
-  const [error, setError]                 = useState<string | null>(null)
-  const [portalTarget, setPortalTarget]   = useState<HTMLElement | null>(null)
+  const [loading, setLoading]               = useState(false)
+  const [error, setError]                   = useState<string | null>(null)
+  const [portalTarget, setPortalTarget]     = useState<HTMLElement | null>(null)
   const scriptRef = useRef(false)
 
   useEffect(() => {
@@ -48,8 +48,14 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       })
-      const { reference, error: apiErr } = await res.json()
+      const { reference, authorization_url, error: apiErr } = await res.json()
       if (apiErr) { setError(apiErr); setLoading(false); return }
+
+      // If authorization_url is available, redirect directly
+      if (authorization_url) {
+        window.location.href = authorization_url
+        return
+      }
 
       const PaystackPop = (window as any).PaystackPop
       if (!PaystackPop) { setError('Payment service unavailable'); setLoading(false); return }
@@ -59,7 +65,6 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
         email,
         amount:   299 * 100,
         currency: 'USD',
-        plan:     (process.env.NEXT_PUBLIC_PAYSTACK_PLAN_CODE ?? '').trim(),
         ref:      reference,
         onClose:  () => setLoading(false),
         callback: async (response: { reference: string }) => {
@@ -92,8 +97,8 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
       />
 
       <div
-        className="relative sheet-enter rounded-t-[36px] z-10 pb-10 px-5 pt-4 border-t border-white/[0.08]"
-        style={{ background: '#0D0D0D' }}
+        className="relative sheet-enter rounded-t-[36px] z-10 pb-10 px-5 pt-4 border-t border-white/[0.08] overflow-y-auto"
+        style={{ background: '#0D0D0D', maxHeight: '80vh' }}
       >
         {/* Handle */}
         <div className="flex justify-center mb-5">

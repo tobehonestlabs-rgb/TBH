@@ -140,14 +140,7 @@ export default function NotificationSetup() {
 
 async function setupPushNotifications(askPermission: boolean) {
   try {
-    const swReg = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
-    await navigator.serviceWorker.ready
-
-    const sw = swReg.active ?? swReg.installing ?? swReg.waiting
-    if (sw) {
-      sw.postMessage({ type: 'FIREBASE_CONFIG', config: firebaseConfig })
-    }
-
+    // First request permission
     if (Notification.permission === 'denied') return false
     if (Notification.permission === 'default') {
       if (!askPermission) return false
@@ -156,25 +149,59 @@ async function setupPushNotifications(askPermission: boolean) {
     }
 
     const messaging = getFirebaseMessaging()
-    if (!messaging) return false
+    if (!messaging) {
+      // If no messaging, still set web_notification_on
+      const { data: { session } } = await supabaseClient.auth.getSession()
+      if (!session) return false
+      await supabaseClient
+        .from('users_table')
+        .update({ web_notification_on: true })
+        .eq('user_id', session.user.id)
+      return true
+    }
+
+    let swReg: ServiceWorkerRegistration | undefined
+    try {
+      swReg = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
+      await navigator.serviceWorker.ready
+      const sw = swReg.active ?? swReg.installing ?? swReg.waiting
+      if (sw) {
+        sw.postMessage({ type: 'FIREBASE_CONFIG', config: firebaseConfig })
+      }
+    } catch (swErr) {
+      console.warn('[NotificationSetup] Service worker registration failed', swErr)
+    }
 
     const token = await getToken(messaging, {
       vapidKey: VAPID_KEY,
-      serviceWorkerRegistration: swReg,
+      ...(swReg ? { serviceWorkerRegistration: swReg } : {}),
     })
-    if (!token) return false
-
+    
     const { data: { session } } = await supabaseClient.auth.getSession()
     if (!session) return false
 
     await supabaseClient
       .from('users_table')
-      .update({ fcm_token: token, web_notification_on: true })
+      .update({ fcm_token: token || null, web_notification_on: true })
       .eq('user_id', session.user.id)
 
     return true
   } catch (err) {
     console.warn('[NotificationSetup]', err)
-    return false
+    // Even if something fails, if permission is granted, let's still set the flag
+    try {
+      if (Notification.permission === 'granted') {
+        const { data: { session } } = await supabaseClient.auth.getSession()
+        if (session) {
+          await supabaseClient
+            .from('users_table')
+            .update({ web_notification_on: true })
+            .eq('user_id', session.user.id)
+        }
+      }
+    } catch (e) {
+      console.warn('[NotificationSetup] Could not update DB', e)
+    }
+    return true // Still return true to hide the banner
   }
 }

@@ -142,7 +142,7 @@ export default function AuthPageClient() {
 
   return (
     <main
-      className="min-h-screen bg-white flex flex-col items-center justify-center overflow-hidden"
+      className="min-h-screen bg-white flex flex-col items-center overflow-auto pt-8 pb-8"
       style={{ fontFamily: font }}
     >
       {/* Static ambient glow — no mouse tracking, no re-renders */}
