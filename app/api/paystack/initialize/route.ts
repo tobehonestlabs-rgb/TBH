@@ -19,11 +19,10 @@ export async function POST(req: NextRequest) {
       email,
       amount: 299 * 100,
       currency: 'USD',
-      plan: (process.env.PAYSTACK_PLAN_CODE ?? '').trim(),
       reference,
     }),
   })
   const data = await res.json()
   if (!data.status) return NextResponse.json({ error: data.message }, { status: 400 })
-  return NextResponse.json({ reference, access_code: data.data?.access_code })
+  return NextResponse.json({ reference, access_code: data.data?.access_code, authorization_url: data.data?.authorization_url })
 }
