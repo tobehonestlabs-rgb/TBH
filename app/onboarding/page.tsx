@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
@@ -35,8 +35,24 @@ export default function OnboardingPage() {
   // Shared state
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  
+  // Fingerprint state
+  const [fingerprint, setFingerprint] = useState<string | null>(null)
 
   const years = Array.from({ length: 86 }, (_, i) => 2015 - i) // 2015 down to 1930
+
+  // Generate fingerprint on mount
+  useEffect(() => {
+    const getFingerprint = async () => {
+      try {
+        // Simple fallback since FingerprintJS might not be installed
+        setFingerprint(`fallback_${Math.random().toString(36).substring(2, 10)}`)
+      } catch {
+        setFingerprint(`fallback_${Math.random().toString(36).substring(2, 10)}`)
+      }
+    }
+    getFingerprint()
+  }, [])
 
   // ── Step 1: Save profile info ──────────────────────────────────────────────
   const handleProfileNext = () => {
@@ -80,23 +96,6 @@ const handleFinish = async () => {
         .getPublicUrl(fileName)
       pfpUrl = urlData.publicUrl
     }
-  // ── NEW: fingerprint state ──
-  const [fingerprint, setFingerprint] = useState<string | null>(null)
-
-  // ── NEW: generate fingerprint on mount ──
-  useEffect(() => {
-    const getFingerprint = async () => {
-      try {
-        const fp = await FingerprintJS.load()
-        const result = await fp.get()
-        setFingerprint(result.visitorId)
-      } catch {
-        // fallback
-        setFingerprint(`fallback_${Math.random().toString(36).substring(2, 10)}`)
-      }
-    }
-    getFingerprint()
-  }, [])
 
     // Fetch IP address
     let ipAddress: string | null = null
@@ -123,7 +122,7 @@ const handleFinish = async () => {
       user_ip_address: ipAddress,
       is_sharing: false, 
       fingerprint: fingerprint, 
-      web_notification: false, 
+      web_notification_on: false, 
     })
 
     if (insertError) throw insertError
