@@ -107,21 +107,21 @@ const handleFinish = async () => {
       // Non-blocking
     }
 
-    const slug = generateSlug(username.trim())
+    const user_slug = generateSlug(username.trim())
     const now = new Date().toISOString()
 
     const { error: insertError } = await supabaseClient.from('users_table').insert({
       user_id: user.id,
       username: username.trim(),
       email: user.email,
-      slug,
+      slug: user_slug,
       birthdate: birthYear,
       pfp: pfpUrl || null,
       created_at: now,
       active_subscription: false,
       user_ip_address: ipAddress,
       is_sharing: false, 
-      fingerprint: fingerprint, 
+      fingerprint: null, 
       web_notification_on: false, 
     })
 
@@ -129,7 +129,7 @@ const handleFinish = async () => {
 
     await supabaseClient.from(SHARE_LINKS_TABLE).insert({
       user_id: user.id,
-      dynamic_link: `tbhonest.net/send/${slug}`,
+      dynamic_link: `tbhonest.net/send/${user_slug}`,
       created_at: now,
     })
 
