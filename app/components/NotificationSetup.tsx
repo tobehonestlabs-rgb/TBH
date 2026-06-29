@@ -14,8 +14,7 @@ export default function NotificationSetup() {
   useEffect(() => {
     const checkAndPrompt = async () => {
       if (typeof window === 'undefined') return
-      if (!('serviceWorker' in navigator) || !('Notification' in window)) return
-      if (!VAPID_KEY) return
+      if (!('Notification' in window)) return
 
       // Check if user already has notifications enabled in DB
       const { data: { session } } = await supabaseClient.auth.getSession()
@@ -25,7 +24,8 @@ export default function NotificationSetup() {
           .select('web_notification_on')
           .eq('user_id', session.user.id)
           .maybeSingle()
-        if (userData?.web_notification_on) {
+        // If web_notification_on is true, don't ask
+        if (userData?.web_notification_on === true) {
           return
         }
       }
