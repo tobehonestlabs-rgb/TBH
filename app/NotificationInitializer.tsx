@@ -12,7 +12,7 @@ export default function NotificationInitializer({ userId }: InitializerProps) {
     // Only initialize on the client side
     if (typeof window !== 'undefined') {
       OneSignal.init({
-        appId: "e3052a0d-b8a1-4b8a-9653-c1c40feae94e", // 🔑 Replace with your actual App ID
+        appId: "9612930a-b621-4ad0-80ef-cf27248ee8fd", // 🔑 Replace with your actual App ID
         allowLocalhostAsSecureOrigin: true,
       }).then(async () => {
         // If a user is logged in, tag their external ID so your backend can target them
