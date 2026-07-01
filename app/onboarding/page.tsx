@@ -123,6 +123,7 @@ const handleFinish = async () => {
       is_sharing: false, 
       fingerprint: null, 
       web_notifications_on: false, 
+      onesignal_player_id: null,
     })
 
     if (insertError) throw insertError
