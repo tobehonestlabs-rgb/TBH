@@ -26,7 +26,7 @@ export function NotificationManager({ userId }: NotificationManagerProps) {
         // 1. Check if user has notifications enabled in DB
         const { data: userData, error } = await supabase
           .from('users_table')
-          .select('web_notification_on')
+          .select('web_notifications_on')
           .eq('id', userId)
           .single();
 
@@ -36,7 +36,7 @@ export function NotificationManager({ userId }: NotificationManagerProps) {
         }
 
         // 2. If already enabled, don't ask again
-        if (userData?.web_notification_on) {
+        if (userData?.web_notifications_on) {
           setIsLoading(false);
           return;
         }
@@ -78,7 +78,7 @@ export function NotificationManager({ userId }: NotificationManagerProps) {
     const updateNotificationStatus = async (enabled: boolean) => {
       const { error } = await supabase
         .from('users_table')
-        .update({ web_notification_on: enabled })
+        .update({ web_notifications_on: enabled })
         .eq('id', userId);
 
       if (error) {
