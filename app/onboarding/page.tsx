@@ -122,7 +122,7 @@ const handleFinish = async () => {
       user_ip_address: ipAddress,
       is_sharing: false, 
       fingerprint: null, 
-      web_notification_on: false, 
+      web_notifications_on: false, 
     })
 
     if (insertError) throw insertError
@@ -135,6 +135,7 @@ const handleFinish = async () => {
 
     router.push('/home')
   } catch (e: unknown) {
+      console.error('Full error:', e)
     setError(e instanceof Error ? e.message : 'Something went wrong.')
   } finally {
     setLoading(false)
