@@ -12,8 +12,6 @@ type Props = {
 const FEATURES = [
   { emoji: '👁️', label: 'Sender insights',        sub: 'See who sent you a message' },
   { emoji: '💬', label: 'Private conversations',  sub: 'Reply privately to any message' },
-  { emoji: '🎬', label: 'GIF replies',             sub: 'Reply with animated GIFs in chats' },
-  { emoji: '⚡', label: 'Unlimited access',        sub: 'All future Pro features included' },
 ]
 
 export default function TBHProScreen({ onClose, onSuccess }: Props) {
@@ -146,9 +144,9 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
           style={{ background: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E3C 100%)', boxShadow: '0 8px 32px rgba(255,107,107,0.35)' }}
         >
           {loading
-            ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            : 'Subscribe — $2.99 / month'
-          }
+      ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+      : 'Subscribe — $2.99 / week'
+    }
         </button>
 
         <button

@@ -295,6 +295,87 @@ const ru: T = {
   failedToSend: 'Не удалось отправить. Проверь соединение.',
 }
 
+const ja: T = {
+  beforeSend: '送信する前に',
+  prohibited: 'これらはTBHで厳しく禁止されています',
+  harassment: 'ハラスメントといじめ',
+  harmful: '有害なコンテンツ',
+  sexualContent: '子どもを含む不適切または性的なコンテンツ',
+  noSlurs: '罵り言葉は使わず、敬意を持って接しましょう',
+  agree: '同意して続ける →',
+  violations: '違反すると永久に追放される場合があります',
+  messageFor: 'へのメッセージ',
+  writePlaceholder: 'ここにメッセージを書いてください...',
+  addPhoto: '写真を追加',
+  sendAnonymously: '匿名で送信',
+  sending: '送信中…',
+  wantLink: 'あなたも匿名メッセージを受け取りたいですか？',
+  getMyLink: '自分のリンクを取得',
+  sendAnother: 'もう一度送信',
+  delivered: '送信完了！',
+  deliveredTo: 'へのあなたの匿名メッセージ',
+  peopleReceiving: '人が今メッセージを受け取っています',
+  anonymousMessaging: 'なんでも匿名で送信',
+  requestTimeout: 'リクエストがタイムアウトしました。接続を確認して再試行してください。',
+  imageTooLarge: '画像が大きすぎます。小さい写真を試してください。',
+  serverError: 'サーバーエラーです。少し時間をおいて再試行してください。',
+  failedToSend: '送信に失敗しました。接続を確認してください。',
+}
+
+const zh: T = {
+  beforeSend: '发送前',
+  prohibited: '这些内容在TBH上是严格禁止的',
+  harassment: '骚扰和欺凌',
+  harmful: '有害内容',
+  sexualContent: '涉及儿童的不当或性内容',
+  noSlurs: '不要使用侮辱性语言，请保持尊重',
+  agree: '我同意，继续 →',
+  violations: '违规可能导致永久封禁',
+  messageFor: '给的消息',
+  writePlaceholder: '在这里写你的消息...',
+  addPhoto: '添加照片',
+  sendAnonymously: '匿名发送',
+  sending: '发送中…',
+  wantLink: '你也想接收匿名消息吗？',
+  getMyLink: '获取我的链接',
+  sendAnother: '再发送一次',
+  delivered: '已发送！',
+  deliveredTo: '你给的匿名消息',
+  peopleReceiving: '人正在接收消息',
+  anonymousMessaging: '匿名发送任何内容',
+  requestTimeout: '请求超时。请检查你的连接并重试。',
+  imageTooLarge: '图片太大。请尝试较小的照片。',
+  serverError: '服务器错误。请稍后重试。',
+  failedToSend: '发送失败。请检查你的连接。',
+}
+
+const ko: T = {
+  beforeSend: '보내기 전에',
+  prohibited: 'TBH에서 이러한 내용은 엄격히 금지됩니다',
+  harassment: '괴롭힘과 따돌림',
+  harmful: '유해한 콘텐츠',
+  sexualContent: '아동을 포함하는 부적절하거나 성적인 콘텐츠',
+  noSlurs: '욕설은 사용하지 말고 존중해 주세요',
+  agree: '동의하고 계속하기 →',
+  violations: '위반 시 영구적으로 차단될 수 있습니다',
+  messageFor: '에게 보내는 메시지',
+  writePlaceholder: '여기에 메시지를 적어주세요...',
+  addPhoto: '사진 추가',
+  sendAnonymously: '익명으로 보내기',
+  sending: '보내는 중…',
+  wantLink: '당신도 익명 메시지를 받고 싶나요?',
+  getMyLink: '내 링크 받기',
+  sendAnother: '다시 보내기',
+  delivered: '전송 완료!',
+  deliveredTo: '에게 보내는 당신의 익명 메시지',
+  peopleReceiving: '명이 지금 메시지를 받고 있습니다',
+  anonymousMessaging: '무엇이든 익명으로 보내세요',
+  requestTimeout: '요청 시간이 초과되었습니다. 연결을 확인하고 다시 시도해 주세요.',
+  imageTooLarge: '이미지가 너무 큽니다. 더 작은 사진을 시도해 주세요.',
+  serverError: '서버 오류입니다. 잠시 후 다시 시도해 주세요.',
+  failedToSend: '전송에 실패했습니다. 연결을 확인해 주세요.',
+}
+
 export function getT(): T {
   if (typeof navigator === 'undefined') return en
   const lang = navigator.language?.toLowerCase() ?? 'en'
@@ -303,9 +384,12 @@ export function getT(): T {
   if (lang.startsWith('pt')) return pt
   if (lang.startsWith('de')) return de
   if (lang.startsWith('it')) return it
+  if (lang.startsWith('ja')) return ja
+  if (lang.startsWith('ru')) return ru
+  if (lang.startsWith('zh')) return zh
+  if (lang.startsWith('ko')) return ko
   if (lang.startsWith('ar')) return ar
   if (lang.startsWith('tr')) return tr
   if (lang.startsWith('nl')) return nl
-  if (lang.startsWith('ru')) return ru
   return en
 }

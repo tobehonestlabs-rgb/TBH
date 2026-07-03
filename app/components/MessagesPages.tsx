@@ -529,6 +529,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
   const [sharing, setSharing]           = useState(false)
   const [replySending, setReplySending] = useState(false)
   const userIdRef = useRef<string | null>(null)
+  const [generatingReplyCard, setGeneratingReplyCard] = useState(false)
 
   // Pro + GIF state
   const [showProScreen, setShowProScreen]       = useState(false)
@@ -666,32 +667,81 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
       .finally(() => setCardGenerating(false))
   }, [selectedMsg, userPfp])
 
-  // Pre-generate reply card debounced 600ms after user stops typing
-  useEffect(() => {
-    if (!showReply || !replyText.trim()) { setReplyCardBlob(null); return }
-    const logoSrc = `${window.location.origin}/assets/TBH_Title_Logo.svg`
-    const t = setTimeout(() => {
-      generateReplyCard(
-        selectedMsg?.content || '',
-        replyText,
-        selectedMsg?.media_url || null,
-        logoSrc,
-        userPfp,
-      )
-        .then(blob => setReplyCardBlob(blob))
-        .catch(() => {})
-    }, 600)
-    return () => clearTimeout(t)
-  }, [replyText, showReply, selectedMsg, userPfp])
-
-  // Generate GIF reply card when gif selected in reply mode
-  useEffect(() => {
-    if (replyMode !== 'gif' || !selectedGif || !showReply) { setGifCardBlob(null); return }
-    const logoSrc = `${window.location.origin}/assets/TBH_Title_Logo.svg`
-    generateGifReplyCard(selectedMsg?.content || '', selectedGif.url, logoSrc, userPfp)
-      .then(blob => setGifCardBlob(blob))
-      .catch(() => {})
-  }, [replyMode, selectedGif, showReply, selectedMsg, userPfp])
+  const handleSendReply = async () => {
+    if (replySending) return
+    if (replyMode === 'text' && !replyText.trim()) return
+    if (replyMode === 'gif' && !selectedGif) return
+    
+    setReplySending(true)
+    setGeneratingReplyCard(true)
+    
+    try {
+      const logoSrc = `${window.location.origin}/assets/TBH_Title_Logo.svg`
+      let blobToUse: Blob | null = null
+      
+      if (replyMode === 'text') {
+        blobToUse = await generateReplyCard(
+          selectedMsg?.content || '',
+          replyText,
+          selectedMsg?.media_url || null,
+          logoSrc,
+          userPfp,
+        )
+      } else {
+        blobToUse = await generateGifReplyCard(
+          selectedMsg?.content || '',
+          selectedGif!.url,
+          logoSrc,
+          userPfp,
+        )
+      }
+      
+      setGeneratingReplyCard(false)
+      
+      if (!blobToUse) return
+      
+      const file = new File([blobToUse], 'tbh-reply.png', { type: 'image/png' })
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], text: userLink })
+        setShowReply(false)
+        setReplyText('')
+        setReplyCardBlob(null)
+        setGifCardBlob(null)
+        setSelectedGif(null)
+        setReplyMode('text')
+        return
+      }
+      if (navigator.share) {
+        await navigator.share({ url: userLink || window.location.origin })
+        setShowReply(false)
+        setReplyText('')
+        setReplyCardBlob(null)
+        setGifCardBlob(null)
+        setSelectedGif(null)
+        setReplyMode('text')
+        return
+      }
+      const url = URL.createObjectURL(blobToUse)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'tbh-reply.png'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 10000)
+      setShowReply(false)
+      setReplyText('')
+      setReplyCardBlob(null)
+      setGifCardBlob(null)
+      setSelectedGif(null)
+      setReplyMode('text')
+    } catch (e: any) {
+      if (e?.name !== 'AbortError') console.error('Reply share failed', e)
+    } finally {
+      setReplySending(false)
+      setGeneratingReplyCard(false)
+    }
+  }
 
   const sendConvGif = async (gif: GifResult) => {
     if (!convId || convSending) return
@@ -758,16 +808,37 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
   }
 
   const handleShare = async () => {
-    if (!selectedMsg || sharing || !messageCardBlob) return
+    if (!selectedMsg || sharing) return
     setSharing(true)
     try {
-      const file = new File([messageCardBlob], 'tbh.png', { type: 'image/png' })
+      // Wait for card to finish generating if it's still in progress
+      let blobToUse = messageCardBlob
+      if (!blobToUse && cardGenerating) {
+        // Wait a little and recheck, or just let it finish
+        await new Promise(resolve => {
+          const check = setInterval(() => {
+            if (messageCardBlob) {
+              clearInterval(check)
+              resolve(true)
+            }
+          }, 100)
+          setTimeout(() => {
+            clearInterval(check)
+            resolve(false)
+          }, 10000) // 10 second timeout
+        })
+        blobToUse = messageCardBlob
+      }
+      
+      if (!blobToUse) return
+      
+      const file = new File([blobToUse], 'tbh.png', { type: 'image/png' })
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], text: userLink })
         return
       }
       if (navigator.share) { await navigator.share({ url: userLink || window.location.origin }); return }
-      const url = URL.createObjectURL(messageCardBlob)
+      const url = URL.createObjectURL(blobToUse)
       const a = document.createElement('a'); a.href = url; a.download = 'tbh.png'
       document.body.appendChild(a); a.click(); document.body.removeChild(a)
       setTimeout(() => URL.revokeObjectURL(url), 10000)
@@ -775,34 +846,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
     finally { setSharing(false) }
   }
 
-  const handleSendReply = async () => {
-    const blobToUse = replyMode === 'gif' ? gifCardBlob : replyCardBlob
-    if (replyMode === 'text' && (!replyText.trim() || !replyCardBlob)) return
-    if (replyMode === 'gif' && (!selectedGif || !gifCardBlob)) return
-    if (replySending) return
-    setReplySending(true)
-    const resetReply = () => {
-      setShowReply(false); setReplyText(''); setReplyCardBlob(null)
-      setGifCardBlob(null); setSelectedGif(null); setReplyMode('text')
-    }
-    try {
-      const file = new File([blobToUse!], 'tbh-reply.png', { type: 'image/png' })
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], text: userLink })
-        resetReply(); return
-      }
-      if (navigator.share) {
-        await navigator.share({ url: userLink || window.location.origin })
-        resetReply(); return
-      }
-      const url = URL.createObjectURL(blobToUse!)
-      const a = document.createElement('a'); a.href = url; a.download = 'tbh-reply.png'
-      document.body.appendChild(a); a.click(); document.body.removeChild(a)
-      setTimeout(() => URL.revokeObjectURL(url), 10000)
-      resetReply()
-    } catch (e: any) { if (e?.name !== 'AbortError') console.error('Reply share failed', e) }
-    finally { setReplySending(false) }
-  }
+
 
   if (loading) {
     return (
@@ -1015,9 +1059,6 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                             className="w-full rounded-[20px] bg-[#F7F7F9] px-4 py-3.5 text-[16px] text-[#0D0D0D] outline-none resize-none mb-3"
                             style={{ fontFamily: 'inherit' }}
                           />
-                          {replyText.trim() && !replyCardBlob && (
-                            <p className="text-[11px] text-[#C8C8C8] text-center mb-3">Preparing card…</p>
-                          )}
                         </>
                       ) : selectedGif ? (
                         <>
@@ -1026,7 +1067,6 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                             onClick={() => { setSelectedGif(null); setGifCardBlob(null); setShowGifPicker(true) }}
                             className="w-full py-2.5 rounded-full bg-[#F2F2F2] text-[#555] text-[14px] font-semibold mb-3 active:scale-95 transition-transform"
                           >Change GIF</button>
-                          {!gifCardBlob && <p className="text-[11px] text-[#C8C8C8] text-center mb-3">Preparing card…</p>}
                         </>
                       ) : (
                         <button
@@ -1040,11 +1080,12 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                         onClick={handleSendReply}
                         disabled={
                           replySending ||
-                          (replyMode === 'text' ? (!replyText.trim() || !replyCardBlob) : (!selectedGif || !gifCardBlob))
+                          generatingReplyCard ||
+                          (replyMode === 'text' ? !replyText.trim() : !selectedGif)
                         }
                         className="w-full py-[15px] rounded-full bg-[#0D0D0D] text-white font-bold text-[15px] active:scale-95 transition-transform disabled:opacity-40 flex items-center justify-center gap-2"
                       >
-                        {replySending
+                        {(replySending || generatingReplyCard)
                           ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                           : replyMode === 'gif' ? 'Share GIF Reply Card' : 'Share Reply Card'
                         }
@@ -1218,11 +1259,11 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                 <button onClick={() => setShowReply(true)} className="flex-1 py-[15px] rounded-full bg-[#0D0D0D] text-white font-bold text-[15px] active:scale-95 transition-transform">Reply</button>
                 <button
                   onClick={handleShare}
-                  disabled={sharing || cardGenerating || !messageCardBlob}
+                  disabled={sharing}
                   className="flex-1 py-[15px] rounded-full font-bold text-[15px] active:scale-95 transition-transform disabled:opacity-50 flex items-center justify-center"
                   style={{ background: '#F2F2F2', color: '#0D0D0D' }}
                 >
-                  {(sharing || cardGenerating)
+                  {sharing
                     ? <div className="w-5 h-5 border-2 border-[#0D0D0D] border-t-transparent rounded-full animate-spin" />
                     : 'Share'
                   }
