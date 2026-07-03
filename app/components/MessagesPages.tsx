@@ -725,7 +725,6 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
       // Reset UI after share completes (even if user cancels)
       setShowReply(false)
       setReplyText('')
-      setReplyCardBlob(null)
       setGifCardBlob(null)
       setSelectedGif(null)
       setReplyMode('text')
