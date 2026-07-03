@@ -23,6 +23,10 @@ export type T = {
   imageTooLarge: string
   serverError: string
   failedToSend: string
+  share: string
+  shareReply: string
+  shareGifReply: string
+  reply: string
 }
 
 const en: T = {
@@ -50,6 +54,10 @@ const en: T = {
   imageTooLarge: 'Image too large. Try a smaller photo.',
   serverError: 'Server error. Please try again in a moment.',
   failedToSend: 'Failed to send. Check your connection.',
+  share: 'Share',
+  shareReply: 'Share Reply',
+  shareGifReply: 'Share GIF Reply',
+  reply: 'Reply',
 }
 
 const fr: T = {
@@ -77,6 +85,10 @@ const fr: T = {
   imageTooLarge: 'Image trop volumineuse. Essaie une photo plus petite.',
   serverError: 'Erreur serveur. Réessaie dans un moment.',
   failedToSend: 'Échec de l\'envoi. Vérifie ta connexion.',
+  share: 'Partager',
+  shareReply: 'Partager la réponse',
+  shareGifReply: 'Partager la réponse GIF',
+  reply: 'Répondre',
 }
 
 const es: T = {
@@ -104,6 +116,10 @@ const es: T = {
   imageTooLarge: 'Imagen demasiado grande. Prueba con una foto más pequeña.',
   serverError: 'Error del servidor. Inténtalo de nuevo en un momento.',
   failedToSend: 'Error al enviar. Comprueba tu conexión.',
+  share: 'Compartir',
+  shareReply: 'Compartir respuesta',
+  shareGifReply: 'Compartir respuesta GIF',
+  reply: 'Responder',
 }
 
 const pt: T = {
@@ -131,6 +147,10 @@ const pt: T = {
   imageTooLarge: 'Imagem muito grande. Tente uma foto menor.',
   serverError: 'Erro no servidor. Tente novamente em breve.',
   failedToSend: 'Falha ao enviar. Verifique sua conexão.',
+  share: 'Compartilhar',
+  shareReply: 'Compartilhar resposta',
+  shareGifReply: 'Compartilhar resposta GIF',
+  reply: 'Responder',
 }
 
 const de: T = {
@@ -158,6 +178,10 @@ const de: T = {
   imageTooLarge: 'Bild zu groß. Versuche ein kleineres Foto.',
   serverError: 'Serverfehler. Bitte versuche es in einem Moment erneut.',
   failedToSend: 'Senden fehlgeschlagen. Überprüfe deine Verbindung.',
+  share: 'Teilen',
+  shareReply: 'Antwort teilen',
+  shareGifReply: 'GIF-Antwort teilen',
+  reply: 'Antworten',
 }
 
 const it: T = {
@@ -185,6 +209,10 @@ const it: T = {
   imageTooLarge: 'Immagine troppo grande. Prova con una foto più piccola.',
   serverError: 'Errore del server. Riprova tra un momento.',
   failedToSend: "Invio fallito. Controlla la connessione.",
+  share: 'Condividi',
+  shareReply: 'Condividi risposta',
+  shareGifReply: 'Condividi risposta GIF',
+  reply: 'Rispondi',
 }
 
 const ar: T = {
@@ -212,6 +240,10 @@ const ar: T = {
   imageTooLarge: 'الصورة كبيرة جداً. جرب صورة أصغر.',
   serverError: 'خطأ في الخادم. يرجى المحاولة مرة أخرى.',
   failedToSend: 'فشل الإرسال. تحقق من اتصالك.',
+  share: 'مشاركة',
+  shareReply: 'مشاركة الرد',
+  shareGifReply: 'مشاركة رد GIF',
+  reply: 'رد',
 }
 
 const tr: T = {
@@ -239,6 +271,10 @@ const tr: T = {
   imageTooLarge: 'Resim çok büyük. Daha küçük bir fotoğraf dene.',
   serverError: 'Sunucu hatası. Lütfen bir dakika sonra tekrar dene.',
   failedToSend: 'Gönderilemedi. Bağlantını kontrol et.',
+  share: 'Paylaş',
+  shareReply: 'Yanıtı Paylaş',
+  shareGifReply: 'GIF Yanıtı Paylaş',
+  reply: 'Yanıtla',
 }
 
 const nl: T = {
@@ -266,6 +302,10 @@ const nl: T = {
   imageTooLarge: 'Afbeelding te groot. Probeer een kleinere foto.',
   serverError: 'Serverfout. Probeer het over een moment opnieuw.',
   failedToSend: 'Verzenden mislukt. Controleer je verbinding.',
+  share: 'Delen',
+  shareReply: 'Reactie delen',
+  shareGifReply: 'GIF-reactie delen',
+  reply: 'Reageren',
 }
 
 const ru: T = {
@@ -293,6 +333,10 @@ const ru: T = {
   imageTooLarge: 'Изображение слишком большое. Попробуй меньшую фотографию.',
   serverError: 'Ошибка сервера. Пожалуйста, повтори попытку через момент.',
   failedToSend: 'Не удалось отправить. Проверь соединение.',
+  share: 'Поделиться',
+  shareReply: 'Поделиться ответом',
+  shareGifReply: 'Поделиться GIF-ответом',
+  reply: 'Ответить',
 }
 
 const ja: T = {
@@ -320,6 +364,10 @@ const ja: T = {
   imageTooLarge: '画像が大きすぎます。小さい写真を試してください。',
   serverError: 'サーバーエラーです。少し時間をおいて再試行してください。',
   failedToSend: '送信に失敗しました。接続を確認してください。',
+  share: 'シェア',
+  shareReply: '返信をシェア',
+  shareGifReply: 'GIF返信をシェア',
+  reply: '返信',
 }
 
 const zh: T = {
@@ -347,6 +395,10 @@ const zh: T = {
   imageTooLarge: '图片太大。请尝试较小的照片。',
   serverError: '服务器错误。请稍后重试。',
   failedToSend: '发送失败。请检查你的连接。',
+  share: '分享',
+  shareReply: '分享回复',
+  shareGifReply: '分享GIF回复',
+  reply: '回复',
 }
 
 const ko: T = {
@@ -374,6 +426,10 @@ const ko: T = {
   imageTooLarge: '이미지가 너무 큽니다. 더 작은 사진을 시도해 주세요.',
   serverError: '서버 오류입니다. 잠시 후 다시 시도해 주세요.',
   failedToSend: '전송에 실패했습니다. 연결을 확인해 주세요.',
+  share: '공유',
+  shareReply: '답변 공유',
+  shareGifReply: 'GIF 답변 공유',
+  reply: '답변',
 }
 
 export function getT(): T {
