@@ -607,7 +607,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
     setSelectedMsg(msg); setSheetClosing(false); setImageBlurred(true)
     setShowFullscreen(false); setShowReply(false); setReplyText('')
     setShowInsights(false); setSenderCount(null); setShowConv(false); setConvId(null)
-    setMessageCardBlob(null); setReplyCardBlob(null); setSharing(false); setReplySending(false)
+    setMessageCardBlob(null); setSharing(false); setReplySending(false)
   }
 
   const closeSheet = () => {
@@ -617,7 +617,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
     setTimeout(() => {
       setSelectedMsg(null); setSheetClosing(false); setShowReply(false)
       setReplyText(''); setShowInsights(false); setSenderCount(null); setConvId(null)
-      setMessageCardBlob(null); setReplyCardBlob(null)
+      setMessageCardBlob(null)
       setReplyMode('text'); setSelectedGif(null); setGifCardBlob(null)
     }, 300)
   }
