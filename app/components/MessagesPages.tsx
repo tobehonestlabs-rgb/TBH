@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { supabaseClient } from '@/lib/supabaseClient'
+import { getT } from '@/lib/i18n'
 import InsightsMap from './InsightsMap'
 import GifPicker, { GifResult } from './GifPicker'
 import TBHProScreen from './TBHProScreen'
@@ -509,6 +510,7 @@ type ConvMsg = {
 
 export default function MessagesPage({ onUnreadChange, isActive, profile }: Props) {
   const isPro = !!profile?.active_subscription
+  const t = getT()
   const [messages, setMessages]         = useState<Message[]>([])
   const [loading, setLoading]           = useState(true)
   const [selectedMsg, setSelectedMsg]   = useState<Message | null>(null)
@@ -524,12 +526,11 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
   const [userPfp, setUserPfp]           = useState<string | null>(null)
   const [userLink, setUserLink]         = useState('')
   const [messageCardBlob, setMessageCardBlob] = useState<Blob | null>(null)
-  const [replyCardBlob, setReplyCardBlob]     = useState<Blob | null>(null)
   const [cardGenerating, setCardGenerating]   = useState(false)
   const [sharing, setSharing]           = useState(false)
   const [replySending, setReplySending] = useState(false)
   const userIdRef = useRef<string | null>(null)
-  const [generatingReplyCard, setGeneratingReplyCard] = useState(false)
+  const cardPromiseRef = useRef<Promise<Blob | null> | null>(null)
 
   // Pro + GIF state
   const [showProScreen, setShowProScreen]       = useState(false)
@@ -658,13 +659,21 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
 
   // Pre-generate message share card whenever a message is opened
   useEffect(() => {
-    if (!selectedMsg) { setMessageCardBlob(null); return }
+    if (!selectedMsg) { 
+      setMessageCardBlob(null); 
+      cardPromiseRef.current = null;
+      return 
+    }
     setCardGenerating(true)
     const logoSrc = `${window.location.origin}/assets/TBH_Title_Logo.svg`
-    generateMessageCard(selectedMsg.content || '', selectedMsg.media_url || null, logoSrc, userPfp)
-      .then(blob => setMessageCardBlob(blob))
-      .catch(() => {})
+    const promise = generateMessageCard(selectedMsg.content || '', selectedMsg.media_url || null, logoSrc, userPfp)
+      .then(blob => {
+        setMessageCardBlob(blob);
+        return blob;
+      })
+      .catch(() => null)
       .finally(() => setCardGenerating(false))
+    cardPromiseRef.current = promise;
   }, [selectedMsg, userPfp])
 
   const handleSendReply = async () => {
@@ -673,7 +682,6 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
     if (replyMode === 'gif' && !selectedGif) return
     
     setReplySending(true)
-    setGeneratingReplyCard(true)
     
     try {
       const logoSrc = `${window.location.origin}/assets/TBH_Title_Logo.svg`
@@ -696,39 +704,25 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
         )
       }
       
-      setGeneratingReplyCard(false)
-      
       if (!blobToUse) return
       
       const file = new File([blobToUse], 'tbh-reply.png', { type: 'image/png' })
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], text: userLink })
-        setShowReply(false)
-        setReplyText('')
-        setReplyCardBlob(null)
-        setGifCardBlob(null)
-        setSelectedGif(null)
-        setReplyMode('text')
-        return
-      }
-      if (navigator.share) {
+      } else if (navigator.share) {
         await navigator.share({ url: userLink || window.location.origin })
-        setShowReply(false)
-        setReplyText('')
-        setReplyCardBlob(null)
-        setGifCardBlob(null)
-        setSelectedGif(null)
-        setReplyMode('text')
-        return
+      } else {
+        const url = URL.createObjectURL(blobToUse)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'tbh-reply.png'
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        setTimeout(() => URL.revokeObjectURL(url), 10000)
       }
-      const url = URL.createObjectURL(blobToUse)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'tbh-reply.png'
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      setTimeout(() => URL.revokeObjectURL(url), 10000)
+      
+      // Reset UI after share completes (even if user cancels)
       setShowReply(false)
       setReplyText('')
       setReplyCardBlob(null)
@@ -739,7 +733,6 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
       if (e?.name !== 'AbortError') console.error('Reply share failed', e)
     } finally {
       setReplySending(false)
-      setGeneratingReplyCard(false)
     }
   }
 
@@ -811,23 +804,23 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
     if (!selectedMsg || sharing) return
     setSharing(true)
     try {
-      // Wait for card to finish generating if it's still in progress
-      let blobToUse = messageCardBlob
-      if (!blobToUse && cardGenerating) {
-        // Wait a little and recheck, or just let it finish
-        await new Promise(resolve => {
-          const check = setInterval(() => {
-            if (messageCardBlob) {
-              clearInterval(check)
-              resolve(true)
-            }
-          }, 100)
-          setTimeout(() => {
-            clearInterval(check)
-            resolve(false)
-          }, 10000) // 10 second timeout
-        })
-        blobToUse = messageCardBlob
+      // Wait for card to finish generating
+      let blobToUse: Blob | null = null;
+      if (cardPromiseRef.current) {
+        blobToUse = await cardPromiseRef.current;
+      } else {
+        blobToUse = messageCardBlob;
+      }
+      
+      if (!blobToUse) {
+        // Fallback to generate now if not already available
+        const logoSrc = `${window.location.origin}/assets/TBH_Title_Logo.svg`;
+        blobToUse = await generateMessageCard(
+          selectedMsg.content || '',
+          selectedMsg.media_url || null,
+          logoSrc,
+          userPfp
+        );
       }
       
       if (!blobToUse) return
@@ -842,8 +835,11 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
       const a = document.createElement('a'); a.href = url; a.download = 'tbh.png'
       document.body.appendChild(a); a.click(); document.body.removeChild(a)
       setTimeout(() => URL.revokeObjectURL(url), 10000)
-    } catch (e: any) { if (e?.name !== 'AbortError') console.error('Share failed', e) }
-    finally { setSharing(false) }
+    } catch (e: any) { 
+      if (e?.name !== 'AbortError') console.error('Share failed', e) 
+    } finally { 
+      setSharing(false) 
+    }
   }
 
 
@@ -1080,14 +1076,13 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                         onClick={handleSendReply}
                         disabled={
                           replySending ||
-                          generatingReplyCard ||
                           (replyMode === 'text' ? !replyText.trim() : !selectedGif)
                         }
                         className="w-full py-[15px] rounded-full bg-[#0D0D0D] text-white font-bold text-[15px] active:scale-95 transition-transform disabled:opacity-40 flex items-center justify-center gap-2"
                       >
-                        {(replySending || generatingReplyCard)
+                        {replySending
                           ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          : replyMode === 'gif' ? 'Share GIF Reply Card' : 'Share Reply Card'
+                          : replyMode === 'gif' ? t.shareGifReply : t.shareReply
                         }
                       </button>
                     </>
@@ -1256,7 +1251,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
             {/* Bottom buttons — main view only */}
             {!showInsights && !showConv && !showReply && (
               <div className="px-5 pb-8 pt-2.5 flex gap-3 border-t border-[#F0F0F0] flex-shrink-0">
-                <button onClick={() => setShowReply(true)} className="flex-1 py-[15px] rounded-full bg-[#0D0D0D] text-white font-bold text-[15px] active:scale-95 transition-transform">Reply</button>
+                <button onClick={() => setShowReply(true)} className="flex-1 py-[15px] rounded-full bg-[#0D0D0D] text-white font-bold text-[15px] active:scale-95 transition-transform">{t.reply}</button>
                 <button
                   onClick={handleShare}
                   disabled={sharing}
@@ -1265,7 +1260,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                 >
                   {sharing
                     ? <div className="w-5 h-5 border-2 border-[#0D0D0D] border-t-transparent rounded-full animate-spin" />
-                    : 'Share'
+                    : t.share
                   }
                 </button>
               </div>
