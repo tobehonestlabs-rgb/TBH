@@ -1,67 +1,61 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabaseClient } from '@/lib/supabaseClient'
-import { firebaseConfig, getFirebaseMessaging, getToken } from '@/lib/firebase'
 
-const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY
-const NOTIFICATION_PROMPT_CHOICE_KEY = 'tbh-notification-prompt-choice'
+const A2HS_PROMPT_CHOICE_KEY = 'tbh-a2hs-prompt-choice'
 
 export default function NotificationSetup() {
   const [showPrompt, setShowPrompt] = useState(false)
-  const [activating, setActivating] = useState(false)
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
 
   useEffect(() => {
     const checkAndPrompt = async () => {
       if (typeof window === 'undefined') return
-      if (!('Notification' in window)) return
 
-      // Check if user already has notifications enabled in DB
-      const { data: { session } } = await supabaseClient.auth.getSession()
-      if (session) {
-        const { data: userData } = await supabaseClient
-          .from('users_table')
-          .select('web_notification_on')
-          .eq('user_id', session.user.id)
-          .maybeSingle()
-        // If web_notification_on is true, don't ask
-        if (userData?.web_notification_on === true) {
-          return
-        }
-      }
-
-      if (Notification.permission !== 'default') {
-        if (Notification.permission === 'granted') {
-          setupPushNotifications(false)
-        }
+      // Check if already installed
+      if (window.matchMedia('(display-mode: standalone)').matches) {
         return
       }
 
-      const choice = window.localStorage.getItem(NOTIFICATION_PROMPT_CHOICE_KEY)
-      if (choice === 'dismissed' || choice === 'activated') return
+      const choice = window.localStorage.getItem(A2HS_PROMPT_CHOICE_KEY)
+      if (choice === 'dismissed') return
 
-      const timeout = window.setTimeout(() => setShowPrompt(true), 900)
-      return () => window.clearTimeout(timeout)
+      // Listen for beforeinstallprompt event
+      const handleBeforeInstallPrompt = (e: Event) => {
+        e.preventDefault()
+        setDeferredPrompt(e)
+        const timeout = window.setTimeout(() => setShowPrompt(true), 900)
+        return () => window.clearTimeout(timeout)
+      }
+
+      window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener)
+
+      // If event already fired, show prompt after a delay
+      if (!deferredPrompt) {
+        const timeout = window.setTimeout(() => setShowPrompt(true), 1500)
+        return () => window.clearTimeout(timeout)
+      }
     }
 
     checkAndPrompt()
   }, [])
 
-  const handleActivate = async () => {
-    setActivating(true)
-    try {
-      const ok = await setupPushNotifications(true)
-      if (ok) {
-        window.localStorage.setItem(NOTIFICATION_PROMPT_CHOICE_KEY, 'activated')
-        setShowPrompt(false)
+  const handleAdd = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt()
+      const { outcome } = await deferredPrompt.userChoice
+      if (outcome === 'accepted') {
+        window.localStorage.setItem(A2HS_PROMPT_CHOICE_KEY, 'accepted')
+      } else {
+        window.localStorage.setItem(A2HS_PROMPT_CHOICE_KEY, 'dismissed')
       }
-    } finally {
-      setActivating(false)
+      setDeferredPrompt(null)
     }
+    setShowPrompt(false)
   }
 
   const handleDismiss = () => {
-    window.localStorage.setItem(NOTIFICATION_PROMPT_CHOICE_KEY, 'dismissed')
+    window.localStorage.setItem(A2HS_PROMPT_CHOICE_KEY, 'dismissed')
     setShowPrompt(false)
   }
 
@@ -83,8 +77,9 @@ export default function NotificationSetup() {
         <div className="flex items-start gap-3 px-4 pb-3 pt-4">
           <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[#0D0D0D]">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M12 2v14" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M5 9l7-7 7 7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M19 21H5" stroke="white" strokeWidth="2" strokeLinecap="round" />
             </svg>
           </div>
 
@@ -94,10 +89,10 @@ export default function NotificationSetup() {
               <p className="m-0 text-[11px] font-semibold text-[#9B9B9B]">now</p>
             </div>
             <p className="m-0 mt-0.5 text-[15px] font-bold leading-snug text-[#0D0D0D]">
-              Activate notifications
+              Add to Home Screen
             </p>
             <p className="m-0 mt-1 text-[13px] leading-snug text-[#666]">
-              Activate notifications to receive notifications when someone sends you a message.
+              Add TBH to your home screen for easier access to messages.
             </p>
           </div>
         </div>
@@ -106,18 +101,16 @@ export default function NotificationSetup() {
           <button
             type="button"
             onClick={handleDismiss}
-            disabled={activating}
-            className="h-12 text-[14px] font-bold text-[#777] active:bg-black/[0.04] disabled:opacity-50"
+            className="h-12 text-[14px] font-bold text-[#777] active:bg-black/[0.04]"
           >
             Not now
           </button>
           <button
             type="button"
-            onClick={handleActivate}
-            disabled={activating}
-            className="h-12 border-l border-black/[0.06] text-[14px] font-extrabold text-[#0D0D0D] active:bg-black/[0.04] disabled:opacity-50"
+            onClick={handleAdd}
+            className="h-12 border-l border-black/[0.06] text-[14px] font-extrabold text-[#0D0D0D] active:bg-black/[0.04]"
           >
-            {activating ? 'Activating...' : 'Yes'}
+            Add
           </button>
         </div>
       </div>
@@ -136,72 +129,4 @@ export default function NotificationSetup() {
       `}</style>
     </div>
   )
-}
-
-async function setupPushNotifications(askPermission: boolean) {
-  try {
-    // First request permission
-    if (Notification.permission === 'denied') return false
-    if (Notification.permission === 'default') {
-      if (!askPermission) return false
-      const permission = await Notification.requestPermission()
-      if (permission !== 'granted') return false
-    }
-
-    const messaging = getFirebaseMessaging()
-    if (!messaging) {
-      // If no messaging, still set web_notification_on
-      const { data: { session } } = await supabaseClient.auth.getSession()
-      if (!session) return false
-      await supabaseClient
-        .from('users_table')
-        .update({ web_notification_on: true })
-        .eq('user_id', session.user.id)
-      return true
-    }
-
-    let swReg: ServiceWorkerRegistration | undefined
-    try {
-      swReg = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
-      await navigator.serviceWorker.ready
-      const sw = swReg.active ?? swReg.installing ?? swReg.waiting
-      if (sw) {
-        sw.postMessage({ type: 'FIREBASE_CONFIG', config: firebaseConfig })
-      }
-    } catch (swErr) {
-      console.warn('[NotificationSetup] Service worker registration failed', swErr)
-    }
-
-    const token = await getToken(messaging, {
-      vapidKey: VAPID_KEY,
-      ...(swReg ? { serviceWorkerRegistration: swReg } : {}),
-    })
-    
-    const { data: { session } } = await supabaseClient.auth.getSession()
-    if (!session) return false
-
-    await supabaseClient
-      .from('users_table')
-      .update({ fcm_token: token || null, web_notification_on: true })
-      .eq('user_id', session.user.id)
-
-    return true
-  } catch (err) {
-    console.warn('[NotificationSetup]', err)
-    // Even if something fails, if permission is granted, let's still set the flag
-    try {
-      if (Notification.permission === 'granted') {
-        const { data: { session } } = await supabaseClient.auth.getSession()
-        if (session) {
-          await supabaseClient
-            .from('users_table')
-            .update({ web_notification_on: true })
-            .eq('user_id', session.user.id)
-        }
-      }
-    } catch (e) {
-      console.warn('[NotificationSetup] Could not update DB', e)
-    }
-    return true // Still return true to hide the banner
-  }
 }

@@ -286,17 +286,6 @@ async function generateShareCard(
     // 2. Blurred PFP background
     if (pfpImg) drawBlurredBg(ctx, pfpImg, W, H, blurTmp, hasFilter)
 
-    // 3. Dark overlay — lightened for better card feel
-    ctx.fillStyle = 'rgba(0,0,0,0.28)'
-    ctx.fillRect(0, 0, W, H)
-
-    // 4. Vignette
-    const vignette = ctx.createLinearGradient(0, H * 0.5, 0, H)
-    vignette.addColorStop(0, 'transparent')
-    vignette.addColorStop(1, colorStops[colorStops.length - 1] + '55')
-    ctx.fillStyle = vignette
-    ctx.fillRect(0, 0, W, H)
-
     // 5. TBH Logo (white)
     if (whiteLogo) {
       const lw = 200, lh = lw * whiteLogo.height / whiteLogo.width
@@ -329,8 +318,28 @@ async function generateShareCard(
       ctx.beginPath()
       ctx.arc(cx, cy, ringR - 14, 0, Math.PI * 2)
       ctx.clip()
+      
+      // Calculate aspect ratio to fit the image without stretching
+      const imgRatio = pfpImg.width / pfpImg.height
+      const targetRatio = 1 // Square
+      let drawWidth, drawHeight, drawX, drawY
       const pfpS = (ringR - 14) * 2
-      ctx.drawImage(pfpImg, cx - pfpS / 2, cy - pfpS / 2, pfpS, pfpS)
+      
+      if (imgRatio > targetRatio) {
+        // Image is wider than square - crop left/right
+        drawHeight = pfpS
+        drawWidth = pfpS * imgRatio
+        drawX = cx - drawWidth / 2
+        drawY = cy - pfpS / 2
+      } else {
+        // Image is taller than square - crop top/bottom
+        drawWidth = pfpS
+        drawHeight = pfpS / imgRatio
+        drawX = cx - pfpS / 2
+        drawY = cy - drawHeight / 2
+      }
+      
+      ctx.drawImage(pfpImg, drawX, drawY, drawWidth, drawHeight)
       ctx.restore()
     }
 
@@ -438,17 +447,6 @@ async function generateShareGif(
     // Blurred PFP (with breathing expansion)
     if (pfpImg) drawBlurredBg(ctx, pfpImg, W, H, blurTmp, hasFilter, bgExtra)
 
-    // Dark overlay
-    ctx.fillStyle = 'rgba(0,0,0,0.28)'
-    ctx.fillRect(0, 0, W, H)
-
-    // Vignette
-    const vignette = ctx.createLinearGradient(0, H * 0.5, 0, H)
-    vignette.addColorStop(0, 'transparent')
-    vignette.addColorStop(1, colorStops[colorStops.length - 1] + '55')
-    ctx.fillStyle = vignette
-    ctx.fillRect(0, 0, W, H)
-
     // Logo
     if (whiteLogo) {
       const lw = 100, lh = lw * whiteLogo.height / whiteLogo.width
@@ -481,8 +479,28 @@ async function generateShareGif(
       ctx.beginPath()
       ctx.arc(cx, cy, ringR - 7, 0, Math.PI * 2)
       ctx.clip()
+      
+      // Calculate aspect ratio to fit the image without stretching
+      const imgRatio = pfpImg.width / pfpImg.height
+      const targetRatio = 1 // Square
+      let drawWidth, drawHeight, drawX, drawY
       const pfpS = (ringR - 7) * 2
-      ctx.drawImage(pfpImg, cx - pfpS / 2, cy - pfpS / 2, pfpS, pfpS)
+      
+      if (imgRatio > targetRatio) {
+        // Image is wider than square - crop left/right
+        drawHeight = pfpS
+        drawWidth = pfpS * imgRatio
+        drawX = cx - drawWidth / 2
+        drawY = cy - pfpS / 2
+      } else {
+        // Image is taller than square - crop top/bottom
+        drawWidth = pfpS
+        drawHeight = pfpS / imgRatio
+        drawX = cx - pfpS / 2
+        drawY = cy - drawHeight / 2
+      }
+      
+      ctx.drawImage(pfpImg, drawX, drawY, drawWidth, drawHeight)
       ctx.restore()
     }
 
