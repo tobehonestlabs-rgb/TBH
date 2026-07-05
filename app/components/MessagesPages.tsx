@@ -591,11 +591,15 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
   const [showConvGifPicker, setShowConvGifPicker] = useState(false)
 
   // Reply-card pre-generation (text mode) — generated ahead of the tap so
-  // navigator.share() fires immediately inside the user gesture.
+  // navigator.share() fires immediately inside the user gesture. Each token
+  // bump invalidates whatever was mid-generation, so a card that finishes
+  // rendering for stale text can never silently become "ready".
   const [replyCardBlob, setReplyCardBlob] = useState<Blob | null>(null)
   const replyDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const replyGenPromiseRef = useRef<Promise<Blob> | null>(null)
+  const replyGenTokenRef = useRef(0)
   const gifGenPromiseRef = useRef<Promise<Blob> | null>(null)
+  const gifGenTokenRef = useRef(0)
 
   // Conversation
   const [convId, setConvId]           = useState<string | null>(null)
@@ -739,15 +743,18 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
   }, [selectedMsg, userPfp])
 
   // Pre-generate the text-reply card, debounced 600ms after typing stops.
-  // This is a "warm" path — if the user taps Send before this fires,
-  // handleSendReply generates it inline instead of waiting on this effect.
+  // The token bumps on every keystroke — even mid-generation — so the Send
+  // button can only ever go "ready" for the text that's actually on screen
+  // right now, never for a version you've since edited.
   useEffect(() => {
+    replyGenTokenRef.current += 1
+    setReplyCardBlob(null)
+
     if (!showReply || replyMode !== 'text' || !replyText.trim() || !selectedMsg) {
-      setReplyCardBlob(null)
-      replyGenPromiseRef.current = null
       if (replyDebounceRef.current) clearTimeout(replyDebounceRef.current)
       return
     }
+    const myToken = replyGenTokenRef.current
     if (replyDebounceRef.current) clearTimeout(replyDebounceRef.current)
     replyDebounceRef.current = setTimeout(() => {
       const promise = generateReplyCard(
@@ -755,24 +762,25 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
       )
       replyGenPromiseRef.current = promise
       promise
-        .then(blob => { if (replyGenPromiseRef.current === promise) setReplyCardBlob(blob) })
+        .then(blob => { if (replyGenTokenRef.current === myToken) setReplyCardBlob(blob) })
         .catch(console.error)
     }, 600)
     return () => { if (replyDebounceRef.current) clearTimeout(replyDebounceRef.current) }
   }, [replyText, replyMode, showReply, selectedMsg, userPfp])
 
-  // Pre-generate the GIF-reply card as soon as a GIF is picked, so it's
-  // ready by the time the user taps Send.
+  // Pre-generate the GIF-reply card as soon as a GIF is picked. Same token
+  // guard — picking a different GIF mid-render can't leave a mismatched
+  // blob marked ready.
   useEffect(() => {
-    if (!showReply || replyMode !== 'gif' || !selectedGif || !selectedMsg) {
-      setGifCardBlob(null)
-      gifGenPromiseRef.current = null
-      return
-    }
+    gifGenTokenRef.current += 1
+    setGifCardBlob(null)
+
+    if (!showReply || replyMode !== 'gif' || !selectedGif || !selectedMsg) return
+    const myToken = gifGenTokenRef.current
     const promise = generateGifReplyCard(selectedMsg.content || '', selectedGif.url, getLogoSrc(), userPfp, getArrowsSrc())
     gifGenPromiseRef.current = promise
     promise
-      .then(blob => { if (gifGenPromiseRef.current === promise) setGifCardBlob(blob) })
+      .then(blob => { if (gifGenTokenRef.current === myToken) setGifCardBlob(blob) })
       .catch(console.error)
   }, [selectedGif, replyMode, showReply, selectedMsg, userPfp])
 
@@ -797,28 +805,14 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
 
   const handleSendReply = async () => {
     if (shareInFlightRef.current || replySending) return
-    if (replyMode === 'text' && !replyText.trim()) return
-    if (replyMode === 'gif' && !selectedGif) return
+    const blobToUse = replyMode === 'text' ? replyCardBlob : gifCardBlob
+    // The button is disabled until this is non-null, but guard anyway —
+    // this call must never do generation work before navigator.share().
+    if (!blobToUse) return
 
     shareInFlightRef.current = true
     setReplySending(true)
     try {
-      if (replyDebounceRef.current) { clearTimeout(replyDebounceRef.current); replyDebounceRef.current = null }
-
-      let blobToUse: Blob | null
-      if (replyMode === 'text') {
-        blobToUse = replyCardBlob
-          ?? (replyGenPromiseRef.current
-            ? await replyGenPromiseRef.current
-            : await generateReplyCard(selectedMsg?.content || '', replyText, selectedMsg?.media_url || null, getLogoSrc(), userPfp, getArrowsSrc()))
-      } else {
-        blobToUse = gifCardBlob
-          ?? (gifGenPromiseRef.current
-            ? await gifGenPromiseRef.current
-            : await generateGifReplyCard(selectedMsg?.content || '', selectedGif!.url, getLogoSrc(), userPfp, getArrowsSrc()))
-      }
-
-      if (!blobToUse) return
       await shareBlob(blobToUse, 'tbh-reply.png')
 
       // Reset UI after share completes (even if user cancels)
@@ -1144,19 +1138,23 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                         >🎬 Pick a GIF</button>
                       )}
 
-                      <button
-                        onClick={handleSendReply}
-                        disabled={
-                          replySending ||
-                          (replyMode === 'text' ? !replyText.trim() : !selectedGif)
-                        }
-                        className="w-full py-[15px] rounded-full bg-[#0D0D0D] text-white font-bold text-[15px] active:scale-95 transition-transform disabled:opacity-40 flex items-center justify-center gap-2"
-                      >
-                        {replySending
-                          ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          : replyMode === 'gif' ? t.shareGifReply : t.shareReply
-                        }
-                      </button>
+                      {(() => {
+                        const hasInput = replyMode === 'text' ? !!replyText.trim() : !!selectedGif
+                        const ready = replyMode === 'text' ? !!replyCardBlob : !!gifCardBlob
+                        const preparing = hasInput && !ready
+                        return (
+                          <button
+                            onClick={handleSendReply}
+                            disabled={replySending || !hasInput || !ready}
+                            className="w-full py-[15px] rounded-full bg-[#0D0D0D] text-white font-bold text-[15px] active:scale-95 transition-transform disabled:opacity-40 flex items-center justify-center gap-2"
+                          >
+                            {replySending || preparing
+                              ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              : replyMode === 'gif' ? t.shareGifReply : t.shareReply
+                            }
+                          </button>
+                        )
+                      })()}
                     </>
                   )}
                 </div>
