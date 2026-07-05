@@ -352,8 +352,8 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
 
   return (
     <>
-      <div className="flex flex-col pt-2 pb-10">
-        {sortedConvs.map(conv => {
+      <div className="flex flex-col pb-10">
+        {sortedConvs.map((conv, idx) => {
           const isFav = favorites.has(conv.id)
           const seenTs = lastSeenAt[conv.id] ?? 0
           const lastMsgTs = conv.last_message_at ? new Date(conv.last_message_at).getTime() : 0
@@ -372,56 +372,53 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
               onTouchMove={() => {
                 if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null }
               }}
-              className="w-full text-left mx-4 my-[5px] rounded-[20px] bg-white active:scale-[0.97] transition-transform"
-              style={{ width: 'calc(100% - 32px)', boxShadow: '0 2px 10px rgba(0,0,0,0.07)' }}
+              className={`w-full text-left flex items-center gap-3 px-5 py-[14px] active:bg-[#FAFAFA] transition-colors ${idx === 0 ? '' : 'border-t border-[#EFEFEF]'}`}
             >
-              <div className="flex items-center gap-3 p-[14px]">
-                {/* Avatar */}
-                <div className="relative flex-shrink-0">
-                  <div className="w-11 h-11 rounded-full bg-[#F5F5F5] flex items-center justify-center">
-                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
-                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="#888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <circle cx="12" cy="7" r="4" stroke="#888" strokeWidth="2"/>
-                    </svg>
-                  </div>
-                  {isUnread && (
-                    <div className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-[#FF3B30] border-2 border-white" />
-                  )}
+              {/* Avatar */}
+              <div className="relative flex-shrink-0">
+                <div className="w-11 h-11 rounded-full bg-[#F5F5F5] flex items-center justify-center">
+                  <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="#888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <circle cx="12" cy="7" r="4" stroke="#888" strokeWidth="2"/>
+                  </svg>
                 </div>
+                {isUnread && (
+                  <div className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-[#FF3B30] border-2 border-white" />
+                )}
+              </div>
 
-                {/* Text */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    {isFav && (
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="#FF3B30" className="flex-shrink-0">
-                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                      </svg>
-                    )}
-                    <p className={`text-[15px] truncate ${isUnread ? 'font-bold text-[#0D0D0D]' : 'font-semibold text-[#0D0D0D]'}`}>
-                      {convDisplayName(conv)}
-                    </p>
-                  </div>
-                  <p className={`text-[12px] truncate ${isUnread ? 'text-[#555]' : 'text-[#ADADAD]'}`}>
-                    {conv.last_message ?? 'No messages yet'}
-                  </p>
-                </div>
-
-                {/* Right side: time + heart */}
-                <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                  {conv.last_message_at && (
-                    <p className={`text-[11px] ${isUnread ? 'text-[#FF3B30] font-semibold' : 'text-[#CCC]'}`}>
-                      {timeAgo(conv.last_message_at)}
-                    </p>
-                  )}
-                  <button
-                    onClick={e => toggleFavorite(conv.id, e)}
-                    className="w-6 h-6 flex items-center justify-center active:scale-75 transition-transform"
-                  >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill={isFav ? '#FF3B30' : 'none'} stroke={isFav ? '#FF3B30' : '#CCC'} strokeWidth="2">
+              {/* Text */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  {isFav && (
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="#FF3B30" className="flex-shrink-0">
                       <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
                     </svg>
-                  </button>
+                  )}
+                  <p className={`text-[15px] truncate ${isUnread ? 'font-bold text-[#0D0D0D]' : 'font-semibold text-[#0D0D0D]'}`}>
+                    {convDisplayName(conv)}
+                  </p>
                 </div>
+                <p className={`text-[12px] truncate ${isUnread ? 'text-[#555]' : 'text-[#ADADAD]'}`}>
+                  {conv.last_message ?? 'No messages yet'}
+                </p>
+              </div>
+
+              {/* Right side: time + heart */}
+              <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                {conv.last_message_at && (
+                  <p className={`text-[11px] ${isUnread ? 'text-[#FF3B30] font-semibold' : 'text-[#CCC]'}`}>
+                    {timeAgo(conv.last_message_at)}
+                  </p>
+                )}
+                <button
+                  onClick={e => toggleFavorite(conv.id, e)}
+                  className="w-6 h-6 flex items-center justify-center active:scale-75 transition-transform"
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill={isFav ? '#FF3B30' : 'none'} stroke={isFav ? '#FF3B30' : '#CCC'} strokeWidth="2">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                  </svg>
+                </button>
               </div>
             </button>
           )
