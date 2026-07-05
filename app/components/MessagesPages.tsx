@@ -87,12 +87,63 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxW: number): st
   return lines
 }
 
+// Draws an image into a w x h box like CSS `object-fit: cover` — scales to
+// fill the box and crops the overflow instead of stretching the aspect ratio.
+function drawImageCover(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number, y: number, w: number, h: number,
+) {
+  const imgRatio = img.width / img.height
+  const boxRatio = w / h
+  let sx = 0, sy = 0, sw = img.width, sh = img.height
+  if (imgRatio > boxRatio) {
+    sw = img.height * boxRatio
+    sx = (img.width - sw) / 2
+  } else {
+    sh = img.width / boxRatio
+    sy = (img.height - sh) / 2
+  }
+  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h)
+}
+
+// Draws the "Send me something anonymously" CTA + arrows.svg as the very
+// last element of a generated share card.
+async function drawSendMeCta(ctx: CanvasRenderingContext2D, W: number, H: number, arrowsSrc: string) {
+  ctx.font = 'bold 46px -apple-system, sans-serif'
+  ctx.fillStyle = 'rgba(255,255,255,0.92)'
+  ctx.textAlign = 'center'
+  const ctaLines = wrapText(ctx, 'Send me something anonymously', W - 160)
+  const ctaLineH = 56
+  const arrowsH = 64
+  const bottomMargin = 90
+  const arrowsY = H - bottomMargin - arrowsH
+  const ctaStartY = arrowsY - 24 - (ctaLines.length - 1) * ctaLineH
+  ctaLines.forEach((line, i) => ctx.fillText(line, W / 2, ctaStartY + i * ctaLineH))
+
+  const arrowsImgEl = await loadImage(arrowsSrc).catch(() => null)
+  if (arrowsImgEl) {
+    const aw = Math.round(arrowsH * arrowsImgEl.width / arrowsImgEl.height)
+    const offArrows = document.createElement('canvas')
+    offArrows.width = aw; offArrows.height = arrowsH
+    const ocArrows = offArrows.getContext('2d')!
+    ocArrows.drawImage(arrowsImgEl, 0, 0, aw, arrowsH)
+    ocArrows.globalCompositeOperation = 'source-in'
+    ocArrows.fillStyle = '#FFFFFF'
+    ocArrows.fillRect(0, 0, aw, arrowsH)
+    ctx.globalAlpha = 0.92
+    ctx.drawImage(offArrows, (W - aw) / 2, arrowsY, aw, arrowsH)
+    ctx.globalAlpha = 1
+  }
+}
+
 async function generateReplyCard(
   messageText: string,
   replyText: string,
   imageUrl: string | null,
   logoSrc: string,
   userPfp: string | null,
+  arrowsSrc: string,
 ): Promise<Blob> {
   return new Promise(async (resolve) => {
     const W = 1080, H = 1920
@@ -167,7 +218,8 @@ async function generateReplyCard(
     ctx.font = '52px -apple-system, sans-serif'
     const msgLines = wrapText(ctx, messageText || '', boxW - innerPad * 2)
     const msgLineH = 68
-    const imgH = msgImg ? Math.round((boxW - innerPad * 2) * 0.6) : 0
+    const imgSize = boxW - innerPad * 2 // square (1:1) image box — no stretch
+    const imgH = msgImg ? imgSize : 0
     const senderBoxH = innerPad + 60 + 20 + imgH + (imgH && messageText ? 28 : 0) + msgLines.length * msgLineH + innerPad
 
     ctx.fillStyle = 'rgba(255,255,255,0.10)'
@@ -192,11 +244,11 @@ async function generateReplyCard(
 
     if (msgImg) {
       ctx.save()
-      roundRect(ctx, hPad + innerPad, contentY, boxW - innerPad * 2, imgH, 24)
+      roundRect(ctx, hPad + innerPad, contentY, imgSize, imgSize, 24)
       ctx.clip()
-      ctx.drawImage(msgImg, hPad + innerPad, contentY, boxW - innerPad * 2, imgH)
+      drawImageCover(ctx, msgImg, hPad + innerPad, contentY, imgSize, imgSize)
       ctx.restore()
-      contentY += imgH + (messageText ? 28 : 0)
+      contentY += imgSize + (messageText ? 28 : 0)
     }
 
     if (messageText) {
@@ -245,10 +297,7 @@ async function generateReplyCard(
     })
     ctx.shadowBlur = 0
 
-    ctx.font = '40px -apple-system, sans-serif'
-    ctx.fillStyle = 'rgba(255,255,255,0.35)'
-    ctx.textAlign = 'center'
-    ctx.fillText('tbhonest.net', W / 2, H - 80)
+    await drawSendMeCta(ctx, W, H, arrowsSrc)
 
     canvas.toBlob(b => resolve(b!), 'image/png', 1.0)
   })
@@ -259,6 +308,7 @@ async function generateMessageCard(
   imageUrl: string | null,
   logoSrc: string,
   userPfp: string | null,
+  arrowsSrc: string,
 ): Promise<Blob> {
   return new Promise(async (resolve) => {
     const W = 1080, H = 1920
@@ -344,7 +394,7 @@ async function generateMessageCard(
         ctx.save()
         roundRect(ctx, (W - imgS) / 2, imgY, imgS, imgS, 48)
         ctx.clip()
-        ctx.drawImage(img, (W - imgS) / 2, imgY, imgS, imgS)
+        drawImageCover(ctx, img, (W - imgS) / 2, imgY, imgS, imgS)
         ctx.restore()
         ctx.strokeStyle = 'rgba(255,255,255,0.12)'
         ctx.lineWidth = 3
@@ -381,10 +431,7 @@ async function generateMessageCard(
       ctx.shadowBlur = 0
     }
 
-    ctx.font = '40px -apple-system, sans-serif'
-    ctx.fillStyle = 'rgba(255,255,255,0.4)'
-    ctx.textAlign = 'center'
-    ctx.fillText('tbhonest.net', W / 2, H - 80)
+    await drawSendMeCta(ctx, W, H, arrowsSrc)
 
     canvas.toBlob(b => resolve(b!), 'image/png', 1.0)
   })
@@ -395,6 +442,7 @@ async function generateGifReplyCard(
   gifUrl: string,
   logoSrc: string,
   userPfp: string | null,
+  arrowsSrc: string,
 ): Promise<Blob> {
   const proxiedGifUrl = `/api/gif-proxy?url=${encodeURIComponent(gifUrl)}`
   return new Promise(async (resolve) => {
@@ -490,10 +538,7 @@ async function generateGifReplyCard(
     ctx.textAlign = 'center'
     ctx.fillText('🎬 MY REPLY', W / 2, y + 48)
 
-    ctx.font = '40px -apple-system, sans-serif'
-    ctx.fillStyle = 'rgba(255,255,255,0.35)'
-    ctx.textAlign = 'center'
-    ctx.fillText('tbhonest.net', W / 2, H - 80)
+    await drawSendMeCta(ctx, W, H, arrowsSrc)
 
     canvas.toBlob(b => resolve(b!), 'image/png', 1.0)
   })
@@ -532,6 +577,11 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
   const userIdRef = useRef<string | null>(null)
   const cardPromiseRef = useRef<Promise<Blob | null> | null>(null)
 
+  // Global lock: navigator.share() only allows one in-flight call at a time,
+  // and it must be checked synchronously (React state updates are async and
+  // can't stop two near-simultaneous taps from both slipping through).
+  const shareInFlightRef = useRef(false)
+
   // Pro + GIF state
   const [showProScreen, setShowProScreen]       = useState(false)
   const [replyMode, setReplyMode]               = useState<'text' | 'gif'>('text')
@@ -539,6 +589,13 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
   const [gifCardBlob, setGifCardBlob]           = useState<Blob | null>(null)
   const [showGifPicker, setShowGifPicker]       = useState(false)
   const [showConvGifPicker, setShowConvGifPicker] = useState(false)
+
+  // Reply-card pre-generation (text mode) — generated ahead of the tap so
+  // navigator.share() fires immediately inside the user gesture.
+  const [replyCardBlob, setReplyCardBlob] = useState<Blob | null>(null)
+  const replyDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const replyGenPromiseRef = useRef<Promise<Blob> | null>(null)
+  const gifGenPromiseRef = useRef<Promise<Blob> | null>(null)
 
   // Conversation
   const [convId, setConvId]           = useState<string | null>(null)
@@ -548,6 +605,9 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
   const [convSending, setConvSending] = useState(false)
   const convBottomRef = useRef<HTMLDivElement>(null)
   const convChannelRef = useRef<ReturnType<typeof supabaseClient.channel> | null>(null)
+
+  const getLogoSrc = () => `${window.location.origin}/assets/TBH_Title_Logo.svg`
+  const getArrowsSrc = () => `${window.location.origin}/assets/arrows.svg`
 
   useEffect(() => { setPortalTarget(document.getElementById('app-shell')) }, [])
 
@@ -608,6 +668,8 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
     setShowFullscreen(false); setShowReply(false); setReplyText('')
     setShowInsights(false); setSenderCount(null); setShowConv(false); setConvId(null)
     setMessageCardBlob(null); setSharing(false); setReplySending(false)
+    setReplyCardBlob(null); replyGenPromiseRef.current = null
+    setGifCardBlob(null); gifGenPromiseRef.current = null
   }
 
   const closeSheet = () => {
@@ -619,6 +681,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
       setReplyText(''); setShowInsights(false); setSenderCount(null); setConvId(null)
       setMessageCardBlob(null)
       setReplyMode('text'); setSelectedGif(null); setGifCardBlob(null)
+      setReplyCardBlob(null); replyGenPromiseRef.current = null; gifGenPromiseRef.current = null
     }, 300)
   }
 
@@ -659,79 +722,119 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
 
   // Pre-generate message share card whenever a message is opened
   useEffect(() => {
-    if (!selectedMsg) { 
-      setMessageCardBlob(null); 
-      cardPromiseRef.current = null;
-      return 
+    if (!selectedMsg) {
+      setMessageCardBlob(null)
+      cardPromiseRef.current = null
+      return
     }
     setCardGenerating(true)
-    const logoSrc = `${window.location.origin}/assets/TBH_Title_Logo.svg`
-    const promise = generateMessageCard(selectedMsg.content || '', selectedMsg.media_url || null, logoSrc, userPfp)
+    const promise = generateMessageCard(selectedMsg.content || '', selectedMsg.media_url || null, getLogoSrc(), userPfp, getArrowsSrc())
       .then(blob => {
-        setMessageCardBlob(blob);
-        return blob;
+        setMessageCardBlob(blob)
+        return blob
       })
       .catch(() => null)
       .finally(() => setCardGenerating(false))
-    cardPromiseRef.current = promise;
+    cardPromiseRef.current = promise
   }, [selectedMsg, userPfp])
 
+  // Pre-generate the text-reply card, debounced 600ms after typing stops.
+  // This is a "warm" path — if the user taps Send before this fires,
+  // handleSendReply generates it inline instead of waiting on this effect.
+  useEffect(() => {
+    if (!showReply || replyMode !== 'text' || !replyText.trim() || !selectedMsg) {
+      setReplyCardBlob(null)
+      replyGenPromiseRef.current = null
+      if (replyDebounceRef.current) clearTimeout(replyDebounceRef.current)
+      return
+    }
+    if (replyDebounceRef.current) clearTimeout(replyDebounceRef.current)
+    replyDebounceRef.current = setTimeout(() => {
+      const promise = generateReplyCard(
+        selectedMsg.content || '', replyText, selectedMsg.media_url || null, getLogoSrc(), userPfp, getArrowsSrc(),
+      )
+      replyGenPromiseRef.current = promise
+      promise
+        .then(blob => { if (replyGenPromiseRef.current === promise) setReplyCardBlob(blob) })
+        .catch(console.error)
+    }, 600)
+    return () => { if (replyDebounceRef.current) clearTimeout(replyDebounceRef.current) }
+  }, [replyText, replyMode, showReply, selectedMsg, userPfp])
+
+  // Pre-generate the GIF-reply card as soon as a GIF is picked, so it's
+  // ready by the time the user taps Send.
+  useEffect(() => {
+    if (!showReply || replyMode !== 'gif' || !selectedGif || !selectedMsg) {
+      setGifCardBlob(null)
+      gifGenPromiseRef.current = null
+      return
+    }
+    const promise = generateGifReplyCard(selectedMsg.content || '', selectedGif.url, getLogoSrc(), userPfp, getArrowsSrc())
+    gifGenPromiseRef.current = promise
+    promise
+      .then(blob => { if (gifGenPromiseRef.current === promise) setGifCardBlob(blob) })
+      .catch(console.error)
+  }, [selectedGif, replyMode, showReply, selectedMsg, userPfp])
+
+  // Shares a blob via the Web Share API (falling back to a download link),
+  // guarded by the single global in-flight lock.
+  const shareBlob = async (blob: Blob, filename: string) => {
+    const file = new File([blob], filename, { type: 'image/png' })
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file], text: userLink })
+      return
+    }
+    if (navigator.share) {
+      await navigator.share({ url: userLink || window.location.origin })
+      return
+    }
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = filename
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 10000)
+  }
+
   const handleSendReply = async () => {
-    if (replySending) return
+    if (shareInFlightRef.current || replySending) return
     if (replyMode === 'text' && !replyText.trim()) return
     if (replyMode === 'gif' && !selectedGif) return
-    
+
+    shareInFlightRef.current = true
     setReplySending(true)
-    
     try {
-      const logoSrc = `${window.location.origin}/assets/TBH_Title_Logo.svg`
-      let blobToUse: Blob | null = null
-      
+      if (replyDebounceRef.current) { clearTimeout(replyDebounceRef.current); replyDebounceRef.current = null }
+
+      let blobToUse: Blob | null
       if (replyMode === 'text') {
-        blobToUse = await generateReplyCard(
-          selectedMsg?.content || '',
-          replyText,
-          selectedMsg?.media_url || null,
-          logoSrc,
-          userPfp,
-        )
+        blobToUse = replyCardBlob
+          ?? (replyGenPromiseRef.current
+            ? await replyGenPromiseRef.current
+            : await generateReplyCard(selectedMsg?.content || '', replyText, selectedMsg?.media_url || null, getLogoSrc(), userPfp, getArrowsSrc()))
       } else {
-        blobToUse = await generateGifReplyCard(
-          selectedMsg?.content || '',
-          selectedGif!.url,
-          logoSrc,
-          userPfp,
-        )
+        blobToUse = gifCardBlob
+          ?? (gifGenPromiseRef.current
+            ? await gifGenPromiseRef.current
+            : await generateGifReplyCard(selectedMsg?.content || '', selectedGif!.url, getLogoSrc(), userPfp, getArrowsSrc()))
       }
-      
+
       if (!blobToUse) return
-      
-      const file = new File([blobToUse], 'tbh-reply.png', { type: 'image/png' })
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], text: userLink })
-      } else if (navigator.share) {
-        await navigator.share({ url: userLink || window.location.origin })
-      } else {
-        const url = URL.createObjectURL(blobToUse)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = 'tbh-reply.png'
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        setTimeout(() => URL.revokeObjectURL(url), 10000)
-      }
-      
+      await shareBlob(blobToUse, 'tbh-reply.png')
+
       // Reset UI after share completes (even if user cancels)
       setShowReply(false)
       setReplyText('')
       setGifCardBlob(null)
       setSelectedGif(null)
       setReplyMode('text')
+      setReplyCardBlob(null)
+      replyGenPromiseRef.current = null
+      gifGenPromiseRef.current = null
     } catch (e: any) {
       if (e?.name !== 'AbortError') console.error('Reply share failed', e)
     } finally {
       setReplySending(false)
+      shareInFlightRef.current = false
     }
   }
 
@@ -800,48 +903,28 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
   }
 
   const handleShare = async () => {
-    if (!selectedMsg || sharing) return
+    if (!selectedMsg || shareInFlightRef.current) return
+    shareInFlightRef.current = true
     setSharing(true)
     try {
-      // Wait for card to finish generating
-      let blobToUse: Blob | null = null;
-      if (cardPromiseRef.current) {
-        blobToUse = await cardPromiseRef.current;
-      } else {
-        blobToUse = messageCardBlob;
+      let blobToUse: Blob | null = messageCardBlob
+      if (!blobToUse && cardPromiseRef.current) {
+        blobToUse = await cardPromiseRef.current
       }
-      
       if (!blobToUse) {
-        // Fallback to generate now if not already available
-        const logoSrc = `${window.location.origin}/assets/TBH_Title_Logo.svg`;
         blobToUse = await generateMessageCard(
-          selectedMsg.content || '',
-          selectedMsg.media_url || null,
-          logoSrc,
-          userPfp
-        );
+          selectedMsg.content || '', selectedMsg.media_url || null, getLogoSrc(), userPfp, getArrowsSrc(),
+        )
       }
-      
       if (!blobToUse) return
-      
-      const file = new File([blobToUse], 'tbh.png', { type: 'image/png' })
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], text: userLink })
-        return
-      }
-      if (navigator.share) { await navigator.share({ url: userLink || window.location.origin }); return }
-      const url = URL.createObjectURL(blobToUse)
-      const a = document.createElement('a'); a.href = url; a.download = 'tbh.png'
-      document.body.appendChild(a); a.click(); document.body.removeChild(a)
-      setTimeout(() => URL.revokeObjectURL(url), 10000)
-    } catch (e: any) { 
-      if (e?.name !== 'AbortError') console.error('Share failed', e) 
-    } finally { 
-      setSharing(false) 
+      await shareBlob(blobToUse, 'tbh.png')
+    } catch (e: any) {
+      if (e?.name !== 'AbortError') console.error('Share failed', e)
+    } finally {
+      setSharing(false)
+      shareInFlightRef.current = false
     }
   }
-
-
 
   if (loading) {
     return (
@@ -868,46 +951,43 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
 
   return (
     <>
-      {/* ── Message list ── */}
-      <div className="flex flex-col pt-2 pb-10">
-        {messages.map(msg => {
+      {/* ── Message list: flat divided list, hairline separators between rows ── */}
+      <div className="flex flex-col pb-10">
+        {messages.map((msg, idx) => {
           const hasImage = msg.contains_media || !!msg.media_url
           const preview  = msg.content ?? ''
           return (
             <button
               key={msg.message_id}
               onClick={() => openSheet(msg)}
-              className="relative w-full text-left mx-4 my-[5px] rounded-[20px] bg-white active:scale-[0.97] transition-transform"
-              style={{ width: 'calc(100% - 32px)', boxShadow: msg.isOpened ? '0 2px 8px rgba(0,0,0,0.06)' : '0 6px 20px rgba(0,0,0,0.10)' }}
+              className={`w-full text-left flex items-center gap-3 px-5 py-[14px] active:bg-[#FAFAFA] transition-colors ${idx === 0 ? '' : 'border-t border-[#EFEFEF]'}`}
             >
-              <div className="flex items-center gap-3 p-[14px]">
-                <div className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ background: msg.isOpened ? '#E5E5E5' : 'linear-gradient(135deg, #cf5454, #ff4da6)' }}>
-                  <img src={msg.isOpened ? '/assets/Love_Letter.svg' : '/assets/R.svg'} className="w-6 h-6 object-contain" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  {!msg.isOpened ? (
-                    <>
-                      <p className="text-[16px] font-bold" style={{ background: 'linear-gradient(90deg, #FF6B6B, #4D96FF)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>New message</p>
-                      <p className="text-[12px] text-[#888]">{hasImage ? 'Photo' : 'Tap to read'}</p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-[15px] font-medium text-[#0D0D0D] truncate">{preview}</p>
-                      <p className="text-[11px] text-[#AAA]">{timeAgo(msg.created_at)}</p>
-                    </>
-                  )}
-                </div>
-                {hasImage && msg.media_url ? (
-                  <div className="w-[52px] h-[52px] rounded-[12px] overflow-hidden bg-[#EEE] flex-shrink-0">
-                    <img src={msg.media_url} alt="" className="w-full h-full object-cover" style={{ filter: msg.isOpened ? 'none' : 'blur(10px)' }} />
-                  </div>
+              <div className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ background: msg.isOpened ? '#E5E5E5' : 'linear-gradient(135deg, #cf5454, #ff4da6)' }}>
+                <img src={msg.isOpened ? '/assets/Love_Letter.svg' : '/assets/R.svg'} className="w-6 h-6 object-contain" />
+              </div>
+              <div className="flex-1 min-w-0">
+                {!msg.isOpened ? (
+                  <>
+                    <p className="text-[16px] font-bold" style={{ background: 'linear-gradient(90deg, #FF6B6B, #4D96FF)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>New message</p>
+                    <p className="text-[12px] text-[#888]">{hasImage ? 'Photo' : 'Tap to read'}</p>
+                  </>
                 ) : (
-                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
-                    <path d="M9 18l6-6-6-6" stroke="#D0D0D0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+                  <>
+                    <p className="text-[15px] font-medium text-[#0D0D0D] truncate">{preview}</p>
+                    <p className="text-[11px] text-[#AAA]">{timeAgo(msg.created_at)}</p>
+                  </>
                 )}
               </div>
+              {hasImage && msg.media_url ? (
+                <div className="w-[52px] h-[52px] rounded-[12px] overflow-hidden bg-[#EEE] flex-shrink-0">
+                  <img src={msg.media_url} alt="" className="w-full h-full object-cover" style={{ filter: msg.isOpened ? 'none' : 'blur(10px)' }} />
+                </div>
+              ) : (
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+                  <path d="M9 18l6-6-6-6" stroke="#D0D0D0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              )}
             </button>
           )
         })}
@@ -971,10 +1051,17 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                         </>
                       )}
 
-                      {/* Message bubble */}
+                      {/* Message bubble — white with elevation */}
                       {textContent && (
-                        <div className="w-full rounded-[28px] px-6 py-7 mb-3 flex items-center justify-center" style={{ background: 'linear-gradient(145deg, #0D0D0D 0%, #1C1C2E 55%, #2D1B69 100%)', minHeight: 120 }}>
-                          <p className="font-semibold text-center leading-snug text-white"
+                        <div
+                          className="w-full rounded-[28px] px-6 py-7 mb-3 flex items-center justify-center"
+                          style={{
+                            background: '#FFFFFF',
+                            minHeight: 120,
+                            boxShadow: '0 20px 45px rgba(0,0,0,0.14), 0 6px 16px rgba(0,0,0,0.08)',
+                          }}
+                        >
+                          <p className="font-semibold text-center leading-snug text-[#0D0D0D]"
                             style={{ fontSize: textContent.length > 100 ? '18px' : textContent.length > 50 ? '22px' : '28px' }}>
                             {textContent}
                           </p>
@@ -983,37 +1070,22 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
 
                       <p className="text-[11px] text-[#C8C8C8] text-center mb-5">{timeAgo(selectedMsg.created_at)}</p>
 
-                      {/* Insight hint */}
-                      <button onClick={() => isPro ? loadInsights() : setShowProScreen(true)} className="w-full flex items-center justify-between px-4 py-3.5 rounded-[22px] mb-3 active:scale-[0.98] transition-transform" style={{ background: '#F7F7F9' }}>
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-[#EBEBEB] flex items-center justify-center flex-shrink-0">
-                            <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
-                              <circle cx="11" cy="11" r="8" stroke="#555" strokeWidth="2"/>
-                              <path d="m21 21-4.35-4.35" stroke="#555" strokeWidth="2" strokeLinecap="round"/>
-                            </svg>
-                          </div>
-                          <div className="text-left">
-                            <p className="text-[14px] font-semibold text-[#0D0D0D]">Who sent this?</p>
-                            <p className="text-[11px] text-[#ADADAD]">View sender insights</p>
-                          </div>
-                        </div>
-                        <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" stroke="#D0D0D0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      {/* Who sent this */}
+                      <button
+                        onClick={() => isPro ? loadInsights() : setShowProScreen(true)}
+                        className="w-full py-3.5 rounded-[22px] mb-3 text-center font-semibold text-[15px] text-[#0D0D0D] active:scale-[0.98] transition-transform"
+                        style={{ background: '#F7F7F9' }}
+                      >
+                        Who sent this👀
                       </button>
 
-                      {/* Start conversation */}
-                      <button onClick={() => isPro ? startConversation() : setShowProScreen(true)} className="w-full flex items-center justify-between px-4 py-3.5 rounded-[22px] mb-5 active:scale-[0.98] transition-transform" style={{ background: '#0D0D0D' }}>
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,255,255,0.1)' }}>
-                            <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
-                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          </div>
-                          <div className="text-left">
-                            <p className="text-[14px] font-semibold text-white">Start a conversation</p>
-                            <p className="text-[11px] text-white/50">Reply privately</p>
-                          </div>
-                        </div>
-                        <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" stroke="rgba(255,255,255,0.3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      {/* Chat */}
+                      <button
+                        onClick={() => isPro ? startConversation() : setShowProScreen(true)}
+                        className="w-full py-3.5 rounded-[22px] mb-5 text-center font-bold text-[15px] text-white active:scale-[0.98] transition-transform"
+                        style={{ background: '#0D0D0D' }}
+                      >
+                        Chat👀
                       </button>
                     </>
                   ) : (
@@ -1051,7 +1123,8 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                           <textarea
                             value={replyText} onChange={e => setReplyText(e.target.value)}
                             placeholder="Write your reply…" autoFocus rows={4}
-                            className="w-full rounded-[20px] bg-[#F7F7F9] px-4 py-3.5 text-[16px] text-[#0D0D0D] outline-none resize-none mb-3"
+                            disabled={replySending}
+                            className="w-full rounded-[20px] bg-[#F7F7F9] px-4 py-3.5 text-[16px] text-[#0D0D0D] outline-none resize-none mb-3 disabled:opacity-60"
                             style={{ fontFamily: 'inherit' }}
                           />
                         </>
@@ -1155,7 +1228,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                   )}
 
                   <button onClick={() => isPro ? startConversation() : setShowProScreen(true)} className="w-full py-[15px] rounded-full bg-[#0D0D0D] text-white font-bold text-[15px] active:scale-95 transition-transform">
-                    Start a conversation
+                    Chat👀
                   </button>
                 </div>
               )}
