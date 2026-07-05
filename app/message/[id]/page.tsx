@@ -90,12 +90,33 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxW: number): st
   return lines
 }
 
+// Draws an image into a w x h box like CSS `object-fit: cover` — scales to
+// fill the box and crops the overflow instead of stretching the aspect ratio.
+function drawImageCover(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number, y: number, w: number, h: number,
+) {
+  const imgRatio = img.width / img.height
+  const boxRatio = w / h
+  let sx = 0, sy = 0, sw = img.width, sh = img.height
+  if (imgRatio > boxRatio) {
+    sw = img.height * boxRatio
+    sx = (img.width - sw) / 2
+  } else {
+    sh = img.width / boxRatio
+    sy = (img.height - sh) / 2
+  }
+  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h)
+}
+
 async function generateReplyCard(
   messageText: string,
   replyText: string,
   imageUrl: string | null,
   logoSrc: string,
   userPfp: string | null,
+  arrowsSrc: string,
 ): Promise<Blob> {
   return new Promise(async (resolve) => {
     const W = 1080, H = 1920
@@ -170,7 +191,8 @@ async function generateReplyCard(
     ctx.font = '52px -apple-system, sans-serif'
     const msgLines = wrapText(ctx, messageText || '', boxW - innerPad * 2)
     const msgLineH = 68
-    const imgH = msgImg ? Math.round((boxW - innerPad * 2) * 0.6) : 0
+    const imgSize = boxW - innerPad * 2 // square (1:1) image box
+    const imgH = msgImg ? imgSize : 0
     const senderBoxH = innerPad + 60 + 20 + imgH + (imgH && messageText ? 28 : 0) + msgLines.length * msgLineH + innerPad
 
     ctx.fillStyle = 'rgba(255,255,255,0.10)'
@@ -195,11 +217,11 @@ async function generateReplyCard(
 
     if (msgImg) {
       ctx.save()
-      roundRect(ctx, hPad + innerPad, contentY, boxW - innerPad * 2, imgH, 24)
+      roundRect(ctx, hPad + innerPad, contentY, imgSize, imgSize, 24)
       ctx.clip()
-      ctx.drawImage(msgImg, hPad + innerPad, contentY, boxW - innerPad * 2, imgH)
+      drawImageCover(ctx, msgImg, hPad + innerPad, contentY, imgSize, imgSize)
       ctx.restore()
-      contentY += imgH + (messageText ? 28 : 0)
+      contentY += imgSize + (messageText ? 28 : 0)
     }
 
     if (messageText) {
@@ -248,10 +270,32 @@ async function generateReplyCard(
     })
     ctx.shadowBlur = 0
 
-    ctx.font = '40px -apple-system, sans-serif'
-    ctx.fillStyle = 'rgba(255,255,255,0.35)'
+    // Last element: CTA inviting the viewer to send an anonymous message
+    ctx.font = 'bold 46px -apple-system, sans-serif'
+    ctx.fillStyle = 'rgba(255,255,255,0.92)'
     ctx.textAlign = 'center'
-    ctx.fillText('tbhonest.net', W / 2, H - 80)
+    const ctaLines = wrapText(ctx, 'Send me something anonymously', W - 160)
+    const ctaLineH = 56
+    const arrowsH = 64
+    const bottomMargin = 90
+    const arrowsY = H - bottomMargin - arrowsH
+    const ctaStartY = arrowsY - 24 - (ctaLines.length - 1) * ctaLineH
+    ctaLines.forEach((line, i) => ctx.fillText(line, W / 2, ctaStartY + i * ctaLineH))
+
+    const arrowsImgEl = await loadImage(arrowsSrc).catch(() => null)
+    if (arrowsImgEl) {
+      const aw = Math.round(arrowsH * arrowsImgEl.width / arrowsImgEl.height)
+      const offArrows = document.createElement('canvas')
+      offArrows.width = aw; offArrows.height = arrowsH
+      const ocArrows = offArrows.getContext('2d')!
+      ocArrows.drawImage(arrowsImgEl, 0, 0, aw, arrowsH)
+      ocArrows.globalCompositeOperation = 'source-in'
+      ocArrows.fillStyle = '#FFFFFF'
+      ocArrows.fillRect(0, 0, aw, arrowsH)
+      ctx.globalAlpha = 0.92
+      ctx.drawImage(offArrows, (W - aw) / 2, arrowsY, aw, arrowsH)
+      ctx.globalAlpha = 1
+    }
 
     canvas.toBlob(b => resolve(b!), 'image/png', 1.0)
   })
@@ -262,6 +306,7 @@ async function generateMessageCard(
   imageUrl: string | null,
   logoSrc: string,
   userPfp: string | null,
+  arrowsSrc: string,
 ): Promise<Blob> {
   return new Promise(async (resolve) => {
     const W = 1080, H = 1920
@@ -347,7 +392,7 @@ async function generateMessageCard(
         ctx.save()
         roundRect(ctx, (W - imgS) / 2, imgY, imgS, imgS, 48)
         ctx.clip()
-        ctx.drawImage(img, (W - imgS) / 2, imgY, imgS, imgS)
+        drawImageCover(ctx, img, (W - imgS) / 2, imgY, imgS, imgS)
         ctx.restore()
         ctx.strokeStyle = 'rgba(255,255,255,0.12)'
         ctx.lineWidth = 3
@@ -384,10 +429,32 @@ async function generateMessageCard(
       ctx.shadowBlur = 0
     }
 
-    ctx.font = '40px -apple-system, sans-serif'
-    ctx.fillStyle = 'rgba(255,255,255,0.4)'
+    // Last element: CTA inviting the viewer to send an anonymous message
+    ctx.font = 'bold 46px -apple-system, sans-serif'
+    ctx.fillStyle = 'rgba(255,255,255,0.92)'
     ctx.textAlign = 'center'
-    ctx.fillText('tbhonest.net', W / 2, H - 80)
+    const ctaLines = wrapText(ctx, 'Send me something anonymously', W - 160)
+    const ctaLineH = 56
+    const arrowsH = 64
+    const bottomMargin = 90
+    const arrowsY = H - bottomMargin - arrowsH
+    const ctaStartY = arrowsY - 24 - (ctaLines.length - 1) * ctaLineH
+    ctaLines.forEach((line, i) => ctx.fillText(line, W / 2, ctaStartY + i * ctaLineH))
+
+    const arrowsImgEl = await loadImage(arrowsSrc).catch(() => null)
+    if (arrowsImgEl) {
+      const aw = Math.round(arrowsH * arrowsImgEl.width / arrowsImgEl.height)
+      const offArrows = document.createElement('canvas')
+      offArrows.width = aw; offArrows.height = arrowsH
+      const ocArrows = offArrows.getContext('2d')!
+      ocArrows.drawImage(arrowsImgEl, 0, 0, aw, arrowsH)
+      ocArrows.globalCompositeOperation = 'source-in'
+      ocArrows.fillStyle = '#FFFFFF'
+      ocArrows.fillRect(0, 0, aw, arrowsH)
+      ctx.globalAlpha = 0.92
+      ctx.drawImage(offArrows, (W - aw) / 2, arrowsY, aw, arrowsH)
+      ctx.globalAlpha = 1
+    }
 
     canvas.toBlob(b => resolve(b!), 'image/png', 1.0)
   })
@@ -424,6 +491,9 @@ export default function ReadMessageScreen() {
   const logoSrc = typeof window !== 'undefined'
     ? `${window.location.origin}/assets/TBH_Title_Logo.svg`
     : '/assets/TBH_Title_Logo.svg'
+  const arrowsSrc = typeof window !== 'undefined'
+    ? `${window.location.origin}/assets/arrows.svg`
+    : '/assets/arrows.svg'
 
   useEffect(() => {
     const load = async () => {
@@ -452,7 +522,7 @@ export default function ReadMessageScreen() {
   useEffect(() => {
     if (!message) return
     setCardGenerating(true)
-    generateMessageCard(textContent, imageUrl, logoSrc, userPfp)
+    generateMessageCard(textContent, imageUrl, logoSrc, userPfp, arrowsSrc)
       .then(blob => setMessageCardBlob(blob))
       .catch(console.error)
       .finally(() => setCardGenerating(false))
@@ -470,7 +540,7 @@ export default function ReadMessageScreen() {
     }
     if (replyDebounceRef.current) clearTimeout(replyDebounceRef.current)
     replyDebounceRef.current = setTimeout(() => {
-      const promise = generateReplyCard(textContent, replyText, imageUrl, logoSrc, userPfp)
+      const promise = generateReplyCard(textContent, replyText, imageUrl, logoSrc, userPfp, arrowsSrc)
       replyGenPromiseRef.current = promise
       promise
         .then(blob => {
@@ -534,7 +604,7 @@ export default function ReadMessageScreen() {
         // otherwise start a fresh one. Either way we wait for it right here.
         blob = replyGenPromiseRef.current
           ? await replyGenPromiseRef.current
-          : await generateReplyCard(textContent, text, imageUrl, logoSrc, userPfp)
+          : await generateReplyCard(textContent, text, imageUrl, logoSrc, userPfp, arrowsSrc)
       }
 
       const file = new File([blob], 'tbh.png', { type: 'image/png' })
@@ -624,20 +694,19 @@ export default function ReadMessageScreen() {
         {/* Message card */}
         <div className="px-5 mb-6">
           <div style={{
-            background: 'rgba(20,20,20,0.75)',
-            backdropFilter: 'blur(40px)',
-            WebkitBackdropFilter: 'blur(40px)',
+            background: '#FFFFFF',
             borderRadius: '28px',
             padding: '24px',
+            boxShadow: '0 24px 60px rgba(0,0,0,0.45), 0 8px 20px rgba(0,0,0,0.25)',
           }}>
             {isImageMessage && imageUrl && (
               <>
                 <button
                   onClick={() => setShowFullscreen(true)}
                   className="w-full flex items-center gap-3 p-3 rounded-[16px] active:scale-[0.98] transition-transform mb-4"
-                  style={{ background: 'rgba(255,255,255,0.08)' }}
+                  style={{ background: 'rgba(0,0,0,0.05)' }}
                 >
-                  <div className="w-14 h-14 rounded-[12px] overflow-hidden bg-black/30 flex-shrink-0">
+                  <div className="w-14 h-14 rounded-[12px] overflow-hidden bg-black/10 flex-shrink-0">
                     <img
                       src={imageUrl} alt=""
                       className="w-full h-full object-cover"
@@ -645,34 +714,34 @@ export default function ReadMessageScreen() {
                     />
                   </div>
                   <div className="flex-1 text-left">
-                    <p className="font-semibold text-[15px] text-white">Photo</p>
-                    <p className="text-[11px] text-white/50">Tap to view fullscreen</p>
+                    <p className="font-semibold text-[15px] text-black">Photo</p>
+                    <p className="text-[11px] text-black/45">Tap to view fullscreen</p>
                   </div>
                   <button
                     onClick={e => { e.stopPropagation(); setImageBlurred(!imageBlurred) }}
                     className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
-                    style={{ background: imageBlurred ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.15)' }}
+                    style={{ background: imageBlurred ? '#111111' : 'rgba(0,0,0,0.08)' }}
                   >
                     {imageBlurred ? (
                       <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="#000" strokeWidth="2"/>
-                        <circle cx="12" cy="12" r="3" stroke="#000" strokeWidth="2"/>
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="#fff" strokeWidth="2"/>
+                        <circle cx="12" cy="12" r="3" stroke="#fff" strokeWidth="2"/>
                       </svg>
                     ) : (
                       <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
-                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-                        <line x1="1" y1="1" x2="23" y2="23" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" stroke="#111" strokeWidth="2" strokeLinecap="round"/>
+                        <line x1="1" y1="1" x2="23" y2="23" stroke="#111" strokeWidth="2" strokeLinecap="round"/>
                       </svg>
                     )}
                   </button>
                 </button>
-                <div className="w-full h-[1px] mb-4" style={{ background: 'rgba(255,255,255,0.08)' }} />
+                <div className="w-full h-[1px] mb-4" style={{ background: 'rgba(0,0,0,0.08)' }} />
               </>
             )}
 
             {textContent && (
               <p
-                className="w-full text-center font-semibold text-white"
+                className="w-full text-center font-semibold text-black"
                 style={{
                   fontSize: textContent.length > 100 ? '18px' : textContent.length > 50 ? '24px' : '32px',
                   lineHeight: '1.3',
@@ -815,4 +884,4 @@ export default function ReadMessageScreen() {
       )}
     </main>
   )
-}
+} 
