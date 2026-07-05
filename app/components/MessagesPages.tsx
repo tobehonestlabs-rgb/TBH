@@ -48,6 +48,34 @@ function timeAgo(iso: string): string {
   } catch { return 'now' }
 }
 
+const LS_BLUR_SHARED_PHOTO = 'tbh_blur_shared_photo'
+function loadBlurSharedPhotoPref(): boolean {
+  try { return JSON.parse(localStorage.getItem(LS_BLUR_SHARED_PHOTO) ?? 'false') } catch { return false }
+}
+function saveBlurSharedPhotoPref(v: boolean) {
+  try { localStorage.setItem(LS_BLUR_SHARED_PHOTO, JSON.stringify(v)) } catch {}
+}
+
+// A small iOS-style pill switch, styled with the app's signature gradient
+// for the "on" state.
+function BlurPhotoSwitch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="relative w-[50px] h-[30px] rounded-full flex-shrink-0 transition-colors duration-200"
+      style={{ background: checked ? 'linear-gradient(135deg, #FF3F1D, #FF3CAC)' : '#E2E2E6' }}
+    >
+      <span
+        className="absolute top-[3px] left-[3px] w-[24px] h-[24px] rounded-full bg-white transition-transform duration-200"
+        style={{ transform: checked ? 'translateX(20px)' : 'translateX(0)', boxShadow: '0 1px 3px rgba(0,0,0,0.25)' }}
+      />
+    </button>
+  )
+}
+
 // ── Canvas helpers for share card generation ──
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -107,6 +135,45 @@ function drawImageCover(
   ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h)
 }
 
+// Draws the pfp as a full-bleed background, blurred. Downsampling to a tiny
+// canvas and scaling back up guarantees a strong blur even in environments
+// where ctx.filter isn't honored — then a ctx.filter pass on top smooths it
+// further wherever that *is* supported.
+function drawBlurredPfpBackground(ctx: CanvasRenderingContext2D, img: HTMLImageElement, W: number, H: number) {
+  const dw = Math.max(1, Math.round(W / 24))
+  const dh = Math.max(1, Math.round(H / 24))
+  const small = document.createElement('canvas')
+  small.width = dw; small.height = dh
+  const sctx = small.getContext('2d')!
+  sctx.drawImage(img, 0, 0, dw, dh)
+
+  ctx.save()
+  ctx.filter = 'blur(10px) brightness(0.3) saturate(1.4)'
+  ctx.imageSmoothingEnabled = true
+  ctx.drawImage(small, -60, -60, W + 120, H + 120)
+  ctx.filter = 'none'
+  ctx.restore()
+}
+
+// Same cover-fit draw as drawImageCover, but optionally blurs the received
+// photo first — used when the user has the "blur photo when sharing" switch on.
+function drawImageCoverOptionallyBlurred(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number, y: number, w: number, h: number,
+  blurred: boolean,
+) {
+  if (!blurred) { drawImageCover(ctx, img, x, y, w, h); return }
+  const off = document.createElement('canvas')
+  off.width = w; off.height = h
+  const octx = off.getContext('2d')!
+  octx.filter = 'blur(22px)'
+  octx.imageSmoothingEnabled = true
+  drawImageCover(octx, img, -24, -24, w + 48, h + 48)
+  octx.filter = 'none'
+  ctx.drawImage(off, x, y, w, h)
+}
+
 // Draws the "Send me something anonymously" CTA + arrows.svg as the very
 // last element of a generated share card.
 async function drawSendMeCta(ctx: CanvasRenderingContext2D, W: number, H: number, arrowsSrc: string) {
@@ -144,6 +211,7 @@ async function generateReplyCard(
   logoSrc: string,
   userPfp: string | null,
   arrowsSrc: string,
+  blurImage: boolean,
 ): Promise<Blob> {
   return new Promise(async (resolve) => {
     const W = 1080, H = 1920
@@ -155,11 +223,7 @@ async function generateReplyCard(
     if (userPfp) pfpImg = await loadImage(userPfp).catch(() => null)
 
     if (pfpImg) {
-      ctx.save()
-      ctx.filter = 'blur(48px) brightness(0.3) saturate(1.4)'
-      ctx.drawImage(pfpImg, -80, -80, W + 160, H + 160)
-      ctx.filter = 'none'
-      ctx.restore()
+      drawBlurredPfpBackground(ctx, pfpImg, W, H)
     } else {
       ctx.fillStyle = '#0A0A0C'
       ctx.fillRect(0, 0, W, H)
@@ -246,7 +310,7 @@ async function generateReplyCard(
       ctx.save()
       roundRect(ctx, hPad + innerPad, contentY, imgSize, imgSize, 24)
       ctx.clip()
-      drawImageCover(ctx, msgImg, hPad + innerPad, contentY, imgSize, imgSize)
+      drawImageCoverOptionallyBlurred(ctx, msgImg, hPad + innerPad, contentY, imgSize, imgSize, blurImage)
       ctx.restore()
       contentY += imgSize + (messageText ? 28 : 0)
     }
@@ -309,6 +373,7 @@ async function generateMessageCard(
   logoSrc: string,
   userPfp: string | null,
   arrowsSrc: string,
+  blurImage: boolean,
 ): Promise<Blob> {
   return new Promise(async (resolve) => {
     const W = 1080, H = 1920
@@ -320,11 +385,7 @@ async function generateMessageCard(
     if (userPfp) pfpImg = await loadImage(userPfp).catch(() => null)
 
     if (pfpImg) {
-      ctx.save()
-      ctx.filter = 'blur(48px) brightness(0.3) saturate(1.4)'
-      ctx.drawImage(pfpImg, -80, -80, W + 160, H + 160)
-      ctx.filter = 'none'
-      ctx.restore()
+      drawBlurredPfpBackground(ctx, pfpImg, W, H)
     } else {
       ctx.fillStyle = '#0D0D0D'
       ctx.fillRect(0, 0, W, H)
@@ -394,7 +455,7 @@ async function generateMessageCard(
         ctx.save()
         roundRect(ctx, (W - imgS) / 2, imgY, imgS, imgS, 48)
         ctx.clip()
-        drawImageCover(ctx, img, (W - imgS) / 2, imgY, imgS, imgS)
+        drawImageCoverOptionallyBlurred(ctx, img, (W - imgS) / 2, imgY, imgS, imgS, blurImage)
         ctx.restore()
         ctx.strokeStyle = 'rgba(255,255,255,0.12)'
         ctx.lineWidth = 3
@@ -454,11 +515,7 @@ async function generateGifReplyCard(
     let pfpImg: HTMLImageElement | null = null
     if (userPfp) pfpImg = await loadImage(userPfp).catch(() => null)
     if (pfpImg) {
-      ctx.save()
-      ctx.filter = 'blur(48px) brightness(0.3) saturate(1.4)'
-      ctx.drawImage(pfpImg, -80, -80, W + 160, H + 160)
-      ctx.filter = 'none'
-      ctx.restore()
+      drawBlurredPfpBackground(ctx, pfpImg, W, H)
     } else {
       ctx.fillStyle = '#0A0A0C'
       ctx.fillRect(0, 0, W, H)
@@ -574,6 +631,9 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
   const [cardGenerating, setCardGenerating]   = useState(false)
   const [sharing, setSharing]           = useState(false)
   const [replySending, setReplySending] = useState(false)
+  // Whether the received photo should be blurred inside generated share/reply
+  // cards (independent from `imageBlurred`, which only affects the in-app preview).
+  const [blurSharedPhoto, setBlurSharedPhoto] = useState(false)
   const userIdRef = useRef<string | null>(null)
   const cardPromiseRef = useRef<Promise<Blob | null> | null>(null)
 
@@ -613,7 +673,10 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
   const getLogoSrc = () => `${window.location.origin}/assets/TBH_Title_Logo.svg`
   const getArrowsSrc = () => `${window.location.origin}/assets/arrows.svg`
 
-  useEffect(() => { setPortalTarget(document.getElementById('app-shell')) }, [])
+  useEffect(() => {
+    setPortalTarget(document.getElementById('app-shell'))
+    setBlurSharedPhoto(loadBlurSharedPhotoPref())
+  }, [])
 
   useEffect(() => {
     if (!isActive && selectedMsg) {
@@ -732,7 +795,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
       return
     }
     setCardGenerating(true)
-    const promise = generateMessageCard(selectedMsg.content || '', selectedMsg.media_url || null, getLogoSrc(), userPfp, getArrowsSrc())
+    const promise = generateMessageCard(selectedMsg.content || '', selectedMsg.media_url || null, getLogoSrc(), userPfp, getArrowsSrc(), blurSharedPhoto)
       .then(blob => {
         setMessageCardBlob(blob)
         return blob
@@ -740,7 +803,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
       .catch(() => null)
       .finally(() => setCardGenerating(false))
     cardPromiseRef.current = promise
-  }, [selectedMsg, userPfp])
+  }, [selectedMsg, userPfp, blurSharedPhoto])
 
   // Pre-generate the text-reply card, debounced 600ms after typing stops.
   // The token bumps on every keystroke — even mid-generation — so the Send
@@ -758,7 +821,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
     if (replyDebounceRef.current) clearTimeout(replyDebounceRef.current)
     replyDebounceRef.current = setTimeout(() => {
       const promise = generateReplyCard(
-        selectedMsg.content || '', replyText, selectedMsg.media_url || null, getLogoSrc(), userPfp, getArrowsSrc(),
+        selectedMsg.content || '', replyText, selectedMsg.media_url || null, getLogoSrc(), userPfp, getArrowsSrc(), blurSharedPhoto,
       )
       replyGenPromiseRef.current = promise
       promise
@@ -766,7 +829,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
         .catch(console.error)
     }, 600)
     return () => { if (replyDebounceRef.current) clearTimeout(replyDebounceRef.current) }
-  }, [replyText, replyMode, showReply, selectedMsg, userPfp])
+  }, [replyText, replyMode, showReply, selectedMsg, userPfp, blurSharedPhoto])
 
   // Pre-generate the GIF-reply card as soon as a GIF is picked. Same token
   // guard — picking a different GIF mid-render can't leave a mismatched
@@ -907,7 +970,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
       }
       if (!blobToUse) {
         blobToUse = await generateMessageCard(
-          selectedMsg.content || '', selectedMsg.media_url || null, getLogoSrc(), userPfp, getArrowsSrc(),
+          selectedMsg.content || '', selectedMsg.media_url || null, getLogoSrc(), userPfp, getArrowsSrc(), blurSharedPhoto,
         )
       }
       if (!blobToUse) return
@@ -1041,6 +1104,19 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                               )}
                             </button>
                           </button>
+
+                          {/* Blur photo in shared/reply cards — separate from the in-app preview toggle above */}
+                          <div className="w-full flex items-center justify-between px-4 py-3.5 rounded-[22px] mb-4" style={{ background: '#F7F7F9' }}>
+                            <div>
+                              <p className="text-[14px] font-semibold text-[#0D0D0D]">Blur photo when sharing</p>
+                              <p className="text-[11px] text-[#ADADAD]">Hides it in the exported card</p>
+                            </div>
+                            <BlurPhotoSwitch
+                              checked={blurSharedPhoto}
+                              onChange={v => { setBlurSharedPhoto(v); saveBlurSharedPhotoPref(v) }}
+                            />
+                          </div>
+
                           {textContent && <div className="h-px bg-[#F0F0F0] mb-4" />}
                         </>
                       )}
