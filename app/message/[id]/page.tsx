@@ -1,4 +1,3 @@
-
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
@@ -416,6 +415,11 @@ export default function ReadMessageScreen() {
   const [cardGenerating, setCardGenerating] = useState(false)
   const [replyCardBlob, setReplyCardBlob] = useState<Blob | null>(null)
 
+  // Track in-flight reply-card generation so the debounce effect and the
+  // tap handler never race each other or generate the card twice.
+  const replyDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const replyGenPromiseRef = useRef<Promise<Blob> | null>(null)
+
   const font = "'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif"
   const logoSrc = typeof window !== 'undefined'
     ? `${window.location.origin}/assets/TBH_Title_Logo.svg`
@@ -454,15 +458,30 @@ export default function ReadMessageScreen() {
       .finally(() => setCardGenerating(false))
   }, [message, userPfp])
 
-  // Pre-generate reply card, debounced 600ms after typing stops
+  // Pre-generate reply card, debounced 600ms after typing stops. This is a
+  // "warm" path only — if the user taps Go before this fires, handleSendReply
+  // generates the card itself instead of waiting on this effect.
   useEffect(() => {
-    if (!showReply || !replyText.trim()) { setReplyCardBlob(null); return }
-    const t = setTimeout(() => {
-      generateReplyCard(textContent, replyText, imageUrl, logoSrc, userPfp)
-        .then(blob => setReplyCardBlob(blob))
+    if (!showReply || !replyText.trim()) {
+      setReplyCardBlob(null)
+      replyGenPromiseRef.current = null
+      if (replyDebounceRef.current) clearTimeout(replyDebounceRef.current)
+      return
+    }
+    if (replyDebounceRef.current) clearTimeout(replyDebounceRef.current)
+    replyDebounceRef.current = setTimeout(() => {
+      const promise = generateReplyCard(textContent, replyText, imageUrl, logoSrc, userPfp)
+      replyGenPromiseRef.current = promise
+      promise
+        .then(blob => {
+          // Only apply if nothing newer has superseded this generation
+          if (replyGenPromiseRef.current === promise) setReplyCardBlob(blob)
+        })
         .catch(console.error)
     }, 600)
-    return () => clearTimeout(t)
+    return () => {
+      if (replyDebounceRef.current) clearTimeout(replyDebounceRef.current)
+    }
   }, [replyText, showReply])
 
   // Share message — blob is pre-ready, gesture preserved
@@ -492,28 +511,49 @@ export default function ReadMessageScreen() {
     }
   }
 
-  // Share reply — blob is pre-ready, gesture preserved
+  // Share reply — one tap, always. If the pre-generated blob isn't ready yet,
+  // this generates it inline and shares as soon as it's done, all inside the
+  // same tap-triggered call so it's still a single user action. The loading
+  // state stays on for the whole trip and only clears in `finally`, and the
+  // replySending guard above blocks any re-entrant taps while it's active.
   const handleSendReply = async () => {
-    if (!replyText.trim() || replySending || !replyCardBlob) return
+    const text = replyText.trim()
+    if (!text || replySending) return
+
     setReplySending(true)
     try {
-      const file = new File([replyCardBlob], 'tbh.png', { type: 'image/png' })
+      // Cancel any pending debounce timer — we're generating right now if needed
+      if (replyDebounceRef.current) {
+        clearTimeout(replyDebounceRef.current)
+        replyDebounceRef.current = null
+      }
+
+      let blob = replyCardBlob
+      if (!blob) {
+        // Reuse an in-flight generation if the debounce already kicked one off,
+        // otherwise start a fresh one. Either way we wait for it right here.
+        blob = replyGenPromiseRef.current
+          ? await replyGenPromiseRef.current
+          : await generateReplyCard(textContent, text, imageUrl, logoSrc, userPfp)
+      }
+
+      const file = new File([blob], 'tbh.png', { type: 'image/png' })
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], text: userLink })
-        setShowReply(false); setReplyText(''); setReplyCardBlob(null)
-        return
-      }
-      if (navigator.share) {
+      } else if (navigator.share) {
         await navigator.share({ url: userLink })
-        setShowReply(false); setReplyText(''); setReplyCardBlob(null)
-        return
+      } else {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url; a.download = 'tbh.png'
+        document.body.appendChild(a); a.click(); document.body.removeChild(a)
+        setTimeout(() => URL.revokeObjectURL(url), 10000)
       }
-      const url = URL.createObjectURL(replyCardBlob)
-      const a = document.createElement('a')
-      a.href = url; a.download = 'tbh.png'
-      document.body.appendChild(a); a.click(); document.body.removeChild(a)
-      setTimeout(() => URL.revokeObjectURL(url), 10000)
-      setShowReply(false); setReplyText(''); setReplyCardBlob(null)
+
+      setShowReply(false)
+      setReplyText('')
+      setReplyCardBlob(null)
+      replyGenPromiseRef.current = null
     } catch (e: any) {
       if (e?.name !== 'AbortError') console.error('Reply share failed', e)
     } finally {
@@ -707,7 +747,7 @@ export default function ReadMessageScreen() {
       {/* Reply bottom sheet */}
       {showReply && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setShowReply(false)} />
+          <div className="absolute inset-0 bg-black/60" onClick={() => !replySending && setShowReply(false)} />
           <div className="relative z-10 rounded-t-[32px] overflow-hidden" style={{ maxHeight: '85vh' }}>
             {userPfp && (
               <div style={{
@@ -743,7 +783,8 @@ export default function ReadMessageScreen() {
                     onChange={e => setReplyText(e.target.value)}
                     placeholder="Your reply..."
                     rows={3}
-                    className="flex-1 rounded-[16px] px-4 py-3 text-[16px] text-white outline-none resize-none"
+                    disabled={replySending}
+                    className="flex-1 rounded-[16px] px-4 py-3 text-[16px] text-white outline-none resize-none disabled:opacity-60"
                     style={{
                       background: 'rgba(255,255,255,0.1)',
                       minHeight: '52px', maxHeight: '140px',
@@ -752,7 +793,7 @@ export default function ReadMessageScreen() {
                   />
                   <button
                     onClick={handleSendReply}
-                    disabled={!replyText.trim() || replySending || !replyCardBlob}
+                    disabled={!replyText.trim() || replySending}
                     className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 active:scale-90 transition-transform"
                     style={{ background: replyText.trim() ? 'linear-gradient(135deg, #FF6B6B, #FF431D)' : 'rgba(255,255,255,0.15)' }}
                   >
@@ -762,10 +803,9 @@ export default function ReadMessageScreen() {
                     }
                   </button>
                 </div>
-                {/* Show generating indicator below textarea */}
-                {replyText.trim() && !replyCardBlob && (
+                {replySending && (
                   <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', marginTop: '8px', textAlign: 'center' }}>
-                    Preparing card...
+                    Preparing and sharing...
                   </p>
                 )}
               </div>
