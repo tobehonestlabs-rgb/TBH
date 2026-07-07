@@ -11,7 +11,7 @@ const sampleQuestions = [
 
 export default function Hero() {
   return (
-    <section className="relative min-h-[95vh] flex items-center justify-center px-6 pt-16 overflow-hidden bg-[#0D0D0D] text-white">
+    <section className="relative min-h-[95vh] flex items-center justify-center px-6 pt-16 bg-[#0D0D0D] text-white">
       {/* Background Elements */}
       <div className="absolute inset-0 bg-[radial-gradient(at_50%_30%,rgba(249,115,22,0.08) 0%,transparent_50%)]" />
       <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'linear-gradient(#ffffff 1px, transparent 1px), linear-gradient(90deg, #ffffff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
