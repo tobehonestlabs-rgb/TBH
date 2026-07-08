@@ -32,7 +32,7 @@ export default function AboutPage() {
             <div>
               <h2 className="font-bold text-black mb-3 text-sm uppercase">Notre Histoire</h2>
               <p>
-                TBH a été créé en 2024 avec une mission claire : bousculer le statu quo des réseaux sociaux anonymes et offrir une expérience digne de ce nom aux utilisateurs.
+                TBH a été créé en 2026 avec une mission claire : bousculer le statu quo des réseaux sociaux anonymes et offrir une expérience digne de ce nom aux utilisateurs.
               </p>
             </div>
 
