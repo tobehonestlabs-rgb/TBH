@@ -29,6 +29,8 @@ const reasons = [
   { n: "02", title: "it's still your people", body: "notes come from your circle, not randoms across the internet." },
   { n: "03", title: "say something back", body: "reply, react, keep it going — it's a conversation, not a drop box." },
   { n: "04", title: "make it yours", body: "customize your page so it actually feels like you." },
+  { n: "05", title: "photos & voice messages", body: "send pics, memes, and voice notes (even with pitch-shifted voice for extra mystery)." },
+  { n: "06", title: "continuous conversations", body: "keep the thread going anonymously — go from a single note to a full chat." },
 ];
 
 const feed = [
@@ -52,12 +54,26 @@ function Nav() {
         >
           tbh
         </Link>
-        <Link
-          href="/sign-up"
-          className="px-5 py-2.5 rounded-full text-sm font-semibold bg-[#F5F4F2] text-[#0B0B10] hover:scale-105 active:scale-95 transition-transform focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF4FA0]"
-        >
-          get my link
-        </Link>
+        <div className="flex items-center gap-6">
+          <Link
+            href="/about"
+            className="text-sm font-medium text-[#8B8894] hover:text-[#F5F4F2] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF4FA0]"
+          >
+            about
+          </Link>
+          <Link
+            href="/sign-up"
+            className="text-sm font-semibold text-[#F5F4F2] hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF4FA0]"
+          >
+            log in
+          </Link>
+          <Link
+            href="/sign-up"
+            className="px-5 py-2.5 rounded-full text-sm font-semibold bg-[#F5F4F2] text-[#0B0B10] hover:scale-105 active:scale-95 transition-transform focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF4FA0]"
+          >
+            get my link
+          </Link>
+        </div>
       </div>
     </header>
   );
@@ -165,11 +181,11 @@ function HowItWorks() {
 function Features() {
   return (
     <section className="bg-[#0B0B10] px-6 py-24 border-t border-white/5">
-      <div className="max-w-4xl mx-auto text-center">
+      <div className="max-w-5xl mx-auto text-center">
         <h2 className="font-display text-3xl sm:text-4xl font-bold text-[#F5F4F2]">
           why it hits different
         </h2>
-        <div className="grid sm:grid-cols-2 gap-6 mt-16">
+        <div className="grid sm:grid-cols-3 gap-6 mt-16">
           {reasons.map((r, i) => (
             <motion.div
               key={r.n}

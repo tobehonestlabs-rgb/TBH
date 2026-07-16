@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const res = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
-    headers: { Authorization: `Bearer ${(process.env.PAYSTACK_SECRET_KEY ?? '').trim()}` },
+    headers: { Authorization: `Bearer ${(process.env.NEXT_SECRET_PAYSTACK_API ?? '').trim()}` },
   })
   const data = await res.json()
 

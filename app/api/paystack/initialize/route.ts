@@ -8,18 +8,22 @@ export async function POST(req: NextRequest) {
 
   const { email } = await req.json()
   const reference = `tbh_${user.id.slice(0, 8)}_${Date.now()}`
+  const planCode = (process.env.PAYSTACK_PLAN_CODE ?? '').trim()
 
   const res = await fetch('https://api.paystack.co/transaction/initialize', {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${(process.env.PAYSTACK_SECRET_KEY ?? '').trim()}`,
+      Authorization: `Bearer ${(process.env.NEXT_SECRET_PAYSTACK_API ?? '').trim()}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       email,
-      amount: 299 * 100,
-      currency: 'USD',
       reference,
+      plan: planCode, // Use plan instead of fixed amount
+      metadata: {
+        user_id: user.id,
+        user_email: email,
+      },
     }),
   })
   const data = await res.json()
