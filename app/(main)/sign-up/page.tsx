@@ -85,7 +85,7 @@ const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-export default function AuthPageClient() {
+export default function AuthPage() {
   const [loading, setLoading] = useState(false)
   const [showEmailForm, setShowEmailForm] = useState(false)
   const [email, setEmail] = useState('')

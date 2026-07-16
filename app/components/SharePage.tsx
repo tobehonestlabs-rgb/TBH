@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { UserProfile } from '@/app/home/page'
+import { UserProfile } from '@/types'
 import Link from 'next/link'
 import { supabaseClient } from '@/lib/supabaseClient'
 

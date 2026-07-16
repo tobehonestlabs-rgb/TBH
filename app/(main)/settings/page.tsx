@@ -154,6 +154,18 @@ export default function SettingsPage() {
             divider
           />
           <SettingsRow
+            icon={
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+                <path d="M12 14c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3z" stroke="#0D0D0D" strokeWidth="2"/>
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" stroke="#0D0D0D" strokeWidth="2"/>
+              </svg>
+            }
+            label="About TBH Studio"
+            sublabel="Découvrez notre équipe et notre vision"
+            onClick={() => router.push('/about')}
+            divider
+          />
+          <SettingsRow
             icon={<img src="/assets/social_media_icons/X.svg" className="w-[18px] h-[18px] object-contain" alt="" />}
             label="Follow us on X"
             sublabel="@tbh_studio"
