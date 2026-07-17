@@ -1,38 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabase } from '@/lib/serverSupabase'
+import { PREMIUM_PRICE_CENTS } from '@/lib/premiumPayment'
 
+/** Initialize a one-time Paystack charge for TBH Pro ($2.99). */
 export async function POST(req: NextRequest) {
   const supabase = getServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { email } = await req.json()
-  const reference = `tbh_${user.id.slice(0, 8)}_${Date.now()}`
-  const planCode = (process.env.PAYSTACK_PLAN_CODE ?? '').trim()
+  if (!email) return NextResponse.json({ error: 'Email required' }, { status: 400 })
+
   const secretKey = (process.env.PAYSTACK_SECRET_KEY ?? '').trim()
+  if (!secretKey) {
+    return NextResponse.json({ error: 'Paystack not configured' }, { status: 500 })
+  }
 
-  console.log('[Paystack Initialize] Debug info:')
-  console.log('  - Plan code:', planCode ? `SET (${planCode})` : 'NOT SET')
-  console.log('  - Secret key:', secretKey ? `SET (starts with: ${secretKey.slice(0, 8)})` : 'NOT SET')
+  const reference = `tbh_${user.id.slice(0, 8)}_${Date.now()}`
 
-  const requestBody: any = {
+  const requestBody = {
     email,
+    amount: PREMIUM_PRICE_CENTS,
+    currency: 'USD',
     reference,
     metadata: {
       user_id: user.id,
-      user_email: email,
+      type: 'premium',
+      custom_fields: [
+        { display_name: 'User ID', variable_name: 'uid', value: user.id },
+        { display_name: 'Type', variable_name: 'type', value: 'premium' },
+      ],
     },
   }
-
-  if (planCode) {
-    requestBody.plan = planCode
-  } else {
-    // Fallback to a fixed amount if no plan code is set (for testing)
-    requestBody.amount = 299 * 100 // 299 USD in cents
-    requestBody.currency = 'USD'
-  }
-
-  console.log('[Paystack Initialize] Request body:', requestBody)
 
   const res = await fetch('https://api.paystack.co/transaction/initialize', {
     method: 'POST',
@@ -42,9 +41,15 @@ export async function POST(req: NextRequest) {
     },
     body: JSON.stringify(requestBody),
   })
+
   const data = await res.json()
-  console.log('[Paystack Initialize] Response:', data)
-  
-  if (!data.status) return NextResponse.json({ error: data.message, details: data }, { status: 400 })
-  return NextResponse.json({ reference, access_code: data.data?.access_code, authorization_url: data.data?.authorization_url })
+  if (!data.status) {
+    return NextResponse.json({ error: data.message, details: data }, { status: 400 })
+  }
+
+  return NextResponse.json({
+    reference,
+    access_code: data.data?.access_code,
+    authorization_url: data.data?.authorization_url,
+  })
 }
