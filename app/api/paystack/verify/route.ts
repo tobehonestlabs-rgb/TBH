@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { getServerSupabase } from '@/lib/serverSupabase'
+import { activatePremium } from '@/lib/premiumPayment'
 
+/** Client-side fallback verification after Paystack inline checkout. */
 export async function GET(req: NextRequest) {
   const reference = req.nextUrl.searchParams.get('reference')
   if (!reference) return NextResponse.json({ error: 'No reference' }, { status: 400 })
@@ -19,13 +20,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Payment not successful' }, { status: 400 })
   }
 
-  await supabaseAdmin
-    .from('users_table')
-    .update({
-      active_subscription: true,
-      subscription_code: data.data?.subscription?.subscription_code ?? null,
-    })
-    .eq('user_id', user.id)
+  const amount = (data.data?.amount ?? 0) / 100
+  const currency = data.data?.currency ?? 'USD'
+
+  await activatePremium(user.id, {
+    reference,
+    provider: 'paystack',
+    amount,
+    currency,
+  })
 
   return NextResponse.json({ ok: true })
 }
