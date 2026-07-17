@@ -12,8 +12,27 @@ export async function POST(req: NextRequest) {
   const secretKey = (process.env.PAYSTACK_SECRET_KEY ?? '').trim()
 
   console.log('[Paystack Initialize] Debug info:')
-  console.log('  - Plan code:', planCode ? 'SET' : 'NOT SET')
+  console.log('  - Plan code:', planCode ? `SET (${planCode})` : 'NOT SET')
   console.log('  - Secret key:', secretKey ? `SET (starts with: ${secretKey.slice(0, 8)})` : 'NOT SET')
+
+  const requestBody: any = {
+    email,
+    reference,
+    metadata: {
+      user_id: user.id,
+      user_email: email,
+    },
+  }
+
+  if (planCode) {
+    requestBody.plan = planCode
+  } else {
+    // Fallback to a fixed amount if no plan code is set (for testing)
+    requestBody.amount = 299 * 100 // 299 USD in cents
+    requestBody.currency = 'USD'
+  }
+
+  console.log('[Paystack Initialize] Request body:', requestBody)
 
   const res = await fetch('https://api.paystack.co/transaction/initialize', {
     method: 'POST',
@@ -21,15 +40,7 @@ export async function POST(req: NextRequest) {
       Authorization: `Bearer ${secretKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      email,
-      reference,
-      plan: planCode, // Use plan instead of fixed amount
-      metadata: {
-        user_id: user.id,
-        user_email: email,
-      },
-    }),
+    body: JSON.stringify(requestBody),
   })
   const data = await res.json()
   console.log('[Paystack Initialize] Response:', data)
