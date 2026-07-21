@@ -4,12 +4,14 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { supabaseClient } from '@/lib/supabaseClient'
 import { shouldUsePaystack } from '@/lib/paymentRegion'
-import { PREMIUM_PRICE_USD } from '@/lib/premiumPayment'
 
 type Props = {
   onClose: () => void
   onSuccess: () => void
 }
+
+// ── Config ──────────────────────────────────────────────────────────────
+const PREMIUM_PRICE_XOF = 1800 // Fixed price in XOF
 
 const FEATURES = [
   { emoji: '👁️', label: 'Sender insights', sub: 'See who sent you a message' },
@@ -23,14 +25,17 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
   const [paymentProvider, setPaymentProvider] = useState<'paystack' | 'paypal' | null>(null)
   const scriptRef = useRef(false)
 
+  // ── Load Paystack script and detect region ──────────────────────────
   useEffect(() => {
     setPortalTarget(document.getElementById('app-shell'))
 
+    // Detect user's region for payment provider
     fetch('/api/geo')
       .then(r => r.json())
       .then(geo => setPaymentProvider(shouldUsePaystack(geo.country) ? 'paystack' : 'paypal'))
       .catch(() => setPaymentProvider('paypal'))
 
+    // Load Paystack inline script (only once)
     if (!scriptRef.current && !document.getElementById('paystack-js')) {
       const s = document.createElement('script')
       s.id = 'paystack-js'
@@ -41,25 +46,22 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
     }
   }, [])
 
-  // ── FIXED: handlePaystack ─────────────────────────────────────────────
+  // ── Handle Paystack Payment ───────────────────────────────────────────
   const handlePaystack = async (email: string, userId: string) => {
     console.log('[TBHPro] Initializing Paystack for:', { email, userId })
 
-    // Get the user ID from the session
+    // 1. Initialize payment on backend
     const res = await fetch('/api/paystack', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        email,
-        userId, // ← NOW sending userId!
-      }),
+      body: JSON.stringify({ email, userId }),
     })
 
-    // Check if the response is JSON (not HTML)
+    // Check if response is JSON (not HTML error page)
     const contentType = res.headers.get('content-type')
     if (!contentType?.includes('application/json')) {
       const text = await res.text()
-      console.error('[TBHPro] Received non-JSON response:', text.substring(0, 200))
+      console.error('[TBHPro] Non-JSON response:', text.substring(0, 200))
       throw new Error('Server error. Please try again.')
     }
 
@@ -72,14 +74,19 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
 
     const { reference, authorization_url } = data
 
-    // If we have a direct URL, redirect
+    // 2. If we have a direct URL, redirect (preferred method)
     if (authorization_url) {
       window.location.href = authorization_url
       return
     }
 
-    // Fallback to inline iframe
-    const PaystackPop = (window as Window & { PaystackPop?: { setup: (opts: Record<string, unknown>) => { openIframe: () => void } } }).PaystackPop
+    // 3. Fallback: Use inline iframe
+    const PaystackPop = (window as Window & { 
+      PaystackPop?: { 
+        setup: (opts: Record<string, unknown>) => { openIframe: () => void } 
+      } 
+    }).PaystackPop
+
     if (!PaystackPop) {
       throw new Error('Payment service unavailable. Please refresh and try again.')
     }
@@ -87,28 +94,28 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
     PaystackPop.setup({
       key: (process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY ?? '').trim(),
       email,
-      amount: Math.round(PREMIUM_PRICE_USD * 600), // Convert to XOF cents
-      currency: 'XOF', // ← MUST be XOF for your account
+      amount: PREMIUM_PRICE_XOF, // ← 1800 XOF directly
+      currency: 'XOF', // ← Must be XOF
       ref: reference,
       onClose: () => setLoading(false),
       callback: async (response: { reference: string }) => {
-        console.log('[TBHPro] Payment callback received:', response)
+        console.log('[TBHPro] Payment callback:', response)
         setLoading(true)
-        
+
         try {
-          // ── FIXED: Use the correct URL ──
+          // Verify payment on backend
           const verifyRes = await fetch(`/api/paystack?reference=${response.reference}`)
-          
+
           const verifyContentType = verifyRes.headers.get('content-type')
           if (!verifyContentType?.includes('application/json')) {
             throw new Error('Verification failed. Please contact support.')
           }
-          
+
           const verifyData = await verifyRes.json()
           console.log('[TBHPro] Verification response:', verifyData)
 
           if (verifyData.success || verifyData.status === 'success') {
-            onSuccess()
+            onSuccess() // This will close the modal and refresh user status
           } else {
             setError('Payment verification failed. Please contact support.')
           }
@@ -122,21 +129,24 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
     }).openIframe()
   }
 
+  // ── Handle PayPal Payment ─────────────────────────────────────────────
   const handlePayPal = async () => {
     const res = await fetch('/api/paypal/create-order', { method: 'POST' })
     const { approvalUrl, error: apiErr } = await res.json()
-    if (apiErr || !approvalUrl) throw new Error(apiErr ?? 'Could not start PayPal checkout')
+    if (apiErr || !approvalUrl) {
+      throw new Error(apiErr ?? 'Could not start PayPal checkout')
+    }
     window.location.href = approvalUrl
   }
 
-  // ── FIXED: handleUnlock ──────────────────────────────────────────────
+  // ── Main Unlock Handler ──────────────────────────────────────────────
   const handleUnlock = async () => {
     setLoading(true)
     setError(null)
-    
+
     try {
       const { data: { session } } = await supabaseClient.auth.getSession()
-      
+
       if (!session?.user?.email) {
         setError('Please sign in first')
         setLoading(false)
@@ -150,7 +160,7 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
       }
 
       const provider = paymentProvider ?? 'paypal'
-      
+
       if (provider === 'paystack') {
         await handlePaystack(session.user.email, session.user.id)
       } else {
@@ -163,24 +173,28 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
     }
   }
 
+  // ── Render ─────────────────────────────────────────────────────────────
   if (!portalTarget) return null
 
-  const priceLabel = `Unlock TBH Pro — $${PREMIUM_PRICE_USD.toFixed(2)}`
+  const priceLabel = `Unlock TBH Pro — ${PREMIUM_PRICE_XOF.toLocaleString()} FCFA`
+  
   const providerHint =
     paymentProvider === 'paystack'
-      ? 'Pay with card via Paystack'
+      ? 'Pay with card or mobile money via Paystack'
       : paymentProvider === 'paypal'
         ? 'Pay with PayPal'
         : 'Detecting payment method…'
 
   return createPortal(
     <div className="fixed inset-0 z-[70] flex flex-col justify-end" onTouchStart={e => e.stopPropagation()}>
+      {/* Backdrop */}
       <div
         className="absolute inset-0 backdrop-enter"
         style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }}
         onClick={onClose}
       />
 
+      {/* Sheet */}
       <div
         className="relative sheet-enter rounded-t-[36px] z-10 pb-10 px-5 pt-4 border-t border-white/[0.08] overflow-y-auto"
         style={{ background: '#0D0D0D', maxHeight: '80vh' }}
@@ -189,6 +203,7 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
           <div className="w-10 h-1 rounded-full bg-white/20" />
         </div>
 
+        {/* Header */}
         <div className="text-center mb-6">
           <div
             className="w-14 h-14 rounded-full mx-auto mb-3 flex items-center justify-center text-[28px]"
@@ -200,6 +215,7 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
           <p className="text-white/40 text-[13px] mt-1">One-time unlock. Yours forever.</p>
         </div>
 
+        {/* Features */}
         <div className="flex flex-col gap-2.5 mb-7">
           {FEATURES.map(f => (
             <div
@@ -224,8 +240,10 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
           ))}
         </div>
 
+        {/* Error */}
         {error && <p className="text-[#FF6B6B] text-[13px] text-center mb-3">{error}</p>}
 
+        {/* Unlock Button */}
         <button
           onClick={handleUnlock}
           disabled={loading || paymentProvider === null}
@@ -239,8 +257,10 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
           )}
         </button>
 
+        {/* Provider Hint */}
         <p className="text-white/25 text-[11px] text-center mb-3">{providerHint}</p>
 
+        {/* Close Button */}
         <button
           onClick={onClose}
           className="w-full py-3 text-white/30 text-[13px] font-semibold active:opacity-70 transition-opacity"
