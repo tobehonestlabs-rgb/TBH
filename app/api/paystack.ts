@@ -4,7 +4,36 @@ import { getServerSupabase } from '@/lib/serverSupabase'
 import crypto from 'crypto'
 
 // ── Config ──────────────────────────────────────────────────────────────
-const PREMIUM_PRICE_CENTS = 299 // $2.99 in cents
+const PREMIUM_PRICE_USD = 2.99
+
+// ── Helper: Get USD to XOF conversion rate ────────────────────────────
+async function getUSDtoXOFRate(): Promise<number> {
+  try {
+    // Using a free exchange rate API
+    const response = await fetch(
+      'https://api.exchangerate-api.com/v4/latest/USD',
+      { next: { revalidate: 3600 } } // Cache for 1 hour
+    )
+    
+    if (!response.ok) {
+      console.warn('[Paystack] Exchange rate API failed, using fallback rate')
+      return 600 // Fallback: 1 USD = 600 XOF (adjust as needed)
+    }
+    
+    const data = await response.json()
+    const rate = data.rates?.XOF
+    
+    if (!rate) {
+      console.warn('[Paystack] XOF rate not found, using fallback')
+      return 600
+    }
+    
+    return rate
+  } catch (error) {
+    console.warn('[Paystack] Exchange rate fetch error, using fallback:', error)
+    return 600 // Fallback rate
+  }
+}
 
 // ── Helper: Activate Premium ────────────────────────────────────────────
 async function activatePremium(
@@ -65,138 +94,163 @@ async function activatePremium(
 
 // ── POST: Initialize Payment ─────────────────────────────────────────────
 export async function POST(req: NextRequest) {
-  const supabase = getServerSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-  
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  try {
+    const supabase = getServerSupabase()
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-  const { email } = await req.json()
-  if (!email) {
-    return NextResponse.json({ error: 'Email required' }, { status: 400 })
-  }
+    const { email } = await req.json()
+    if (!email) {
+      return NextResponse.json({ error: 'Email required' }, { status: 400 })
+    }
 
-  const secretKey = (process.env.PAYSTACK_SECRET_KEY ?? '').trim()
-  if (!secretKey) {
-    return NextResponse.json({ error: 'Paystack not configured' }, { status: 500 })
-  }
+    const secretKey = (process.env.PAYSTACK_SECRET_KEY ?? '').trim()
+    if (!secretKey) {
+      return NextResponse.json({ error: 'Paystack not configured' }, { status: 500 })
+    }
 
-  const reference = `tbh_${user.id.slice(0, 8)}_${Date.now()}`
+    // ── Currency Conversion: USD → XOF ──
+    const rate = await getUSDtoXOFRate()
+    const amountInXOF = Math.round(PREMIUM_PRICE_USD * rate)
+    
+    console.log(`[Paystack] Converting $${PREMIUM_PRICE_USD} → ${amountInXOF} XOF (rate: ${rate})`)
 
-  const requestBody = {
-    email,
-    amount: PREMIUM_PRICE_CENTS,
-    currency: 'USD',
-    reference,
-    metadata: {
-      custom_fields: [
-        { display_name: 'User ID', variable_name: 'uid', value: user.id },
-        { display_name: 'Type', variable_name: 'type', value: 'premium' },
-      ],
-    },
-  }
+    const reference = `tbh_${user.id.slice(0, 8)}_${Date.now()}`
 
-  const response = await fetch('https://api.paystack.co/transaction/initialize', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${secretKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(requestBody),
-  })
+    const requestBody = {
+      email,
+      amount: amountInXOF,      // ← Amount in XOF (Paystack's currency)
+      currency: 'XOF',          // ← MUST be XOF for your account
+      reference,
+      metadata: {
+        custom_fields: [
+          { display_name: 'User ID', variable_name: 'uid', value: user.id },
+          { display_name: 'Type', variable_name: 'type', value: 'premium' },
+          { display_name: 'Amount USD', variable_name: 'amount_usd', value: PREMIUM_PRICE_USD.toString() },
+        ],
+      },
+    }
 
-  const data = await response.json()
-  
-  if (!data.status) {
-    console.error('[Paystack] Init error:', data.message)
+    const response = await fetch('https://api.paystack.co/transaction/initialize', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${secretKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    })
+
+    const data = await response.json()
+    
+    if (!data.status) {
+      console.error('[Paystack] Init error:', data.message)
+      return NextResponse.json(
+        { error: data.message, details: data },
+        { status: 400 }
+      )
+    }
+
+    return NextResponse.json({
+      reference,
+      access_code: data.data?.access_code,
+      authorization_url: data.data?.authorization_url,
+      price_usd: PREMIUM_PRICE_USD,
+      price_xof: amountInXOF,
+    })
+  } catch (error: any) {
+    console.error('[Paystack] POST error:', error)
     return NextResponse.json(
-      { error: data.message, details: data },
-      { status: 400 }
+      { error: 'Internal server error' },
+      { status: 500 }
     )
   }
-
-  return NextResponse.json({
-    reference,
-    access_code: data.data?.access_code,
-    authorization_url: data.data?.authorization_url,
-  })
 }
 
 // ── GET: Verify Payment ────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
-  const supabase = getServerSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-  
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  try {
+    const supabase = getServerSupabase()
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-  const url = new URL(req.url)
-  const reference = url.searchParams.get('reference')
+    const url = new URL(req.url)
+    const reference = url.searchParams.get('reference')
 
-  if (!reference) {
-    return NextResponse.json({ error: 'Reference required' }, { status: 400 })
-  }
+    if (!reference) {
+      return NextResponse.json({ error: 'Reference required' }, { status: 400 })
+    }
 
-  const secretKey = (process.env.PAYSTACK_SECRET_KEY ?? '').trim()
-  if (!secretKey) {
-    return NextResponse.json({ error: 'Paystack not configured' }, { status: 500 })
-  }
+    const secretKey = (process.env.PAYSTACK_SECRET_KEY ?? '').trim()
+    if (!secretKey) {
+      return NextResponse.json({ error: 'Paystack not configured' }, { status: 500 })
+    }
 
-  const response = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
-    headers: {
-      Authorization: `Bearer ${secretKey}`,
-    },
-  })
+    const response = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
+      headers: {
+        Authorization: `Bearer ${secretKey}`,
+      },
+    })
 
-  const data = await response.json()
+    const data = await response.json()
 
-  if (!data.status) {
-    return NextResponse.json(
-      { error: data.message, details: data },
-      { status: 400 }
-    )
-  }
+    if (!data.status) {
+      return NextResponse.json(
+        { error: data.message, details: data },
+        { status: 400 }
+      )
+    }
 
-  if (data.data?.status === 'success') {
-    const metadata = data.data?.metadata ?? {}
-    const customFields = metadata.custom_fields ?? []
-    const uid = customFields.find(
-      (f: { variable_name: string }) => f.variable_name === 'uid'
-    )?.value ?? metadata?.user_id
+    if (data.data?.status === 'success') {
+      const metadata = data.data?.metadata ?? {}
+      const customFields = metadata.custom_fields ?? []
+      const uid = customFields.find(
+        (f: { variable_name: string }) => f.variable_name === 'uid'
+      )?.value ?? metadata?.user_id
 
-    if (uid) {
-      await activatePremium(uid, {
+      if (uid) {
+        await activatePremium(uid, {
+          reference: data.data.reference,
+          provider: 'paystack',
+          amount: data.data.amount,
+          currency: data.data.currency,
+        })
+      }
+
+      return NextResponse.json({
+        success: true,
+        status: data.data.status,
         reference: data.data.reference,
-        provider: 'paystack',
-        amount: data.data.amount / 100,
-        currency: data.data.currency,
       })
     }
 
     return NextResponse.json({
-      success: true,
-      status: data.data.status,
-      reference: data.data.reference,
+      success: false,
+      status: data.data?.status,
+      reference: data.data?.reference,
     })
+  } catch (error: any) {
+    console.error('[Paystack] GET error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
   }
-
-  return NextResponse.json({
-    success: false,
-    status: data.data?.status,
-    reference: data.data?.reference,
-  })
 }
 
 // ── Webhook Handler ──────────────────────────────────────────────────────
+// Use PUT to avoid conflict with POST (payment initialization)
 export async function PUT(req: NextRequest) {
   try {
     // ⚠️ CRITICAL: Use req.text() for webhooks, not req.json()
     const rawBody = await req.text()
     
     console.log('[Paystack Webhook] Raw body length:', rawBody.length)
-    console.log('[Paystack Webhook] Raw body preview:', rawBody.substring(0, 200))
 
     // If body is empty, return 200 (Paystack may retry)
     if (!rawBody || rawBody.length === 0) {
@@ -252,8 +306,8 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
-    const amount = (event.data?.amount ?? PREMIUM_PRICE_CENTS) / 100
-    const currency = event.data?.currency ?? 'USD'
+    const amount = event.data?.amount ?? 0
+    const currency = event.data?.currency ?? 'XOF'
     const reference = event.data?.reference ?? ''
 
     console.log(`[Paystack Webhook] Processing premium: ${uid} (${amount} ${currency}, ref: ${reference})`)
