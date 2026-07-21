@@ -76,6 +76,7 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
 
     // 2. If we have a direct URL, redirect (preferred method)
     if (authorization_url) {
+      console.log('[TBHPro] Redirecting to:', authorization_url)
       window.location.href = authorization_url
       return
     }
@@ -91,13 +92,19 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
       throw new Error('Payment service unavailable. Please refresh and try again.')
     }
 
+    // ── CRITICAL: Use the EXACT same amount and currency ──
+    console.log('[TBHPro] Opening Paystack with amount:', PREMIUM_PRICE_XOF, 'XOF')
+
     PaystackPop.setup({
       key: (process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY ?? '').trim(),
       email,
-      amount: PREMIUM_PRICE_XOF, // ← 1800 XOF directly
+      amount: PREMIUM_PRICE_XOF, // ← 1800 XOF - NO MULTIPLICATION!
       currency: 'XOF', // ← Must be XOF
       ref: reference,
-      onClose: () => setLoading(false),
+      onClose: () => {
+        console.log('[TBHPro] Paystack popup closed')
+        setLoading(false)
+      },
       callback: async (response: { reference: string }) => {
         console.log('[TBHPro] Payment callback:', response)
         setLoading(true)
