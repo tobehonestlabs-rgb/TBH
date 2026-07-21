@@ -41,36 +41,83 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
     }
   }, [])
 
-  const handlePaystack = async (email: string) => {
-    const res = await fetch('/api/paystack/initialize', {
+  // ── FIXED: handlePaystack ─────────────────────────────────────────────
+  const handlePaystack = async (email: string, userId: string) => {
+    console.log('[TBHPro] Initializing Paystack for:', { email, userId })
+
+    // Get the user ID from the session
+    const res = await fetch('/api/paystack', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ 
+        email,
+        userId, // ← NOW sending userId!
+      }),
     })
-    const { reference, authorization_url, error: apiErr } = await res.json()
-    if (apiErr) throw new Error(apiErr)
 
+    // Check if the response is JSON (not HTML)
+    const contentType = res.headers.get('content-type')
+    if (!contentType?.includes('application/json')) {
+      const text = await res.text()
+      console.error('[TBHPro] Received non-JSON response:', text.substring(0, 200))
+      throw new Error('Server error. Please try again.')
+    }
+
+    const data = await res.json()
+    console.log('[TBHPro] Paystack init response:', data)
+
+    if (data.error) {
+      throw new Error(data.error)
+    }
+
+    const { reference, authorization_url } = data
+
+    // If we have a direct URL, redirect
     if (authorization_url) {
       window.location.href = authorization_url
       return
     }
 
+    // Fallback to inline iframe
     const PaystackPop = (window as Window & { PaystackPop?: { setup: (opts: Record<string, unknown>) => { openIframe: () => void } } }).PaystackPop
-    if (!PaystackPop) throw new Error('Payment service unavailable')
+    if (!PaystackPop) {
+      throw new Error('Payment service unavailable. Please refresh and try again.')
+    }
 
     PaystackPop.setup({
       key: (process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY ?? '').trim(),
       email,
-      amount: PREMIUM_PRICE_USD * 100,
-      currency: 'USD',
+      amount: Math.round(PREMIUM_PRICE_USD * 600), // Convert to XOF cents
+      currency: 'XOF', // ← MUST be XOF for your account
       ref: reference,
       onClose: () => setLoading(false),
       callback: async (response: { reference: string }) => {
-        const verifyRes = await fetch(`/api/paystack/verify?reference=${response.reference}`)
-        const verifyData = await verifyRes.json()
-        if (verifyData.ok) onSuccess()
-        else setError('Payment verification failed. Contact support.')
-        setLoading(false)
+        console.log('[TBHPro] Payment callback received:', response)
+        setLoading(true)
+        
+        try {
+          // ── FIXED: Use the correct URL ──
+          const verifyRes = await fetch(`/api/paystack?reference=${response.reference}`)
+          
+          const verifyContentType = verifyRes.headers.get('content-type')
+          if (!verifyContentType?.includes('application/json')) {
+            throw new Error('Verification failed. Please contact support.')
+          }
+          
+          const verifyData = await verifyRes.json()
+          console.log('[TBHPro] Verification response:', verifyData)
+
+          if (verifyData.success || verifyData.status === 'success') {
+            onSuccess()
+          } else {
+            setError('Payment verification failed. Please contact support.')
+          }
+        } catch (err: any) {
+          console.error('[TBHPro] Verification error:', err)
+          setError(err.message || 'Verification failed. Please contact support.')
+        } finally {
+          setLoading(false)
+        }
       },
     }).openIframe()
   }
@@ -82,24 +129,35 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
     window.location.href = approvalUrl
   }
 
+  // ── FIXED: handleUnlock ──────────────────────────────────────────────
   const handleUnlock = async () => {
     setLoading(true)
     setError(null)
+    
     try {
       const { data: { session } } = await supabaseClient.auth.getSession()
-      if (!session?.user.email) {
-        setError('Not signed in')
+      
+      if (!session?.user?.email) {
+        setError('Please sign in first')
+        setLoading(false)
+        return
+      }
+
+      if (!session?.user?.id) {
+        setError('User ID not found. Please sign out and sign in again.')
         setLoading(false)
         return
       }
 
       const provider = paymentProvider ?? 'paypal'
+      
       if (provider === 'paystack') {
-        await handlePaystack(session.user.email)
+        await handlePaystack(session.user.email, session.user.id)
       } else {
         await handlePayPal()
       }
     } catch (e: unknown) {
+      console.error('[TBHPro] Unlock error:', e)
       setError(e instanceof Error ? e.message : 'Something went wrong')
       setLoading(false)
     }
