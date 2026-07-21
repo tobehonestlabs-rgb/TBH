@@ -5,7 +5,6 @@ import crypto from 'crypto'
 
 // ── Config ──────────────────────────────────────────────────────────────
 const PREMIUM_PRICE_CENTS = 299 // $2.99 in cents
-const PREMIUM_PRICE_USD = 2.99
 
 // ── Helper: Activate Premium ────────────────────────────────────────────
 async function activatePremium(
@@ -14,6 +13,18 @@ async function activatePremium(
 ) {
   const supabase = getServerSupabase()
   
+  // Check if user already has premium to avoid duplicates
+  const { data: userData } = await supabase
+    .from('users')
+    .select('is_premium')
+    .eq('id', userId)
+    .single()
+
+  if (userData?.is_premium) {
+    console.log(`[Paystack] User ${userId} already has premium, skipping activation`)
+    return
+  }
+
   // Update user's premium status
   const { error: userError } = await supabase
     .from('users')
@@ -112,7 +123,7 @@ export async function POST(req: NextRequest) {
   })
 }
 
-// ── GET: Verify Payment (used for manual verification) ────────────────────
+// ── GET: Verify Payment ────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   const supabase = getServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
@@ -148,7 +159,6 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  // If transaction is successful, activate premium
   if (data.data?.status === 'success') {
     const metadata = data.data?.metadata ?? {}
     const customFields = metadata.custom_fields ?? []
@@ -156,21 +166,7 @@ export async function GET(req: NextRequest) {
       (f: { variable_name: string }) => f.variable_name === 'uid'
     )?.value ?? metadata?.user_id
 
-    if (!uid) {
-      return NextResponse.json(
-        { error: 'User ID not found in transaction' },
-        { status: 400 }
-      )
-    }
-
-    // Only activate if not already premium
-    const { data: userData } = await supabase
-      .from('users')
-      .select('is_premium')
-      .eq('id', uid)
-      .single()
-
-    if (!userData?.is_premium) {
+    if (uid) {
       await activatePremium(uid, {
         reference: data.data.reference,
         provider: 'paystack',
@@ -193,28 +189,47 @@ export async function GET(req: NextRequest) {
   })
 }
 
-// ── PUT: Webhook (handles automatic verification) ────────────────────────
+// ── Webhook Handler ──────────────────────────────────────────────────────
 export async function PUT(req: NextRequest) {
-  const body = await req.text()
-  const paystackSignature = req.headers.get('x-paystack-signature')
-  const secret = (process.env.PAYSTACK_SECRET_KEY ?? '').trim()
-
-  // Verify signature
-  const hash = crypto.createHmac('sha512', secret).update(body).digest('hex')
-
-  if (hash !== paystackSignature) {
-    console.error('[Paystack Webhook] Invalid signature')
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
-  }
-
-  const event = JSON.parse(body)
-
-  // Only handle charge.success events
-  if (event.event !== 'charge.success') {
-    return NextResponse.json({ ok: true })
-  }
-
   try {
+    // ⚠️ CRITICAL: Use req.text() for webhooks, not req.json()
+    const rawBody = await req.text()
+    
+    console.log('[Paystack Webhook] Raw body length:', rawBody.length)
+    console.log('[Paystack Webhook] Raw body preview:', rawBody.substring(0, 200))
+
+    // If body is empty, return 200 (Paystack may retry)
+    if (!rawBody || rawBody.length === 0) {
+      console.warn('[Paystack Webhook] Empty body received')
+      return NextResponse.json({ ok: true })
+    }
+
+    // Verify signature
+    const paystackSignature = req.headers.get('x-paystack-signature')
+    const secret = (process.env.PAYSTACK_SECRET_KEY ?? '').trim()
+
+    if (!paystackSignature) {
+      console.warn('[Paystack Webhook] Missing signature header')
+      return NextResponse.json({ error: 'Missing signature' }, { status: 400 })
+    }
+
+    const hash = crypto.createHmac('sha512', secret).update(rawBody).digest('hex')
+
+    if (hash !== paystackSignature) {
+      console.error('[Paystack Webhook] Invalid signature')
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+    }
+
+    // Parse JSON body
+    const event = JSON.parse(rawBody)
+    console.log('[Paystack Webhook] Event:', event.event)
+
+    // Only handle charge.success events
+    if (event.event !== 'charge.success') {
+      console.log('[Paystack Webhook] Ignoring event:', event.event)
+      return NextResponse.json({ ok: true })
+    }
+
     const { metadata } = event.data ?? {}
     const customFields = metadata?.custom_fields ?? []
     
@@ -241,20 +256,7 @@ export async function PUT(req: NextRequest) {
     const currency = event.data?.currency ?? 'USD'
     const reference = event.data?.reference ?? ''
 
-    console.log(`[Paystack Webhook] Premium unlock: ${uid} (${amount} ${currency}, ref: ${reference})`)
-
-    // Check if user is already premium to avoid duplicate activation
-    const supabase = getServerSupabase()
-    const { data: userData } = await supabase
-      .from('users')
-      .select('is_premium')
-      .eq('id', uid)
-      .single()
-
-    if (userData?.is_premium) {
-      console.log(`[Paystack Webhook] User ${uid} is already premium, skipping`)
-      return NextResponse.json({ ok: true })
-    }
+    console.log(`[Paystack Webhook] Processing premium: ${uid} (${amount} ${currency}, ref: ${reference})`)
 
     await activatePremium(uid, {
       reference,
@@ -264,10 +266,11 @@ export async function PUT(req: NextRequest) {
     })
 
     console.log(`[Paystack Webhook] Premium activated for ${uid}`)
-  } catch (error) {
-    console.error('[Paystack Webhook] Processing error:', error)
-    // Return 200 to avoid Paystack retrying
-  }
+    return NextResponse.json({ ok: true })
 
-  return NextResponse.json({ ok: true })
+  } catch (error: any) {
+    console.error('[Paystack Webhook] Error:', error.message)
+    // Always return 200 for webhooks to prevent Paystack from retrying
+    return NextResponse.json({ ok: true })
+  }
 }
