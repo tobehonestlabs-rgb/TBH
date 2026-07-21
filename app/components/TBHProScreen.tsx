@@ -46,6 +46,34 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
     }
   }, [])
 
+  // ── Verify payment (shared function) ──────────────────────────────────
+  const verifyPayment = async (reference: string): Promise<boolean> => {
+    console.log('[TBHPro] Verifying payment:', reference)
+
+    try {
+      const verifyRes = await fetch(`/api/paystack?reference=${reference}`)
+
+      const contentType = verifyRes.headers.get('content-type')
+      if (!contentType?.includes('application/json')) {
+        throw new Error('Verification failed. Please contact support.')
+      }
+
+      const verifyData = await verifyRes.json()
+      console.log('[TBHPro] Verification response:', verifyData)
+
+      if (verifyData.success || verifyData.status === 'success') {
+        // Refresh session to get updated user data
+        await supabaseClient.auth.refreshSession()
+        return true
+      } else {
+        throw new Error(verifyData.error || 'Payment verification failed.')
+      }
+    } catch (err: any) {
+      console.error('[TBHPro] Verification error:', err)
+      throw err
+    }
+  }
+
   // ── Handle Paystack Payment ───────────────────────────────────────────
   const handlePaystack = async (email: string, userId: string) => {
     console.log('[TBHPro] Initializing Paystack for:', { email, userId })
@@ -57,7 +85,7 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
       body: JSON.stringify({ email, userId }),
     })
 
-    // Check if response is JSON (not HTML error page)
+    // Check if response is JSON
     const contentType = res.headers.get('content-type')
     if (!contentType?.includes('application/json')) {
       const text = await res.text()
@@ -74,60 +102,51 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
 
     const { reference, authorization_url } = data
 
-    // 2. If we have a direct URL, redirect (preferred method)
+    // ── Option 1: Redirect (preferred, more reliable) ──────────────────
     if (authorization_url) {
-      console.log('[TBHPro] Redirecting to:', authorization_url)
+      console.log('[TBHPro] 🔄 Redirecting to Paystack...')
+      // Store reference in session storage for the return page
+      sessionStorage.setItem('paystack_reference', reference)
+      sessionStorage.setItem('paystack_user_id', userId)
+      // Redirect to Paystack
       window.location.href = authorization_url
       return
     }
 
-    // 3. Fallback: Use inline iframe
-    const PaystackPop = (window as Window & { 
-      PaystackPop?: { 
-        setup: (opts: Record<string, unknown>) => { openIframe: () => void } 
-      } 
+    // ── Option 2: Inline iframe (fallback) ─────────────────────────────
+    console.log('[TBHPro] Using inline iframe fallback')
+
+    const PaystackPop = (window as Window & {
+      PaystackPop?: {
+        setup: (opts: Record<string, unknown>) => { openIframe: () => void }
+      }
     }).PaystackPop
 
     if (!PaystackPop) {
       throw new Error('Payment service unavailable. Please refresh and try again.')
     }
 
-    // ── CRITICAL: Use the EXACT same amount and currency ──
-    console.log('[TBHPro] Opening Paystack with amount:', PREMIUM_PRICE_XOF, 'XOF')
-
     PaystackPop.setup({
       key: (process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY ?? '').trim(),
       email,
-      amount: PREMIUM_PRICE_XOF, // ← 1800 XOF - NO MULTIPLICATION!
-      currency: 'XOF', // ← Must be XOF
+      amount: PREMIUM_PRICE_XOF,
+      currency: 'XOF',
       ref: reference,
       onClose: () => {
         console.log('[TBHPro] Paystack popup closed')
         setLoading(false)
       },
       callback: async (response: { reference: string }) => {
-        console.log('[TBHPro] Payment callback:', response)
+        console.log('[TBHPro] 📞 Payment callback:', response)
         setLoading(true)
 
         try {
-          // Verify payment on backend
-          const verifyRes = await fetch(`/api/paystack?reference=${response.reference}`)
-
-          const verifyContentType = verifyRes.headers.get('content-type')
-          if (!verifyContentType?.includes('application/json')) {
-            throw new Error('Verification failed. Please contact support.')
-          }
-
-          const verifyData = await verifyRes.json()
-          console.log('[TBHPro] Verification response:', verifyData)
-
-          if (verifyData.success || verifyData.status === 'success') {
-            onSuccess() // This will close the modal and refresh user status
-          } else {
-            setError('Payment verification failed. Please contact support.')
+          const success = await verifyPayment(response.reference)
+          if (success) {
+            onSuccess()
           }
         } catch (err: any) {
-          console.error('[TBHPro] Verification error:', err)
+          console.error('[TBHPro] Callback error:', err)
           setError(err.message || 'Verification failed. Please contact support.')
         } finally {
           setLoading(false)
@@ -170,6 +189,8 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
 
       if (provider === 'paystack') {
         await handlePaystack(session.user.email, session.user.id)
+        // Note: If redirect happens, this function won't continue
+        // The return page will handle verification
       } else {
         await handlePayPal()
       }
@@ -184,7 +205,7 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
   if (!portalTarget) return null
 
   const priceLabel = `Unlock TBH Pro — ${PREMIUM_PRICE_XOF.toLocaleString()} FCFA`
-  
+
   const providerHint =
     paymentProvider === 'paystack'
       ? 'Pay with card or mobile money via Paystack'
@@ -206,6 +227,7 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
         className="relative sheet-enter rounded-t-[36px] z-10 pb-10 px-5 pt-4 border-t border-white/[0.08] overflow-y-auto"
         style={{ background: '#0D0D0D', maxHeight: '80vh' }}
       >
+        {/* Handle */}
         <div className="flex justify-center mb-5">
           <div className="w-10 h-1 rounded-full bg-white/20" />
         </div>
