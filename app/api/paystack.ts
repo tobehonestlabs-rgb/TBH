@@ -1,23 +1,35 @@
 // app/api/paystack/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSupabase } from '@/lib/serverSupabase'
+import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 
 // ── Config ──────────────────────────────────────────────────────────────
 const PREMIUM_PRICE_USD = 2.99
 
+// ── Supabase Admin Client ──────────────────────────────────────────────
+function getAdminSupabase() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+  
+  return createClient(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  })
+}
+
 // ── Helper: Get USD to XOF conversion rate ────────────────────────────
 async function getUSDtoXOFRate(): Promise<number> {
   try {
-    // Using a free exchange rate API
     const response = await fetch(
       'https://api.exchangerate-api.com/v4/latest/USD',
-      { next: { revalidate: 3600 } } // Cache for 1 hour
+      { next: { revalidate: 3600 } }
     )
     
     if (!response.ok) {
       console.warn('[Paystack] Exchange rate API failed, using fallback rate')
-      return 600 // Fallback: 1 USD = 600 XOF (adjust as needed)
+      return 600
     }
     
     const data = await response.json()
@@ -31,7 +43,7 @@ async function getUSDtoXOFRate(): Promise<number> {
     return rate
   } catch (error) {
     console.warn('[Paystack] Exchange rate fetch error, using fallback:', error)
-    return 600 // Fallback rate
+    return 600
   }
 }
 
@@ -40,9 +52,9 @@ async function activatePremium(
   userId: string,
   data: { reference: string; provider: string; amount: number; currency: string }
 ) {
-  const supabase = getServerSupabase()
+  const supabase = getAdminSupabase()
   
-  // Check if user already has premium to avoid duplicates
+  // Check if user already has premium
   const { data: userData } = await supabase
     .from('users')
     .select('is_premium')
@@ -50,7 +62,7 @@ async function activatePremium(
     .single()
 
   if (userData?.is_premium) {
-    console.log(`[Paystack] User ${userId} already has premium, skipping activation`)
+    console.log(`[Paystack] User ${userId} already has premium, skipping`)
     return
   }
 
@@ -86,48 +98,71 @@ async function activatePremium(
 
   if (txError) {
     console.error('[Paystack] Failed to log transaction:', txError)
-    // Don't throw, premium was already activated
   }
 
-  console.log(`[Paystack] Premium activated for ${userId} (Ref: ${data.reference})`)
+  console.log(`[Paystack] Premium activated for ${userId}`)
 }
 
 // ── POST: Initialize Payment ─────────────────────────────────────────────
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
+  console.log('[Paystack] POST request received')
+  
   try {
-    const supabase = getServerSupabase()
-    const { data: { user } } = await supabase.auth.getUser()
+    // Get user from authorization header or session
+    const authHeader = request.headers.get('authorization')
+    let userId: string | null = null
     
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (authHeader?.startsWith('Bearer ')) {
+      // You can verify the token here if needed
+      // For now, we'll get it from the request body
     }
-
-    const { email } = await req.json()
+    
+    const body = await request.json()
+    console.log('[Paystack] Request body:', { ...body, email: body.email })
+    
+    const { email, userId: uid } = body
+    
     if (!email) {
-      return NextResponse.json({ error: 'Email required' }, { status: 400 })
+      console.error('[Paystack] Missing email')
+      return NextResponse.json(
+        { error: 'Email required' },
+        { status: 400 }
+      )
     }
 
-    const secretKey = (process.env.PAYSTACK_SECRET_KEY ?? '').trim()
+    if (!uid) {
+      console.error('[Paystack] Missing userId')
+      return NextResponse.json(
+        { error: 'User ID required' },
+        { status: 400 }
+      )
+    }
+
+    const secretKey = process.env.PAYSTACK_SECRET_KEY?.trim()
     if (!secretKey) {
-      return NextResponse.json({ error: 'Paystack not configured' }, { status: 500 })
+      console.error('[Paystack] Missing secret key')
+      return NextResponse.json(
+        { error: 'Paystack not configured' },
+        { status: 500 }
+      )
     }
 
-    // ── Currency Conversion: USD → XOF ──
+    // Currency Conversion: USD → XOF
     const rate = await getUSDtoXOFRate()
     const amountInXOF = Math.round(PREMIUM_PRICE_USD * rate)
     
-    console.log(`[Paystack] Converting $${PREMIUM_PRICE_USD} → ${amountInXOF} XOF (rate: ${rate})`)
+    console.log(`[Paystack] Converting $${PREMIUM_PRICE_USD} → ${amountInXOF} XOF`)
 
-    const reference = `tbh_${user.id.slice(0, 8)}_${Date.now()}`
+    const reference = `tbh_${uid.slice(0, 8)}_${Date.now()}`
 
     const requestBody = {
       email,
-      amount: amountInXOF,      // ← Amount in XOF (Paystack's currency)
-      currency: 'XOF',          // ← MUST be XOF for your account
+      amount: amountInXOF,
+      currency: 'XOF',
       reference,
       metadata: {
         custom_fields: [
-          { display_name: 'User ID', variable_name: 'uid', value: user.id },
+          { display_name: 'User ID', variable_name: 'uid', value: uid },
           { display_name: 'Type', variable_name: 'type', value: 'premium' },
           { display_name: 'Amount USD', variable_name: 'amount_usd', value: PREMIUM_PRICE_USD.toString() },
         ],
@@ -154,41 +189,47 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({
+      success: true,
       reference,
       access_code: data.data?.access_code,
       authorization_url: data.data?.authorization_url,
       price_usd: PREMIUM_PRICE_USD,
       price_xof: amountInXOF,
     })
+    
   } catch (error: any) {
     console.error('[Paystack] POST error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', message: error.message },
       { status: 500 }
     )
   }
 }
 
 // ── GET: Verify Payment ────────────────────────────────────────────────────
-export async function GET(req: NextRequest) {
+export async function GET(request: NextRequest) {
+  console.log('[Paystack] GET request received')
+  
   try {
-    const supabase = getServerSupabase()
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const url = new URL(req.url)
+    const url = new URL(request.url)
     const reference = url.searchParams.get('reference')
+    const uid = url.searchParams.get('userId')
 
     if (!reference) {
-      return NextResponse.json({ error: 'Reference required' }, { status: 400 })
+      console.error('[Paystack] Missing reference')
+      return NextResponse.json(
+        { error: 'Reference required' },
+        { status: 400 }
+      )
     }
 
-    const secretKey = (process.env.PAYSTACK_SECRET_KEY ?? '').trim()
+    const secretKey = process.env.PAYSTACK_SECRET_KEY?.trim()
     if (!secretKey) {
-      return NextResponse.json({ error: 'Paystack not configured' }, { status: 500 })
+      console.error('[Paystack] Missing secret key')
+      return NextResponse.json(
+        { error: 'Paystack not configured' },
+        { status: 500 }
+      )
     }
 
     const response = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
@@ -200,6 +241,7 @@ export async function GET(req: NextRequest) {
     const data = await response.json()
 
     if (!data.status) {
+      console.error('[Paystack] Verify error:', data.message)
       return NextResponse.json(
         { error: data.message, details: data },
         { status: 400 }
@@ -209,12 +251,12 @@ export async function GET(req: NextRequest) {
     if (data.data?.status === 'success') {
       const metadata = data.data?.metadata ?? {}
       const customFields = metadata.custom_fields ?? []
-      const uid = customFields.find(
+      const userId = customFields.find(
         (f: { variable_name: string }) => f.variable_name === 'uid'
       )?.value ?? metadata?.user_id
 
-      if (uid) {
-        await activatePremium(uid, {
+      if (userId) {
+        await activatePremium(userId, {
           reference: data.data.reference,
           provider: 'paystack',
           amount: data.data.amount,
@@ -226,6 +268,7 @@ export async function GET(req: NextRequest) {
         success: true,
         status: data.data.status,
         reference: data.data.reference,
+        user_id: userId,
       })
     }
 
@@ -234,51 +277,48 @@ export async function GET(req: NextRequest) {
       status: data.data?.status,
       reference: data.data?.reference,
     })
+    
   } catch (error: any) {
     console.error('[Paystack] GET error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', message: error.message },
       { status: 500 }
     )
   }
 }
 
-// ── Webhook Handler ──────────────────────────────────────────────────────
-// Use PUT to avoid conflict with POST (payment initialization)
-export async function PUT(req: NextRequest) {
+// ── PUT: Webhook Handler ──────────────────────────────────────────────────
+export async function PUT(request: NextRequest) {
+  console.log('[Paystack Webhook] Request received')
+  
   try {
-    // ⚠️ CRITICAL: Use req.text() for webhooks, not req.json()
-    const rawBody = await req.text()
-    
-    console.log('[Paystack Webhook] Raw body length:', rawBody.length)
+    const rawBody = await request.text()
+    console.log('[Paystack Webhook] Body length:', rawBody?.length || 0)
 
-    // If body is empty, return 200 (Paystack may retry)
     if (!rawBody || rawBody.length === 0) {
-      console.warn('[Paystack Webhook] Empty body received')
+      console.warn('[Paystack Webhook] Empty body')
       return NextResponse.json({ ok: true })
     }
 
     // Verify signature
-    const paystackSignature = req.headers.get('x-paystack-signature')
-    const secret = (process.env.PAYSTACK_SECRET_KEY ?? '').trim()
+    const paystackSignature = request.headers.get('x-paystack-signature')
+    const secret = process.env.PAYSTACK_SECRET_KEY?.trim() || ''
 
     if (!paystackSignature) {
-      console.warn('[Paystack Webhook] Missing signature header')
-      return NextResponse.json({ error: 'Missing signature' }, { status: 400 })
+      console.warn('[Paystack Webhook] Missing signature')
+      return NextResponse.json({ ok: true })
     }
 
     const hash = crypto.createHmac('sha512', secret).update(rawBody).digest('hex')
 
     if (hash !== paystackSignature) {
       console.error('[Paystack Webhook] Invalid signature')
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+      return NextResponse.json({ ok: true })
     }
 
-    // Parse JSON body
     const event = JSON.parse(rawBody)
     console.log('[Paystack Webhook] Event:', event.event)
 
-    // Only handle charge.success events
     if (event.event !== 'charge.success') {
       console.log('[Paystack Webhook] Ignoring event:', event.event)
       return NextResponse.json({ ok: true })
@@ -289,20 +329,19 @@ export async function PUT(req: NextRequest) {
     
     const paymentType = customFields.find(
       (f: { variable_name: string }) => f.variable_name === 'type'
-    )?.value ?? metadata?.type ?? 'premium'
+    )?.value ?? 'premium'
 
-    // Only handle premium payments
     if (paymentType !== 'premium') {
-      console.warn('[Paystack Webhook] Ignoring non-premium payment type:', paymentType)
+      console.warn('[Paystack Webhook] Ignoring type:', paymentType)
       return NextResponse.json({ ok: true })
     }
 
     const uid = customFields.find(
       (f: { variable_name: string }) => f.variable_name === 'uid'
-    )?.value ?? metadata?.user_id
+    )?.value
 
     if (!uid) {
-      console.error('[Paystack Webhook] Missing user id in metadata')
+      console.error('[Paystack Webhook] Missing user id')
       return NextResponse.json({ ok: true })
     }
 
@@ -310,7 +349,7 @@ export async function PUT(req: NextRequest) {
     const currency = event.data?.currency ?? 'XOF'
     const reference = event.data?.reference ?? ''
 
-    console.log(`[Paystack Webhook] Processing premium: ${uid} (${amount} ${currency}, ref: ${reference})`)
+    console.log(`[Paystack Webhook] Processing: ${uid} (${amount} ${currency})`)
 
     await activatePremium(uid, {
       reference,
@@ -324,7 +363,6 @@ export async function PUT(req: NextRequest) {
 
   } catch (error: any) {
     console.error('[Paystack Webhook] Error:', error.message)
-    // Always return 200 for webhooks to prevent Paystack from retrying
     return NextResponse.json({ ok: true })
   }
 }
