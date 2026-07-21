@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 
 // ── Config ──────────────────────────────────────────────────────────────
-const PREMIUM_PRICE_USD = 2.99
+const PREMIUM_PRICE_XOF = 1760 // Fixed price in XOF
 
 // ── Supabase Admin Client ──────────────────────────────────────────────
 function getAdminSupabase() {
@@ -13,65 +13,6 @@ function getAdminSupabase() {
   return createClient(supabaseUrl, supabaseServiceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   })
-}
-
-// ── Helper: Get USD → XOF conversion rate ─────────────────────────────
-async function getUSDtoXOFRate(): Promise<number> {
-  // Try multiple APIs in case one fails
-  const apis = [
-    // API 1: Frankfurter (reliable, no API key needed)
-    async () => {
-      const response = await fetch('https://api.frankfurter.app/latest/USD', {
-        next: { revalidate: 3600 }
-      })
-      const data = await response.json()
-      return data.rates?.XOF || null
-    },
-    // API 2: ExchangeRate-API (fallback)
-    async () => {
-      const response = await fetch('https://open.er-api.com/v6/latest/USD', {
-        next: { revalidate: 3600 }
-      })
-      const data = await response.json()
-      return data.rates?.XOF || null
-    },
-    // API 3: ExchangeRate.host (another fallback)
-    async () => {
-      const response = await fetch('https://api.exchangerate.host/latest?base=USD&symbols=XOF', {
-        next: { revalidate: 3600 }
-      })
-      const data = await response.json()
-      return data.rates?.XOF || null
-    }
-  ]
-
-  for (const apiCall of apis) {
-    try {
-      const rate = await apiCall()
-      if (rate && rate > 100) {
-        // Valid rate should be around 500-700 XOF per USD
-        console.log(`[Paystack] Exchange rate: 1 USD = ${rate} XOF`)
-        return rate
-      } else if (rate && rate < 1 && rate > 0) {
-        // If we get the inverse (0.006), convert it
-        const invertedRate = 1 / rate
-        console.log(`[Paystack] Got inverted rate, converting: 1 USD = ${Math.round(invertedRate)} XOF`)
-        return Math.round(invertedRate)
-      }
-    } catch (error) {
-      console.warn('[Paystack] Exchange rate API failed, trying next...')
-    }
-  }
-
-  // ── ULTIMATE FALLBACK ────────────────────────────────────────────────
-  // If all APIs fail, use a hardcoded rate
-  // You can update this periodically or set it via environment variable
-  const fallbackRate = process.env.USD_TO_XOF_RATE 
-    ? parseInt(process.env.USD_TO_XOF_RATE) 
-    : 600
-
-  console.log(`[Paystack] Using fallback rate: 1 USD = ${fallbackRate} XOF`)
-  return fallbackRate
 }
 
 // ── Helper: Activate Premium ────────────────────────────────────────────
@@ -148,33 +89,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Paystack not configured' }, { status: 500 })
     }
 
-    const rate = await getUSDtoXOFRate()
-    const amountInXOF = Math.round(PREMIUM_PRICE_USD * rate)
-
-    console.log(`[Paystack] 💰 $${PREMIUM_PRICE_USD} → ${amountInXOF} XOF (rate: ${rate})`)
-
-    // ── Sanity check ──────────────────────────────────────────────────────
-    // If amount is suspiciously small (< 100 XOF), something is wrong
-    if (amountInXOF < 100) {
-      console.error(`[Paystack] ❌ Amount too small: ${amountInXOF} XOF. Rate might be wrong.`)
-      // Use hardcoded fallback
-      const fallbackAmount = 1794 // 2.99 * 600
-      console.log(`[Paystack] Using fallback amount: ${fallbackAmount} XOF`)
-      // Continue with fallback instead of failing
-    }
+    console.log(`[Paystack] 💰 Charging ${PREMIUM_PRICE_XOF} XOF for user ${userId}`)
 
     const reference = `tbh_${userId.slice(0, 8)}_${Date.now()}`
 
     const requestBody = {
       email,
-      amount: amountInXOF,
+      amount: PREMIUM_PRICE_XOF,
       currency: 'XOF',
       reference,
       metadata: {
         custom_fields: [
           { display_name: 'User ID', variable_name: 'uid', value: userId },
           { display_name: 'Type', variable_name: 'type', value: 'premium' },
-          { display_name: 'Amount USD', variable_name: 'amount_usd', value: PREMIUM_PRICE_USD.toString() },
+          { display_name: 'Amount XOF', variable_name: 'amount_xof', value: PREMIUM_PRICE_XOF.toString() },
         ],
       },
     }
@@ -203,8 +131,7 @@ export async function POST(request: NextRequest) {
       reference,
       access_code: data.data?.access_code,
       authorization_url: data.data?.authorization_url,
-      price_usd: PREMIUM_PRICE_USD,
-      price_xof: amountInXOF,
+      price_xof: PREMIUM_PRICE_XOF,
     })
   } catch (error: any) {
     console.error('[Paystack] POST error:', error)
