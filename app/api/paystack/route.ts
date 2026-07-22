@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 
 // ── Config ──────────────────────────────────────────────────────────────
-const PREMIUM_PRICE_XOF = 1800 // ✅ FIXED: Matches frontend
+const PREMIUM_PRICE_XOF = 100 // ✅ FIXED: Matches frontend
 
 // ── Supabase Admin Client ──────────────────────────────────────────────
 function getAdminSupabase() {
