@@ -174,7 +174,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// ── PUT: Webhook (optional, keep for safety) ────────────────────────────
+// ── PUT: Webhook (optional) ─────────────────────────────────────────────
 export async function PUT(request: NextRequest) {
   try {
     const rawBody = await request.text()
