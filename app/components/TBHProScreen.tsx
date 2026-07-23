@@ -42,12 +42,14 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
     }
   }, [])
 
+  // ── Verify payment ──────────────────────────────────────────
   const verifyPayment = async (reference: string): Promise<boolean> => {
     const res = await fetch(`/api/paystack?reference=${reference}`)
     const data = await res.json()
     return !!(data.success || data.status === 'success')
   }
 
+  // ── Paystack handler (iframe only) ──────────────────────────
   const handlePaystack = async (email: string, userId: string) => {
     // 1. Initialize
     const res = await fetch('/api/paystack', {
@@ -58,11 +60,34 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
     const data = await res.json()
     if (data.error) throw new Error(data.error)
 
-    const { reference, authorization_url } = data
+    const { reference } = data
 
-    // 2. Use iframe (ignore redirect)
+    // 2. Use inline iframe
     const PaystackPop = (window as any).PaystackPop
     if (!PaystackPop) throw new Error('Paystack script not loaded')
+
+    // ── Define callback as a separate function (not inline async) ──
+    const handleCallback = (response: { reference: string }) => {
+      // We cannot use async here directly, so we start the verification and handle promises.
+      setLoading(true)
+      verifyPayment(response.reference)
+        .then(ok => {
+          if (ok) {
+            return supabaseClient.auth.refreshSession()
+          } else {
+            throw new Error('Verification failed')
+          }
+        })
+        .then(() => {
+          onSuccess()
+        })
+        .catch((err: any) => {
+          setError(err.message || 'Erreur lors de la vérification')
+        })
+        .finally(() => {
+          setLoading(false)
+        })
+    }
 
     PaystackPop.setup({
       key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY?.trim() || '',
@@ -70,23 +95,10 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
       amount: PREMIUM_PRICE_XOF,
       currency: 'XOF',
       ref: reference,
-      onClose: () => setLoading(false),
-      callback: async (response: { reference: string }) => {
-        setLoading(true)
-        try {
-          const ok = await verifyPayment(response.reference)
-          if (ok) {
-            await supabaseClient.auth.refreshSession()
-            onSuccess()
-          } else {
-            setError('Le paiement a été accepté, mais la vérification a échoué. Contactez le support.')
-          }
-        } catch (err: any) {
-          setError(err.message || 'Erreur lors de la vérification')
-        } finally {
-          setLoading(false)
-        }
+      onClose: () => {
+        setLoading(false)
       },
+      callback: handleCallback, // Pass the function directly
     }).openIframe()
   }
 
@@ -138,7 +150,10 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
           <div className="w-10 h-1 rounded-full bg-white/20" />
         </div>
         <div className="text-center mb-6">
-          <div className="w-14 h-14 rounded-full mx-auto mb-3 flex items-center justify-center text-[28px]" style={{ background: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E3C 100%)' }}>
+          <div
+            className="w-14 h-14 rounded-full mx-auto mb-3 flex items-center justify-center text-[28px]"
+            style={{ background: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E3C 100%)' }}
+          >
             👑
           </div>
           <p className="text-white font-black text-[24px] tracking-tight">TBH Pro</p>
@@ -146,14 +161,23 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
         </div>
         <div className="flex flex-col gap-2.5 mb-7">
           {FEATURES.map(f => (
-            <div key={f.label} className="flex items-center gap-4 px-4 py-3.5 rounded-[18px]" style={{ background: 'rgba(255,255,255,0.06)' }}>
+            <div
+              key={f.label}
+              className="flex items-center gap-4 px-4 py-3.5 rounded-[18px]"
+              style={{ background: 'rgba(255,255,255,0.06)' }}
+            >
               <span className="text-[22px] flex-shrink-0">{f.emoji}</span>
               <div>
                 <p className="text-white font-bold text-[14px]">{f.label}</p>
                 <p className="text-white/40 text-[11px] mt-0.5">{f.sub}</p>
               </div>
-              <div className="ml-auto w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,107,107,0.2)' }}>
-                <svg width="10" height="10" fill="none" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke="#FF6B6B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <div
+                className="ml-auto w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ background: 'rgba(255,107,107,0.2)' }}
+              >
+                <svg width="10" height="10" fill="none" viewBox="0 0 24 24">
+                  <path d="M5 13l4 4L19 7" stroke="#FF6B6B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </div>
             </div>
           ))}
@@ -165,14 +189,23 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
           className="w-full py-[17px] rounded-full font-extrabold text-[17px] active:scale-95 transition-all flex items-center justify-center gap-2 mb-2 disabled:opacity-60"
           style={{ background: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E3C 100%)', boxShadow: '0 8px 32px rgba(255,107,107,0.35)' }}
         >
-          {loading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : `Unlock TBH Pro — ${PREMIUM_PRICE_XOF.toLocaleString()} FCFA`}
+          {loading ? (
+            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            `Unlock TBH Pro — ${PREMIUM_PRICE_XOF.toLocaleString()} FCFA`
+          )}
         </button>
         <p className="text-white/25 text-[11px] text-center mb-3">
-          {paymentProvider === 'paystack' ? 'Pay with card or mobile money via Paystack' :
-           paymentProvider === 'paypal' ? 'Pay with PayPal' :
-           'Detecting payment method…'}
+          {paymentProvider === 'paystack'
+            ? 'Pay with card or mobile money via Paystack'
+            : paymentProvider === 'paypal'
+            ? 'Pay with PayPal'
+            : 'Detecting payment method…'}
         </p>
-        <button onClick={onClose} className="w-full py-3 text-white/30 text-[13px] font-semibold active:opacity-70 transition-opacity">
+        <button
+          onClick={onClose}
+          className="w-full py-3 text-white/30 text-[13px] font-semibold active:opacity-70 transition-opacity"
+        >
           Not now
         </button>
       </div>
