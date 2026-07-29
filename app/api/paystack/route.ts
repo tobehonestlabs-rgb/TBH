@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 import { logInfo, logError, logWarn, logDebug } from '@/app/api/_lib/logger'
 
-const PREMIUM_PRICE_XOF = 1800
+const PREMIUM_PRICE_XOF = 100
 
 function getAdminSupabase() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
