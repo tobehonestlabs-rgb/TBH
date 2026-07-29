@@ -42,16 +42,17 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
     }
   }, [])
 
-  // ── Verify payment ──────────────────────────────────────────
   const verifyPayment = async (reference: string): Promise<boolean> => {
     const res = await fetch(`/api/paystack?reference=${reference}`)
     const data = await res.json()
-    return !!(data.success || data.status === 'success')
+    if (data.success && data.status === 'success') {
+      return true
+    }
+    if (data.error) throw new Error(data.error)
+    return false
   }
 
-  // ── Paystack handler (iframe only) ──────────────────────────
   const handlePaystack = async (email: string, userId: string) => {
-    // 1. Initialize
     const res = await fetch('/api/paystack', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -62,20 +63,17 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
 
     const { reference } = data
 
-    // 2. Use inline iframe
     const PaystackPop = (window as any).PaystackPop
     if (!PaystackPop) throw new Error('Paystack script not loaded')
 
-    // ── Define callback as a separate function (not inline async) ──
     const handleCallback = (response: { reference: string }) => {
-      // We cannot use async here directly, so we start the verification and handle promises.
       setLoading(true)
       verifyPayment(response.reference)
         .then(ok => {
           if (ok) {
             return supabaseClient.auth.refreshSession()
           } else {
-            throw new Error('Verification failed')
+            throw new Error('Payment verification failed')
           }
         })
         .then(() => {
@@ -89,16 +87,15 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
         })
     }
 
+    // ✅ Use YOUR environment variable name
     PaystackPop.setup({
-      key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY?.trim() || '',
+      key: process.env.NEXT_PUBLIC_PAYSTACK_API?.trim() || '',
       email,
       amount: PREMIUM_PRICE_XOF,
       currency: 'XOF',
       ref: reference,
-      onClose: () => {
-        setLoading(false)
-      },
-      callback: handleCallback, // Pass the function directly
+      onClose: () => setLoading(false),
+      callback: handleCallback,
     }).openIframe()
   }
 

@@ -3,10 +3,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 
-// ── Config ──────────────────────────────────────────────────────────────
-const PREMIUM_PRICE_XOF = 1800 // ✅ Fixed to 1800
+const PREMIUM_PRICE_XOF = 1800 // ✅ Matches frontend
 
-// ── Supabase Admin Client ──────────────────────────────────────────────
 function getAdminSupabase() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -15,7 +13,6 @@ function getAdminSupabase() {
   })
 }
 
-// ── Helper: Activate Premium ────────────────────────────────────────────
 async function activatePremium(
   userId: string,
   data: { reference: string; provider: string; amount: number; currency: string }
@@ -24,7 +21,6 @@ async function activatePremium(
   const now = new Date().toISOString()
 
   console.log(`[Paystack] 🎯 Activating premium for user: ${userId}`)
-  console.log(`[Paystack] 📝 Reference: ${data.reference}, Amount: ${data.amount} ${data.currency}`)
 
   const { data: existingUser, error: fetchError } = await supabase
     .from('users_table')
@@ -33,12 +29,12 @@ async function activatePremium(
     .single()
 
   if (fetchError) {
-    console.error('[Paystack] ❌ User fetch error:', fetchError)
-    throw fetchError
+    console.error('[Paystack] ❌ Fetch error:', fetchError)
+    throw new Error('User not found')
   }
 
   if (existingUser?.active_subscription) {
-    console.log(`[Paystack] ⏭️ User ${userId} already active, skipping`)
+    console.log(`[Paystack] ⏭️ Already premium, skipping`)
     return
   }
 
@@ -56,9 +52,10 @@ async function activatePremium(
 
   if (userError) {
     console.error('[Paystack] ❌ Update error:', userError)
-    throw userError
+    throw new Error('Database update failed')
   }
 
+  // Log transaction (optional)
   await supabase.from('transactions').insert({
     user_id: userId,
     reference: data.reference,
@@ -73,7 +70,6 @@ async function activatePremium(
   console.log(`[Paystack] ✅ Premium activated for ${userId}`)
 }
 
-// ── POST: Initialize Payment ─────────────────────────────────────────────
 export async function POST(request: NextRequest) {
   try {
     const { email, userId } = await request.json()
@@ -93,7 +89,6 @@ export async function POST(request: NextRequest) {
       amount: PREMIUM_PRICE_XOF,
       currency: 'XOF',
       reference,
-      // No callback_url — we use inline iframe
       metadata: {
         custom_fields: [
           { display_name: 'User ID', variable_name: 'uid', value: userId },
@@ -128,7 +123,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// ── GET: Verify Payment ──────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
   try {
     const reference = request.nextUrl.searchParams.get('reference')
@@ -150,31 +144,55 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: data.message }, { status: 400 })
     }
 
-    if (data.data?.status === 'success') {
-      const userId =
-        data.data.metadata?.custom_fields?.find((f: any) => f.variable_name === 'uid')?.value ||
-        data.data.metadata?.user_id
-
-      if (userId) {
-        await activatePremium(userId, {
-          reference: data.data.reference,
-          provider: 'paystack',
-          amount: data.data.amount,
-          currency: data.data.currency,
-        })
-      }
-
-      return NextResponse.json({ success: true, status: 'success', reference })
+    // Transaction not successful yet
+    if (data.data?.status !== 'success') {
+      return NextResponse.json({
+        success: false,
+        status: data.data?.status,
+        reference,
+      })
     }
 
-    return NextResponse.json({ success: false, status: data.data?.status })
+    // Transaction is successful → try to activate
+    const userId =
+      data.data.metadata?.custom_fields?.find((f: any) => f.variable_name === 'uid')?.value ||
+      data.data.metadata?.user_id
+
+    if (!userId) {
+      return NextResponse.json({
+        success: false,
+        error: 'User ID not found in transaction metadata',
+      }, { status: 400 })
+    }
+
+    try {
+      await activatePremium(userId, {
+        reference: data.data.reference,
+        provider: 'paystack',
+        amount: data.data.amount,
+        currency: data.data.currency,
+      })
+      // Activation successful
+      return NextResponse.json({
+        success: true,
+        status: 'success',
+        reference,
+      })
+    } catch (activationError: any) {
+      console.error('[Paystack] ❌ Activation error:', activationError)
+      // ❌ Return error so frontend shows failure
+      return NextResponse.json({
+        success: false,
+        error: activationError.message || 'Premium activation failed. Please contact support.',
+        reference,
+      }, { status: 500 })
+    }
   } catch (error: any) {
     console.error('[Paystack] GET error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
-// ── PUT: Webhook (optional) ─────────────────────────────────────────────
 export async function PUT(request: NextRequest) {
   try {
     const rawBody = await request.text()
