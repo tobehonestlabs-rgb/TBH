@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
+import { logInfo, logError, logWarn, logDebug } from '@/app/api/_lib/logger'
 
 const PREMIUM_PRICE_XOF = 1800
 
@@ -13,7 +14,7 @@ function getAdminSupabase() {
   })
 }
 
-// ── Activate Premium with detailed logging ──────────────────────────────
+// ── Activate Premium with logging ──────────────────────────────────────
 async function activatePremium(
   userId: string,
   data: { reference: string; provider: string; amount: number; currency: string }
@@ -21,9 +22,13 @@ async function activatePremium(
   const supabase = getAdminSupabase()
   const now = new Date().toISOString()
 
-  console.log(`[Paystack] 🔍 Activating premium for userId: ${userId}`)
+  await logInfo('activation', `Starting activation for userId: ${userId}`, {
+    user_id: userId,
+    reference: data.reference,
+    metadata: { amount: data.amount, currency: data.currency }
+  })
 
-  // 1. Check if user exists and get current status
+  // 1. Check if user exists
   const { data: userData, error: fetchError } = await supabase
     .from('users') // ← CHANGE to your actual table name!
     .select('id, active_subscription, subscription_code')
@@ -31,15 +36,26 @@ async function activatePremium(
     .single()
 
   if (fetchError) {
-    console.error('[Paystack] ❌ Fetch error:', JSON.stringify(fetchError, null, 2))
+    await logError('activation', `User fetch failed: ${fetchError.message}`, {
+      user_id: userId,
+      reference: data.reference,
+      metadata: { error: fetchError }
+    })
     throw new Error(`User fetch failed: ${fetchError.message}`)
   }
 
-  console.log(`[Paystack] 👤 User found:`, userData)
+  await logDebug('activation', `User found`, {
+    user_id: userId,
+    reference: data.reference,
+    metadata: { userData }
+  })
 
   if (userData?.active_subscription === true) {
-    console.log(`[Paystack] ⏭️ User ${userId} already has active subscription`)
-    return // Already premium
+    await logInfo('activation', `User ${userId} already has active subscription, skipping`, {
+      user_id: userId,
+      reference: data.reference
+    })
+    return
   }
 
   // 2. Update the user
@@ -52,19 +68,25 @@ async function activatePremium(
     subscription_reference: data.reference,
   }
 
-  console.log(`[Paystack] 📝 Updating user with:`, updateData)
+  await logDebug('activation', `Updating user with data`, {
+    user_id: userId,
+    reference: data.reference,
+    metadata: { updateData }
+  })
 
   const { error: updateError } = await supabase
-    .from('users_table') // ← CHANGE to your actual table name!
+    .from('users') // ← CHANGE to your actual table name!
     .update(updateData)
-    .eq('user_id', userId) // ← CHANGE to your primary key column!
+    .eq('id', userId) // ← CHANGE to your primary key column!
 
   if (updateError) {
-    console.error('[Paystack] ❌ Update error:', JSON.stringify(updateError, null, 2))
+    await logError('activation', `Update failed: ${updateError.message}`, {
+      user_id: userId,
+      reference: data.reference,
+      metadata: { error: updateError }
+    })
     throw new Error(`Update failed: ${updateError.message}`)
   }
-
-  console.log(`[Paystack] ✅ Update successful for user ${userId}`)
 
   // 3. Log transaction
   try {
@@ -82,34 +104,52 @@ async function activatePremium(
       })
 
     if (txError) {
-      console.warn('[Paystack] ⚠️ Transaction log failed:', txError.message)
+      await logWarn('activation', `Transaction log failed: ${txError.message}`, {
+        user_id: userId,
+        reference: data.reference
+      })
     }
   } catch (txErr) {
-    console.warn('[Paystack] ⚠️ Transaction insert error:', txErr)
+    await logWarn('activation', `Transaction insert error`, {
+      user_id: userId,
+      reference: data.reference,
+      metadata: { error: txErr }
+    })
   }
 
-  console.log(`[Paystack] 🎉 Premium fully activated for ${userId}`)
+  await logInfo('activation', `✅ Premium fully activated for ${userId}`, {
+    user_id: userId,
+    reference: data.reference
+  })
 }
 
-// ── POST: Initialize Payment ─────────────────────────────────────────────
+// ── POST: Initialize Payment ──────────────────────────────────────────
 export async function POST(request: NextRequest) {
   try {
     const { email, userId } = await request.json()
-    console.log(`[Paystack] 📩 POST /api/paystack called for user: ${userId}`)
+    
+    await logInfo('payment_init', `POST called for user: ${userId}`, {
+      user_id: userId,
+      metadata: { email }
+    })
 
     if (!email || !userId) {
+      await logError('payment_init', 'Missing email or userId', { user_id: userId })
       return NextResponse.json({ error: 'Email and userId required' }, { status: 400 })
     }
 
     const secretKey = process.env.PAYSTACK_SECRET_KEY?.trim()
     if (!secretKey) {
+      await logError('payment_init', 'Paystack not configured - missing secret key')
       return NextResponse.json({ error: 'Paystack not configured' }, { status: 500 })
     }
 
-    // ✅ Your original reference format (kept as-is)
     const reference = `tbh_${userId.slice(0, 8)}_${Date.now()}`
 
-    console.log(`[Paystack] 💰 Reference: ${reference}`)
+    await logInfo('payment_init', `Creating reference: ${reference}`, {
+      user_id: userId,
+      reference
+    })
 
     const requestBody = {
       email,
@@ -136,11 +176,18 @@ export async function POST(request: NextRequest) {
     const data = await response.json()
 
     if (!data.status) {
-      console.error('[Paystack] ❌ Init error:', data.message)
+      await logError('payment_init', `Init error: ${data.message}`, {
+        user_id: userId,
+        reference,
+        metadata: { data }
+      })
       return NextResponse.json({ error: data.message }, { status: 400 })
     }
 
-    console.log(`[Paystack] ✅ Init successful. Reference: ${reference}`)
+    await logInfo('payment_init', `✅ Init successful. Access code: ${data.data?.access_code}`, {
+      user_id: userId,
+      reference
+    })
 
     return NextResponse.json({
       success: true,
@@ -149,23 +196,33 @@ export async function POST(request: NextRequest) {
       authorization_url: data.data?.authorization_url,
     })
   } catch (error: any) {
-    console.error('[Paystack] ❌ POST error:', error)
+    await logError('payment_init', `POST error: ${error.message}`, {
+      metadata: { error }
+    })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
 // ── GET: Verify Payment ──────────────────────────────────────────────────
+// ── GET: Verify Payment ──────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
   try {
     const reference = request.nextUrl.searchParams.get('reference')
-    console.log(`[Paystack] 🔍 GET /api/paystack?reference=${reference}`)
+    
+    await logInfo('verification', `GET called with reference: ${reference}`, {
+      reference: reference ?? undefined // ✅ Fix: null → undefined
+    })
 
     if (!reference) {
+      await logError('verification', 'Missing reference in GET request')
       return NextResponse.json({ error: 'Reference required' }, { status: 400 })
     }
 
     const secretKey = process.env.PAYSTACK_SECRET_KEY?.trim()
     if (!secretKey) {
+      await logError('verification', 'Paystack not configured - missing secret key', {
+        reference: reference ?? undefined
+      })
       return NextResponse.json({ error: 'Paystack not configured' }, { status: 500 })
     }
 
@@ -175,19 +232,28 @@ export async function GET(request: NextRequest) {
     })
     const data = await verifyRes.json()
 
-    console.log(`[Paystack] 📊 Paystack verify response:`, {
-      status: data.status,
-      data_status: data.data?.status,
-      reference: data.data?.reference,
+    await logDebug('verification', `Paystack verify response`, {
+      reference: reference ?? undefined,
+      metadata: {
+        status: data.status,
+        data_status: data.data?.status,
+        data_reference: data.data?.reference
+      }
     })
 
     if (!data.status) {
-      console.error('[Paystack] ❌ Paystack verify error:', data.message)
+      await logError('verification', `Paystack verify error: ${data.message}`, {
+        reference: reference ?? undefined,
+        metadata: { data }
+      })
       return NextResponse.json({ error: data.message }, { status: 400 })
     }
 
     if (data.data?.status !== 'success') {
-      console.log(`[Paystack] ⏭️ Transaction not successful. Status: ${data.data?.status}`)
+      await logInfo('verification', `Transaction not successful. Status: ${data.data?.status}`, {
+        reference: reference ?? undefined,
+        metadata: { status: data.data?.status }
+      })
       return NextResponse.json({
         success: false,
         status: data.data?.status,
@@ -195,15 +261,21 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // 2. Transaction is successful → activate premium
+    // 2. Transaction is successful → get userId
     const userId =
       data.data.metadata?.custom_fields?.find((f: any) => f.variable_name === 'uid')?.value ||
       data.data.metadata?.user_id
 
-    console.log(`[Paystack] 👤 Extracted userId: ${userId}`)
+    await logInfo('verification', `Extracted userId: ${userId}`, {
+      user_id: userId ?? undefined,
+      reference: reference ?? undefined
+    })
 
     if (!userId) {
-      console.error('[Paystack] ❌ No userId found in metadata')
+      await logError('verification', 'No userId found in metadata', {
+        reference: reference ?? undefined,
+        metadata: { metadata: data.data.metadata }
+      })
       return NextResponse.json({
         success: false,
         error: 'User ID not found in transaction metadata',
@@ -212,14 +284,22 @@ export async function GET(request: NextRequest) {
 
     // 3. Activate premium
     try {
-      console.log(`[Paystack] 🚀 Calling activatePremium for ${userId}`)
+      await logInfo('verification', `🚀 Calling activatePremium for ${userId}`, {
+        user_id: userId,
+        reference: reference ?? undefined
+      })
+
       await activatePremium(userId, {
         reference: data.data.reference,
         provider: 'paystack',
         amount: data.data.amount,
         currency: data.data.currency,
       })
-      console.log(`[Paystack] ✅ Activation completed for ${userId}`)
+
+      await logInfo('verification', `✅ Activation completed for ${userId}`, {
+        user_id: userId,
+        reference: reference ?? undefined
+      })
 
       return NextResponse.json({
         success: true,
@@ -227,7 +307,11 @@ export async function GET(request: NextRequest) {
         reference,
       })
     } catch (activationError: any) {
-      console.error('[Paystack] ❌ Activation error:', activationError)
+      await logError('verification', `Activation error: ${activationError.message}`, {
+        user_id: userId,
+        reference: reference ?? undefined,
+        metadata: { error: activationError }
+      })
       return NextResponse.json({
         success: false,
         error: activationError.message || 'Premium activation failed. Please contact support.',
@@ -235,10 +319,12 @@ export async function GET(request: NextRequest) {
       }, { status: 500 })
     }
   } catch (error: any) {
-    console.error('[Paystack] ❌ GET error:', error)
+    await logError('verification', `GET error: ${error.message}`, {
+      reference: request.nextUrl.searchParams.get('reference') ?? undefined,
+      metadata: { error }
+    })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
 // ── Webhook is REMOVED ──────────────────────────────────────────────────
-// Only GET verification is used to avoid duplicate activation.
