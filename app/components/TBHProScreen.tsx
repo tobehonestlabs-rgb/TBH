@@ -53,11 +53,25 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
   }
 
   const handlePaystack = async (email: string, userId: string) => {
+    // ✅ Validate inputs before making the request
+    if (!userId) {
+      console.error('[TBHPro] ❌ userId is undefined or empty')
+      throw new Error('User ID is missing. Please sign out and sign in again.')
+    }
+
+    if (!email) {
+      console.error('[TBHPro] ❌ email is undefined or empty')
+      throw new Error('Email is missing. Please sign out and sign in again.')
+    }
+
+    console.log('[TBHPro] 📩 Sending to API:', { email, userId })
+
     const res = await fetch('/api/paystack', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, userId }),
     })
+
     const data = await res.json()
     if (data.error) throw new Error(data.error)
 
@@ -87,7 +101,6 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
         })
     }
 
-    // ✅ Use YOUR environment variable name
     PaystackPop.setup({
       key: process.env.NEXT_PUBLIC_PAYSTACK_API?.trim() || '',
       email,
@@ -111,20 +124,50 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
     setError(null)
 
     try {
-      const { data: { session } } = await supabaseClient.auth.getSession()
-      if (!session?.user?.email || !session?.user?.id) {
-        setError('Veuillez vous connecter d’abord')
+      // ✅ Get fresh session
+      const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession()
+      
+      if (sessionError) {
+        console.error('[TBHPro] ❌ Session error:', sessionError)
+        setError('Erreur de session. Veuillez vous reconnecter.')
+        setLoading(false)
+        return
+      }
+
+      if (!session) {
+        console.error('[TBHPro] ❌ No session found')
+        setError('Vous devez être connecté')
+        setLoading(false)
+        return
+      }
+
+      const email = session.user?.email
+      const userId = session.user?.id
+
+      console.log('[TBHPro] 👤 Session user:', { email, userId })
+
+      if (!email) {
+        console.error('[TBHPro] ❌ No email in session')
+        setError('Email utilisateur manquant. Veuillez vous reconnecter.')
+        setLoading(false)
+        return
+      }
+
+      if (!userId) {
+        console.error('[TBHPro] ❌ No userId in session')
+        setError('ID utilisateur manquant. Veuillez vous reconnecter.')
         setLoading(false)
         return
       }
 
       const provider = paymentProvider ?? 'paypal'
       if (provider === 'paystack') {
-        await handlePaystack(session.user.email, session.user.id)
+        await handlePaystack(email, userId)
       } else {
         await handlePayPal()
       }
     } catch (err: any) {
+      console.error('[TBHPro] ❌ Unlock error:', err)
       setError(err.message || 'Une erreur est survenue')
       setLoading(false)
     }
