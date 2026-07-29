@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 
-const PREMIUM_PRICE_XOF = 1800 // ✅ Matches frontend
+const PREMIUM_PRICE_XOF = 100 // ✅ Matches frontend
 
 function getAdminSupabase() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
