@@ -3,10 +3,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 
-// ── Config ──────────────────────────────────────────────────────────────
-const PREMIUM_PRICE_XOF = 100 // Fixed price in XOF
+const PREMIUM_PRICE_XOF = 1800
 
-// ── Supabase Admin Client ──────────────────────────────────────────────
 function getAdminSupabase() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -15,15 +13,7 @@ function getAdminSupabase() {
   })
 }
 
-// ── Generate Unique Reference ──────────────────────────────────────────
-function generateReference(userId: string): string {
-  const prefix = userId.slice(0, 8)
-  const timestamp = Date.now()
-  const random = Math.random().toString(36).substring(2, 8) // 6 random chars
-  return `tbh_${prefix}_${timestamp}_${random}`
-}
-
-// ── Helper: Activate Premium ────────────────────────────────────────────
+// ── Activate Premium with detailed logging ──────────────────────────────
 async function activatePremium(
   userId: string,
   data: { reference: string; provider: string; amount: number; currency: string }
@@ -65,9 +55,9 @@ async function activatePremium(
   console.log(`[Paystack] 📝 Updating user with:`, updateData)
 
   const { error: updateError } = await supabase
-    .from('users') // ← CHANGE to your actual table name!
+    .from('users_table') // ← CHANGE to your actual table name!
     .update(updateData)
-    .eq('id', userId) // ← CHANGE to your primary key column!
+    .eq('user_id', userId) // ← CHANGE to your primary key column!
 
   if (updateError) {
     console.error('[Paystack] ❌ Update error:', JSON.stringify(updateError, null, 2))
@@ -76,7 +66,7 @@ async function activatePremium(
 
   console.log(`[Paystack] ✅ Update successful for user ${userId}`)
 
-  // 3. Log transaction (optional)
+  // 3. Log transaction
   try {
     const { error: txError } = await supabase
       .from('transactions')
@@ -116,8 +106,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Paystack not configured' }, { status: 500 })
     }
 
-    // ✅ Generate unique reference
-    const reference = generateReference(userId)
+    // ✅ Your original reference format (kept as-is)
+    const reference = `tbh_${userId.slice(0, 8)}_${Date.now()}`
 
     console.log(`[Paystack] 💰 Reference: ${reference}`)
 
@@ -250,6 +240,5 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// ── PUT: Webhook (REMOVED to avoid duplicate activation) ─────────────────
-// The GET verification is the primary path for activation.
-// No webhook needed to prevent double activation.
+// ── Webhook is REMOVED ──────────────────────────────────────────────────
+// Only GET verification is used to avoid duplicate activation.
