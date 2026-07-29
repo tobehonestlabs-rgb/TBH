@@ -28,11 +28,11 @@ async function activatePremium(
     metadata: { amount: data.amount, currency: data.currency }
   })
 
-  // 1. Check if user exists
+  // ✅ 1. Check if user exists using users_table
   const { data: userData, error: fetchError } = await supabase
-    .from('users') // ← CHANGE to your actual table name!
-    .select('id, active_subscription, subscription_code')
-    .eq('id', userId) // ← CHANGE to your primary key column!
+    .from('users_table')
+    .select('user_id, active_subscription, subscription_code')
+    .eq('user_id', userId)
     .single()
 
   if (fetchError) {
@@ -58,7 +58,7 @@ async function activatePremium(
     return
   }
 
-  // 2. Update the user
+  // ✅ 2. Update the user using users_table
   const updateData = {
     active_subscription: true,
     subscription_code: `${data.provider}:${data.reference}`,
@@ -75,9 +75,9 @@ async function activatePremium(
   })
 
   const { error: updateError } = await supabase
-    .from('users') // ← CHANGE to your actual table name!
+    .from('users_table') // ✅ FIXED: Changed from 'users' to 'users_table'
     .update(updateData)
-    .eq('id', userId) // ← CHANGE to your primary key column!
+    .eq('user_id', userId) // ✅ Using user_id (correct)
 
   if (updateError) {
     await logError('activation', `Update failed: ${updateError.message}`, {
@@ -88,7 +88,7 @@ async function activatePremium(
     throw new Error(`Update failed: ${updateError.message}`)
   }
 
-  // 3. Log transaction
+  // ✅ 3. Log transaction
   try {
     const { error: txError } = await supabase
       .from('transactions')
@@ -204,13 +204,12 @@ export async function POST(request: NextRequest) {
 }
 
 // ── GET: Verify Payment ──────────────────────────────────────────────────
-// ── GET: Verify Payment ──────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
   try {
     const reference = request.nextUrl.searchParams.get('reference')
     
     await logInfo('verification', `GET called with reference: ${reference}`, {
-      reference: reference ?? undefined // ✅ Fix: null → undefined
+      reference: reference ?? undefined
     })
 
     if (!reference) {
@@ -326,5 +325,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-
-// ── Webhook is REMOVED ──────────────────────────────────────────────────
