@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
   }
 
   // ✅ Price: 1800 XOF
-  const amount = 1800
+  const amount = 1
 
   const payload = {
     email,
