@@ -107,11 +107,7 @@ export async function GET(request: NextRequest) {
         .from('users_table')
         .update({
           active_subscription: true,
-          subscription_code: `paystack:${reference}`,
-          subscription_start: new Date().toISOString(),
-          subscription_end: null,
-          subscription_provider: 'paystack',
-          subscription_reference: reference,
+        
         })
         .eq('user_id', userId)
 
