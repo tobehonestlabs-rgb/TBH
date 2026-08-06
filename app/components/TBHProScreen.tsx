@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { supabaseClient } from '@/lib/supabaseClient'
 import { shouldUsePaystack } from '@/lib/paymentRegion'
@@ -22,7 +22,6 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
   const [paymentProvider, setPaymentProvider] = useState<'paystack' | 'paypal' | null>(null)
-  const scriptRef = useRef(false)
 
   useEffect(() => {
     setPortalTarget(document.getElementById('app-shell'))
@@ -31,41 +30,9 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
       .then(r => r.json())
       .then(geo => setPaymentProvider(shouldUsePaystack(geo.country) ? 'paystack' : 'paypal'))
       .catch(() => setPaymentProvider('paypal'))
-
-    if (!scriptRef.current && !document.getElementById('paystack-js')) {
-      const s = document.createElement('script')
-      s.id = 'paystack-js'
-      s.src = 'https://js.paystack.co/v1/inline.js'
-      s.async = true
-      document.head.appendChild(s)
-      scriptRef.current = true
-    }
   }, [])
 
-  const verifyPayment = async (reference: string): Promise<boolean> => {
-    const res = await fetch(`/api/paystack?reference=${reference}`)
-    const data = await res.json()
-    if (data.success && data.status === 'success') {
-      return true
-    }
-    if (data.error) throw new Error(data.error)
-    return false
-  }
-
   const handlePaystack = async (email: string, userId: string) => {
-    // ✅ Validate inputs before making the request
-    if (!userId) {
-      console.error('[TBHPro] ❌ userId is undefined or empty')
-      throw new Error('User ID is missing. Please sign out and sign in again.')
-    }
-
-    if (!email) {
-      console.error('[TBHPro] ❌ email is undefined or empty')
-      throw new Error('Email is missing. Please sign out and sign in again.')
-    }
-
-    console.log('[TBHPro] 📩 Sending to API:', { email, userId })
-
     const res = await fetch('/api/paystack', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -73,43 +40,12 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
     })
 
     const data = await res.json()
-    if (data.error) throw new Error(data.error)
-
-    const { reference } = data
-
-    const PaystackPop = (window as any).PaystackPop
-    if (!PaystackPop) throw new Error('Paystack script not loaded')
-
-    const handleCallback = (response: { reference: string }) => {
-      setLoading(true)
-      verifyPayment(response.reference)
-        .then(ok => {
-          if (ok) {
-            return supabaseClient.auth.refreshSession()
-          } else {
-            throw new Error('Payment verification failed')
-          }
-        })
-        .then(() => {
-          onSuccess()
-        })
-        .catch((err: any) => {
-          setError(err.message || 'Erreur lors de la vérification')
-        })
-        .finally(() => {
-          setLoading(false)
-        })
+    if (!data.status || data.status !== 'success') {
+      throw new Error(data.error || 'Impossible de démarrer le paiement')
     }
 
-    PaystackPop.setup({
-      key: process.env.NEXT_PUBLIC_PAYSTACK_API?.trim() || '',
-      email,
-      amount: PREMIUM_PRICE_XOF,
-      currency: 'XOF',
-      ref: reference,
-      onClose: () => setLoading(false),
-      callback: handleCallback,
-    }).openIframe()
+    // ✅ Redirect to Paystack
+    window.location.href = data.data.authorization_url
   }
 
   const handlePayPal = async () => {
@@ -124,50 +60,21 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
     setError(null)
 
     try {
-      // ✅ Get fresh session
-      const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession()
-      
-      if (sessionError) {
-        console.error('[TBHPro] ❌ Session error:', sessionError)
-        setError('Erreur de session. Veuillez vous reconnecter.')
-        setLoading(false)
-        return
-      }
+      const { data: { session } } = await supabaseClient.auth.getSession()
 
-      if (!session) {
-        console.error('[TBHPro] ❌ No session found')
-        setError('Vous devez être connecté')
-        setLoading(false)
-        return
-      }
-
-      const email = session.user?.email
-      const userId = session.user?.id
-
-      console.log('[TBHPro] 👤 Session user:', { email, userId })
-
-      if (!email) {
-        console.error('[TBHPro] ❌ No email in session')
-        setError('Email utilisateur manquant. Veuillez vous reconnecter.')
-        setLoading(false)
-        return
-      }
-
-      if (!userId) {
-        console.error('[TBHPro] ❌ No userId in session')
-        setError('ID utilisateur manquant. Veuillez vous reconnecter.')
+      if (!session?.user?.email || !session?.user?.id) {
+        setError('Veuillez vous connecter d’abord')
         setLoading(false)
         return
       }
 
       const provider = paymentProvider ?? 'paypal'
       if (provider === 'paystack') {
-        await handlePaystack(email, userId)
+        await handlePaystack(session.user.email, session.user.id)
       } else {
         await handlePayPal()
       }
     } catch (err: any) {
-      console.error('[TBHPro] ❌ Unlock error:', err)
       setError(err.message || 'Une erreur est survenue')
       setLoading(false)
     }
