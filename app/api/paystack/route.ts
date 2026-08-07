@@ -1,9 +1,18 @@
 // app/api/paystack/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js' // or your supabase client
+import { createClient } from '@supabase/supabase-js'
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || ''
 const APP_URL = process.env.PAYSTACK_RETURN_URL || 'https://tbhonest.net'
+
+// ── Supabase Admin Client ──────────────────────────────────────────────
+function getAdminSupabase() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+  return createClient(supabaseUrl, supabaseServiceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+}
 
 export async function POST(request: NextRequest) {
   if (!PAYSTACK_SECRET_KEY) {
@@ -20,8 +29,8 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // ✅ Price: 1800 XOF
-  const amount = 1
+  // ✅ Price: 1800 XOF (change to 1800 for production)
+  const amount = 1 // 1 XOF for testing
 
   const payload = {
     email,
@@ -30,6 +39,8 @@ export async function POST(request: NextRequest) {
     metadata: {
       userId,
     },
+    // ✅ Explicitly specify channels to include card payments
+    channels: ['card', 'mobile_money', 'bank_transfer', 'ussd'],
     callback_url: `${APP_URL}/payment/status`,
   }
 
@@ -99,15 +110,12 @@ export async function GET(request: NextRequest) {
 
   if (isSuccessful && userId) {
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-        process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-      )
+      const supabase = getAdminSupabase()
+      
       const { error: updateError } = await supabase
         .from('users_table')
         .update({
           active_subscription: true,
-        
         })
         .eq('user_id', userId)
 
