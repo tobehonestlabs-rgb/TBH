@@ -1,9 +1,9 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
-import { shouldUsePaystack } from '@/lib/paymentRegion'
 
 const PREMIUM_PRICE_XOF = 1800
 
@@ -21,39 +21,11 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
-  const [paymentProvider, setPaymentProvider] = useState<'paystack' | 'paypal' | null>(null)
+  const router = useRouter()
 
   useEffect(() => {
     setPortalTarget(document.getElementById('app-shell'))
-
-    fetch('/api/geo')
-      .then(r => r.json())
-      .then(geo => setPaymentProvider(shouldUsePaystack(geo.country) ? 'paystack' : 'paypal'))
-      .catch(() => setPaymentProvider('paypal'))
   }, [])
-
-  const handlePaystack = async (email: string, userId: string) => {
-    const res = await fetch('/api/paystack', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, userId }),
-    })
-
-    const data = await res.json()
-    if (!data.status || data.status !== 'success') {
-      throw new Error(data.error || 'Impossible de démarrer le paiement')
-    }
-
-    // ✅ Redirect to Paystack
-    window.location.href = data.data.authorization_url
-  }
-
-  const handlePayPal = async () => {
-    const res = await fetch('/api/paypal/create-order', { method: 'POST' })
-    const { approvalUrl, error: apiErr } = await res.json()
-    if (apiErr || !approvalUrl) throw new Error(apiErr || 'PayPal error')
-    window.location.href = approvalUrl
-  }
 
   const handleUnlock = async () => {
     setLoading(true)
@@ -61,19 +33,14 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
 
     try {
       const { data: { session } } = await supabaseClient.auth.getSession()
-
       if (!session?.user?.email || !session?.user?.id) {
         setError('Veuillez vous connecter d’abord')
         setLoading(false)
         return
       }
 
-      const provider = paymentProvider ?? 'paypal'
-      if (provider === 'paystack') {
-        await handlePaystack(session.user.email, session.user.id)
-      } else {
-        await handlePayPal()
-      }
+      router.push('/payment-choice')
+      onClose()
     } catch (err: any) {
       setError(err.message || 'Une erreur est survenue')
       setLoading(false)
@@ -132,22 +99,18 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
         {error && <p className="text-[#FF6B6B] text-[13px] text-center mb-3">{error}</p>}
         <button
           onClick={handleUnlock}
-          disabled={loading || paymentProvider === null}
+          disabled={loading}
           className="w-full py-[17px] rounded-full font-extrabold text-[17px] active:scale-95 transition-all flex items-center justify-center gap-2 mb-2 disabled:opacity-60"
           style={{ background: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E3C 100%)', boxShadow: '0 8px 32px rgba(255,107,107,0.35)' }}
         >
           {loading ? (
             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
           ) : (
-            `Unlock TBH Pro — ${PREMIUM_PRICE_XOF.toLocaleString()} FCFA`
+            `Unlock TBH Pro — ${PREMIUM_PRICE_XOF.toLocaleString()} FCFA (≈ $4.99)`
           )}
         </button>
         <p className="text-white/25 text-[11px] text-center mb-3">
-          {paymentProvider === 'paystack'
-            ? 'Pay with card or mobile money via Paystack'
-            : paymentProvider === 'paypal'
-            ? 'Pay with PayPal'
-            : 'Detecting payment method…'}
+          Vous serez redirigé vers le choix du paiement
         </p>
         <button
           onClick={onClose}
