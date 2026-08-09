@@ -2,18 +2,18 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
 
 export default function CreemStatusPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [message, setMessage] = useState('')
 
   useEffect(() => {
-    const sessionId = searchParams.get('session_id')
-    const checkoutId = searchParams.get('checkout_id')
+    const params = new URLSearchParams(window.location.search)
+    const sessionId = params.get('session_id')
+    const checkoutId = params.get('checkout_id')
 
     console.log('[Creem Status] Session ID:', sessionId)
     console.log('[Creem Status] Checkout ID:', checkoutId)
@@ -60,7 +60,7 @@ export default function CreemStatusPage() {
       setStatus('error')
       setMessage('Aucune information de paiement trouvée.')
     }
-  }, [searchParams, router])
+  }, [router])
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-black px-4">
