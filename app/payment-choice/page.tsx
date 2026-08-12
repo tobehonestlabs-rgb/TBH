@@ -28,14 +28,7 @@ export default function PaymentChoicePage() {
     setError(null)
 
     try {
-      const res = await fetch('/api/creem/create-checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, userEmail: user.email }),
-      })
-      const data = await res.json()
-      if (!data.success) throw new Error(data.error)
-      window.location.href = data.checkoutUrl
+      window.location.href = 'https://tally.so/r/PdQY70'
     } catch (err: any) {
       setError(err.message || 'Erreur lors du paiement par carte')
       setLoading(null)
