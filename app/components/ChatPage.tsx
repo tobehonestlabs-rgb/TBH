@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { supabaseClient } from '@/lib/supabaseClient'
 import GifPicker, { GifResult } from './GifPicker'
+import ImageEditor from './ImageEditor'
 
 type Conversation = {
   id: string
@@ -21,6 +22,7 @@ type ConvMsg = {
   content: string | null
   gif_url?: string | null
   image_url?: string | null
+  photos?: string | null
   created_at: string
   is_read: boolean
 }
@@ -85,6 +87,8 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
   // Photo upload
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [showImageEditor, setShowImageEditor] = useState(false)
+  const origFileRef = useRef<File | null>(null)
 
   // Rename modal
   const [renameConvId, setRenameConvId]   = useState<string | null>(null)
@@ -345,11 +349,16 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
       return
     }
     
-    setSelectedImage(file)
-    
-    // Create preview
+    // Store original file until editing completes
+    origFileRef.current = file
+
+    // Create preview and open editor
     const reader = new FileReader()
-    reader.onload = (e) => setImagePreview(e.target?.result as string)
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string
+      setImagePreview(dataUrl)
+      setShowImageEditor(true)
+    }
     reader.readAsDataURL(file)
   }
 
@@ -389,7 +398,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
       
       const r = await fetch(`/api/conversations/${selected.id}/messages`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: input.trim(), image_url: imageUrl }),
+        body: JSON.stringify({ content: input.trim(), photos: imageUrl }),
       })
       const { message } = await r.json()
       if (message) {
@@ -543,6 +552,28 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
         portalTarget
       )}
 
+      {/* Image editor modal */}
+      {showImageEditor && imagePreview && portalTarget && createPortal(
+        <ImageEditor
+          src={imagePreview}
+          onDone={(blob, dataUrl) => {
+            const fileName = origFileRef.current?.name || `${Date.now()}.jpg`
+            const file = new File([blob], fileName, { type: blob.type || 'image/jpeg' })
+            setSelectedImage(file)
+            setImagePreview(dataUrl)
+            setShowImageEditor(false)
+            origFileRef.current = null
+          }}
+          onCancel={() => {
+            setShowImageEditor(false)
+            setSelectedImage(null)
+            setImagePreview(null)
+            origFileRef.current = null
+          }}
+        />,
+        portalTarget
+      )}
+
       {/* Conversation thread — portaled */}
       {selected && portalTarget && createPortal(
         <div className="fixed inset-0 z-50 flex flex-col bg-white" style={{ borderRadius: '32px 32px 0 0' }}>
@@ -587,21 +618,28 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                   <div key={m.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
                     {m.gif_url ? (
                       <img src={`/api/gif-proxy?url=${encodeURIComponent(m.gif_url)}`} alt="GIF" className="max-w-[220px] rounded-[16px] block" style={{ border: isMine ? '2px solid rgba(100,80,200,0.3)' : '2px solid #E8E8E8' }} />
-                    ) : m.image_url ? (
-                      <img src={m.image_url} alt="Photo" className="max-w-[220px] rounded-[16px] block" style={{ border: isMine ? '2px solid rgba(100,80,200,0.3)' : '2px solid #E8E8E8' }} />
-                    ) : m.content ? (
-                    <div
-                      className="max-w-[78%] px-4 py-3"
-                      style={{
-                        background: isMine
-                          ? 'linear-gradient(145deg, #0D0D0D 0%, #1C1C2E 55%, #2D1B69 100%)'
-                          : '#F2F2F2',
-                        borderRadius: isMine ? '20px 20px 5px 20px' : '20px 20px 20px 5px',
-                      }}
-                    >
-                      <p style={{ color: isMine ? '#FFFFFF' : '#0D0D0D', fontSize: '15px', lineHeight: '1.4' }}>{m.content}</p>
-                    </div>
-                    ) : null}
+                    ) : ((): any => {
+                      const photoUrl = (m as ConvMsg).photos ?? m.image_url
+                      if (photoUrl) {
+                        return <img src={photoUrl} alt="Photo" className="max-w-[220px] rounded-[16px] block" style={{ border: isMine ? '2px solid rgba(100,80,200,0.3)' : '2px solid #E8E8E8' }} />
+                      }
+                      if (m.content) {
+                        return (
+                          <div
+                            className="max-w-[78%] px-4 py-3"
+                            style={{
+                              background: isMine
+                                ? 'linear-gradient(145deg, #0D0D0D 0%, #1C1C2E 55%, #2D1B69 100%)'
+                                : '#F2F2F2',
+                              borderRadius: isMine ? '20px 20px 5px 20px' : '20px 20px 20px 5px',
+                            }}
+                          >
+                            <p style={{ color: isMine ? '#FFFFFF' : '#0D0D0D', fontSize: '15px', lineHeight: '1.4' }}>{m.content}</p>
+                          </div>
+                        )
+                      }
+                      return null
+                    })()}
                     {(isLastMine || (i === msgs.length - 1 && !isMine)) && (
                       <div className={`flex items-center gap-1 mt-0.5 px-1 ${isMine ? 'flex-row-reverse' : ''}`}>
                         <span className="text-[10px] text-[#C8C8C8]">{timeAgo(m.created_at)}</span>
@@ -632,9 +670,14 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
             )}
             
             {/* Image preview */}
-            {imagePreview && (
+              {imagePreview && (
               <div className="mb-3 relative">
-                <img src={imagePreview} alt="Preview" className="w-full max-h-[200px] object-contain rounded-[16px]" />
+                <img
+                  src={imagePreview}
+                  alt="Preview"
+                  className="w-full max-h-[200px] object-contain rounded-[16px]"
+                  onClick={() => setShowImageEditor(true)}
+                />
                 <button
                   onClick={() => { setSelectedImage(null); setImagePreview(null) }}
                   className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center active:scale-90 transition-transform"
