@@ -601,6 +601,108 @@ async function generateGifReplyCard(
   })
 }
 
+async function generatePhotoReplyCard(
+  messageText: string,
+  photoUrl: string,
+  logoSrc: string,
+  userPfp: string | null,
+  arrowsSrc: string,
+): Promise<Blob> {
+  return new Promise(async (resolve) => {
+    const W = 1080, H = 1920
+    const canvas = document.createElement('canvas')
+    canvas.width = W; canvas.height = H
+    const ctx = canvas.getContext('2d')!
+
+    let pfpImg: HTMLImageElement | null = null
+    if (userPfp) pfpImg = await loadImage(userPfp).catch(() => null)
+    if (pfpImg) {
+      drawBlurredPfpBackground(ctx, pfpImg, W, H)
+    } else {
+      ctx.fillStyle = '#0A0A0C'
+      ctx.fillRect(0, 0, W, H)
+    }
+    ctx.fillStyle = 'rgba(0,0,0,0.52)'
+    ctx.fillRect(0, 0, W, H)
+
+    const logo = await loadImage(logoSrc).catch(() => null)
+    if (logo) {
+      const lw = 200, lh = Math.round(lw * logo.height / logo.width)
+      const offscreen = document.createElement('canvas')
+      offscreen.width = lw; offscreen.height = lh
+      const oc = offscreen.getContext('2d')!
+      oc.drawImage(logo, 0, 0, lw, lh)
+      oc.globalCompositeOperation = 'source-in'
+      oc.fillStyle = '#FFFFFF'
+      oc.fillRect(0, 0, lw, lh)
+      ctx.globalAlpha = 0.9
+      ctx.drawImage(offscreen, (W - lw) / 2, 90, lw, lh)
+      ctx.globalAlpha = 1
+    }
+
+    const hPad = 72, boxW = W - hPad * 2, innerPad = 48
+    let y = 320
+
+    if (messageText) {
+      ctx.font = '52px -apple-system, sans-serif'
+      const msgLines = wrapText(ctx, messageText, boxW - innerPad * 2)
+      const msgLineH = 68
+      const senderBoxH = innerPad + 60 + 20 + msgLines.length * msgLineH + innerPad
+
+      ctx.fillStyle = 'rgba(255,255,255,0.10)'
+      roundRect(ctx, hPad, y, boxW, senderBoxH, 40)
+      ctx.fill()
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)'
+      ctx.lineWidth = 2
+      roundRect(ctx, hPad, y, boxW, senderBoxH, 40)
+      ctx.stroke()
+
+      ctx.font = 'bold 40px -apple-system, sans-serif'
+      const anonText = '🔒  ANONYMOUS'
+      const anonW = ctx.measureText(anonText).width + 48
+      ctx.fillStyle = 'rgba(255,255,255,0.08)'
+      roundRect(ctx, hPad + innerPad, y + innerPad, anonW, 56, 28)
+      ctx.fill()
+      ctx.fillStyle = 'rgba(255,255,255,0.65)'
+      ctx.textAlign = 'left'
+      ctx.fillText(anonText, hPad + innerPad + 24, y + innerPad + 40)
+
+      ctx.font = '52px -apple-system, sans-serif'
+      ctx.fillStyle = '#FFFFFF'
+      ctx.textAlign = 'left'
+      msgLines.forEach((line, i) => {
+        ctx.fillText(line, hPad + innerPad, y + innerPad + 60 + 20 + msgLineH * i + 48)
+      })
+      y += senderBoxH + 52
+    }
+
+    const photoImg = await loadImage(photoUrl).catch(() => null)
+    if (photoImg) {
+      const photoAspect = photoImg.naturalHeight / photoImg.naturalWidth || 0.5625
+      const photoDisplayH = Math.min(Math.round(boxW * photoAspect), 720)
+      ctx.save()
+      roundRect(ctx, hPad, y, boxW, photoDisplayH, 40)
+      ctx.clip()
+      ctx.drawImage(photoImg, hPad, y, boxW, photoDisplayH)
+      ctx.restore()
+      ctx.strokeStyle = 'rgba(255,107,107,0.4)'
+      ctx.lineWidth = 3
+      roundRect(ctx, hPad, y, boxW, photoDisplayH, 40)
+      ctx.stroke()
+      y += photoDisplayH + 48
+    }
+
+    ctx.font = 'bold 44px -apple-system, sans-serif'
+    ctx.fillStyle = 'rgba(255,107,107,0.9)'
+    ctx.textAlign = 'center'
+    ctx.fillText('📷 MY REPLY', W / 2, y + 48)
+
+    await drawSendMeCta(ctx, W, H, arrowsSrc)
+
+    canvas.toBlob(b => resolve(b!), 'image/png', 1.0)
+  })
+}
+
 type ConvMsg = {
   id: string
   sender_id: string
@@ -644,9 +746,12 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
 
   // Pro + GIF state
   const [showProScreen, setShowProScreen]       = useState(false)
-  const [replyMode, setReplyMode]               = useState<'text' | 'gif'>('text')
+  const [replyMode, setReplyMode]               = useState<'text' | 'gif' | 'photo'>('text')
   const [selectedGif, setSelectedGif]           = useState<GifResult | null>(null)
   const [gifCardBlob, setGifCardBlob]           = useState<Blob | null>(null)
+  const [selectedPhoto, setSelectedPhoto]       = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview]       = useState<string | null>(null)
+  const [photoCardBlob, setPhotoCardBlob]       = useState<Blob | null>(null)
   const [showGifPicker, setShowGifPicker]       = useState(false)
   const [showConvGifPicker, setShowConvGifPicker] = useState(false)
 
@@ -737,6 +842,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
     setMessageCardBlob(null); setSharing(false); setReplySending(false)
     setReplyCardBlob(null); replyGenPromiseRef.current = null
     setGifCardBlob(null); gifGenPromiseRef.current = null
+    setSelectedPhoto(null); setPhotoPreview(null); setPhotoCardBlob(null); photoGenPromiseRef.current = null
   }
 
   const closeSheet = () => {
@@ -748,7 +854,8 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
       setReplyText(''); setShowInsights(false); setSenderCount(null); setConvId(null)
       setMessageCardBlob(null)
       setReplyMode('text'); setSelectedGif(null); setGifCardBlob(null)
-      setReplyCardBlob(null); replyGenPromiseRef.current = null; gifGenPromiseRef.current = null
+      setSelectedPhoto(null); setPhotoPreview(null); setPhotoCardBlob(null)
+      setReplyCardBlob(null); replyGenPromiseRef.current = null; gifGenPromiseRef.current = null; photoGenPromiseRef.current = null
     }, 300)
   }
 
@@ -847,6 +954,46 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
       .catch(console.error)
   }, [selectedGif, replyMode, showReply, selectedMsg, userPfp])
 
+  // Pre-generate the photo-reply card as soon as a photo is picked.
+  const photoGenPromiseRef = useRef<Promise<Blob> | null>(null)
+  const photoGenTokenRef = useRef(0)
+  useEffect(() => {
+    photoGenTokenRef.current += 1
+    setPhotoCardBlob(null)
+
+    if (!showReply || replyMode !== 'photo' || !selectedPhoto || !selectedMsg) return
+    const myToken = photoGenTokenRef.current
+    
+    // Upload photo and generate card
+    const uploadAndGenerate = async () => {
+      try {
+        const formData = new FormData()
+        formData.append('file', selectedPhoto)
+        
+        const response = await fetch('/api/upload-image', {
+          method: 'POST',
+          body: formData,
+        })
+        
+        if (!response.ok) {
+          throw new Error('Upload failed')
+        }
+        
+        const data = await response.json()
+        const photoUrl = data.url
+        
+        const promise = generatePhotoReplyCard(selectedMsg.content || '', photoUrl, getLogoSrc(), userPfp, getArrowsSrc())
+        photoGenPromiseRef.current = promise
+        const blob = await promise
+        if (photoGenTokenRef.current === myToken) setPhotoCardBlob(blob)
+      } catch (error) {
+        console.error('Photo upload/generation error:', error)
+      }
+    }
+    
+    uploadAndGenerate()
+  }, [selectedPhoto, replyMode, showReply, selectedMsg, userPfp])
+
   // Shares a blob via the Web Share API (falling back to a download link),
   // guarded by the single global in-flight lock.
   const shareBlob = async (blob: Blob, filename: string) => {
@@ -868,7 +1015,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
 
   const handleSendReply = async () => {
     if (shareInFlightRef.current || replySending) return
-    const blobToUse = replyMode === 'text' ? replyCardBlob : gifCardBlob
+    const blobToUse = replyMode === 'text' ? replyCardBlob : replyMode === 'gif' ? gifCardBlob : photoCardBlob
     // The button is disabled until this is non-null, but guard anyway —
     // this call must never do generation work before navigator.share().
     if (!blobToUse) return
@@ -882,6 +1029,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
       setShowReply(false)
       setReplyText('')
       setGifCardBlob(null)
+      setSelectedPhoto(null); setPhotoPreview(null); setPhotoCardBlob(null)
       setSelectedGif(null)
       setReplyMode('text')
       setReplyCardBlob(null)
@@ -1186,6 +1334,11 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                           className="flex-1 py-2.5 rounded-full text-[14px] font-semibold transition-all"
                           style={{ background: replyMode === 'gif' ? '#0D0D0D' : '#F2F2F2', color: replyMode === 'gif' ? '#FFF' : '#888' }}
                         >GIF 🎬</button>
+                        <button
+                          onClick={() => { setReplyMode('photo') }}
+                          className="flex-1 py-2.5 rounded-full text-[14px] font-semibold transition-all"
+                          style={{ background: replyMode === 'photo' ? '#0D0D0D' : '#F2F2F2', color: replyMode === 'photo' ? '#FFF' : '#888' }}
+                        >Photo 📷</button>
                       </div>
 
                       {replyMode === 'text' ? (
@@ -1198,25 +1351,65 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                             style={{ fontFamily: 'inherit' }}
                           />
                         </>
-                      ) : selectedGif ? (
-                        <>
-                          <img src={selectedGif.preview} alt="GIF" className="w-full rounded-[20px] mb-3" style={{ maxHeight: '200px', objectFit: 'cover' }} />
+                      ) : replyMode === 'gif' ? (
+                        selectedGif ? (
+                          <>
+                            <img src={selectedGif.preview} alt="GIF" className="w-full rounded-[20px] mb-3" style={{ maxHeight: '200px', objectFit: 'cover' }} />
+                            <button
+                              onClick={() => { setSelectedGif(null); setGifCardBlob(null); setShowGifPicker(true) }}
+                              className="w-full py-2.5 rounded-full bg-[#F2F2F2] text-[#555] text-[14px] font-semibold mb-3 active:scale-95 transition-transform"
+                            >Change GIF</button>
+                          </>
+                        ) : (
                           <button
-                            onClick={() => { setSelectedGif(null); setGifCardBlob(null); setShowGifPicker(true) }}
-                            className="w-full py-2.5 rounded-full bg-[#F2F2F2] text-[#555] text-[14px] font-semibold mb-3 active:scale-95 transition-transform"
-                          >Change GIF</button>
-                        </>
-                      ) : (
-                        <button
-                          onClick={() => setShowGifPicker(true)}
-                          className="w-full py-4 rounded-[20px] mb-3 text-[15px] font-semibold text-[#555] active:scale-95 transition-transform"
-                          style={{ background: '#F7F7F9' }}
-                        >🎬 Pick a GIF</button>
-                      )}
+                            onClick={() => setShowGifPicker(true)}
+                            className="w-full py-4 rounded-[20px] mb-3 text-[15px] font-semibold text-[#555] active:scale-95 transition-transform"
+                            style={{ background: '#F7F7F9' }}
+                          >🎬 Pick a GIF</button>
+                        )
+                      ) : replyMode === 'photo' ? (
+                        selectedPhoto ? (
+                          <>
+                            <img src={photoPreview || ''} alt="Photo" className="w-full rounded-[20px] mb-3" style={{ maxHeight: '200px', objectFit: 'cover' }} />
+                            <button
+                              onClick={() => { setSelectedPhoto(null); setPhotoPreview(null); setPhotoCardBlob(null) }}
+                              className="w-full py-2.5 rounded-full bg-[#F2F2F2] text-[#555] text-[14px] font-semibold mb-3 active:scale-95 transition-transform"
+                            >Change Photo</button>
+                          </>
+                        ) : (
+                          <label className="w-full py-4 rounded-[20px] mb-3 text-[15px] font-semibold text-[#555] active:scale-95 transition-transform flex items-center justify-center cursor-pointer"
+                            style={{ background: '#F7F7F9' }}
+                          >
+                            📷 Pick a Photo
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0]
+                                if (file) {
+                                  if (!file.type.startsWith('image/')) {
+                                    alert('Please select an image file')
+                                    return
+                                  }
+                                  if (file.size > 10 * 1024 * 1024) {
+                                    alert('Image must be less than 10MB')
+                                    return
+                                  }
+                                  setSelectedPhoto(file)
+                                  const reader = new FileReader()
+                                  reader.onload = (e) => setPhotoPreview(e.target?.result as string)
+                                  reader.readAsDataURL(file)
+                                }
+                              }}
+                              className="hidden"
+                            />
+                          </label>
+                        )
+                      ) : null}
 
                       {(() => {
-                        const hasInput = replyMode === 'text' ? !!replyText.trim() : !!selectedGif
-                        const ready = replyMode === 'text' ? !!replyCardBlob : !!gifCardBlob
+                        const hasInput = replyMode === 'text' ? !!replyText.trim() : replyMode === 'gif' ? !!selectedGif : !!selectedPhoto
+                        const ready = replyMode === 'text' ? !!replyCardBlob : replyMode === 'gif' ? !!gifCardBlob : !!photoCardBlob
                         const preparing = hasInput && !ready
                         return (
                           <button
@@ -1226,7 +1419,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                           >
                             {replySending || preparing
                               ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                              : replyMode === 'gif' ? t.shareGifReply : t.shareReply
+                              : replyMode === 'gif' ? t.shareGifReply : replyMode === 'photo' ? 'Share Photo Reply' : t.shareReply
                             }
                           </button>
                         )

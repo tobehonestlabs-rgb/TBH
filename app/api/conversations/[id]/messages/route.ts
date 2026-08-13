@@ -28,15 +28,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { content, gif_url } = await req.json()
-    if (!content?.trim() && !gif_url) return NextResponse.json({ error: 'Empty message' }, { status: 400 })
+    const { content, gif_url, image_url } = await req.json()
+    if (!content?.trim() && !gif_url && !image_url) return NextResponse.json({ error: 'Empty message' }, { status: 400 })
 
     const insertData: Record<string, any> = {
       conversation_id: params.id,
       sender_id: user.id,
+      content: content?.trim() || '', // content is required in DB but can be empty string
     }
-    if (content?.trim()) insertData.content = content.trim()
     if (gif_url)         insertData.gif_url = gif_url
+    if (image_url)       insertData.image_url = image_url
 
     const { data, error } = await supabaseAdmin
       .from('conversation_messages')
@@ -47,10 +48,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
     // Update conversation last_message
+    let lastMessageText = content?.trim() ?? ''
+    if (gif_url) lastMessageText = '🎬 GIF'
+    if (image_url) lastMessageText = '📷 Photo'
+    if (!lastMessageText) lastMessageText = '📷 Photo'
+    
     await supabaseAdmin
       .from('conversations')
       .update({
-        last_message:    content?.trim() ?? '🎬 GIF',
+        last_message:    lastMessageText,
         last_message_at: new Date().toISOString(),
       })
       .eq('id', params.id)
