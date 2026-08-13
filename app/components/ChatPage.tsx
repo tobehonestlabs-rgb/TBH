@@ -100,6 +100,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
   const pollRef      = useRef<ReturnType<typeof setInterval> | null>(null)
   const listPollRef  = useRef<ReturnType<typeof setInterval> | null>(null)
   const selectedRef  = useRef<Conversation | null>(null)
+  const [animatingIds, setAnimatingIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     setPortalTarget(document.getElementById('app-shell'))
@@ -131,7 +132,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
       fetchConvs().then(list => {
         checkUnread(list, loadLastSeen())
       })
-    }, 10000)
+    }, 3000)
 
     return () => {
       if (listPollRef.current) clearInterval(listPollRef.current)
@@ -233,6 +234,13 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
         const newMsg = payload.new as ConvMsg
         setMsgs(prev => {
           if (prev.find(m => m.id === newMsg.id)) return prev
+          // mark for animation
+          setAnimatingIds(ids => {
+            const next = new Set(ids)
+            next.add(newMsg.id)
+            setTimeout(() => setAnimatingIds(cur => { const s = new Set(cur); s.delete(newMsg.id); return s }), 800)
+            return next
+          })
           return [...prev, newMsg]
         })
         setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
@@ -256,7 +264,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
 
     channelRef.current = ch
 
-    // Polling fallback
+    // Polling fallback (faster): check every 1s for new messages
     pollRef.current = setInterval(async () => {
       if (!selectedRef.current) return
       try {
@@ -267,11 +275,19 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
           const existingIds = new Set(prev.map(m => m.id))
           const newOnes = fetched.filter(m => !existingIds.has(m.id))
           if (newOnes.length === 0) return prev
+          // mark new ones for animation
+          setAnimatingIds(ids => {
+            const next = new Set(ids)
+            newOnes.forEach(n => next.add(n.id))
+            // schedule removal
+            setTimeout(() => setAnimatingIds(cur => { const s = new Set(cur); newOnes.forEach(n => s.delete(n.id)); return s }), 800)
+            return next
+          })
           setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
           return [...prev, ...newOnes]
         })
       } catch {}
-    }, 4000)
+    }, 1000)
   }
 
   const closeConv = () => {
@@ -602,6 +618,14 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-4 py-5 flex flex-col gap-1.5">
+            <style>{`
+              .msg-appear { animation: msgEnter 420ms cubic-bezier(.2,.9,.2,1); }
+              @keyframes msgEnter {
+                from { transform: translateY(10px) scale(0.996); opacity: 0 }
+                to   { transform: translateY(0) scale(1); opacity: 1 }
+              }
+              .msg-appear > * { will-change: transform, opacity }
+            `}</style>
             {loadingMsgs ? (
               <div className="flex-1 flex items-center justify-center pt-16">
                 <div className="w-8 h-8 border-2 border-[#0D0D0D] border-t-transparent rounded-full animate-spin" />
@@ -614,8 +638,8 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
               msgs.map((m, i) => {
                 const isMine = m.sender_id === myUserId
                 const isLastMine = isMine && msgs.slice(i + 1).every(n => n.sender_id !== myUserId)
-                return (
-                  <div key={m.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
+                    return (
+                      <div key={m.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} ${animatingIds.has(m.id) ? 'msg-appear' : ''}`}>
                     {m.gif_url ? (
                       <img src={`/api/gif-proxy?url=${encodeURIComponent(m.gif_url)}`} alt="GIF" className="max-w-[220px] rounded-[16px] block" style={{ border: isMine ? '2px solid rgba(100,80,200,0.3)' : '2px solid #E8E8E8' }} />
                     ) : ((): any => {
