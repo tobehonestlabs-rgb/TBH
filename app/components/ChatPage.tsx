@@ -20,6 +20,7 @@ type ConvMsg = {
   sender_id: string
   content: string | null
   gif_url?: string | null
+  image_url?: string | null
   created_at: string
   is_read: boolean
 }
@@ -80,6 +81,10 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
 
   // GIF picker
   const [showGifPicker, setShowGifPicker] = useState(false)
+
+  // Photo upload
+  const [selectedImage, setSelectedImage] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
 
   // Rename modal
   const [renameConvId, setRenameConvId]   = useState<string | null>(null)
@@ -295,7 +300,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
       if (message) {
         setMsgs(prev => prev.find(m => m.id === message.id) ? prev : [...prev, message])
         setConvs(prev => prev.map(c => c.id === selected.id
-          ? { ...c, last_message: text, last_message_at: new Date().toISOString() }
+          ? { ...c, last_message: text || 'Message', last_message_at: new Date().toISOString() }
           : c))
         setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
       }
@@ -321,6 +326,88 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
         setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
       }
     } catch {}
+    setSending(false)
+  }
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file')
+      return
+    }
+    
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Image must be less than 10MB')
+      return
+    }
+    
+    setSelectedImage(file)
+    
+    // Create preview
+    const reader = new FileReader()
+    reader.onload = (e) => setImagePreview(e.target?.result as string)
+    reader.readAsDataURL(file)
+  }
+
+  const uploadImage = async (file: File): Promise<string | null> => {
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      
+      const response = await fetch('/api/upload-image', {
+        method: 'POST',
+        body: formData,
+      })
+      
+      if (!response.ok) {
+        throw new Error('Upload failed')
+      }
+      
+      const data = await response.json()
+      return data.url
+    } catch (error) {
+      console.error('Image upload error:', error)
+      return null
+    }
+  }
+
+  const sendImage = async () => {
+    if (!selectedImage || !selected || sending) return
+    
+    setSending(true)
+    try {
+      const imageUrl = await uploadImage(selectedImage)
+      if (!imageUrl) {
+        alert('Failed to upload image')
+        setSending(false)
+        return
+      }
+      
+      const r = await fetch(`/api/conversations/${selected.id}/messages`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: input.trim(), image_url: imageUrl }),
+      })
+      const { message } = await r.json()
+      if (message) {
+        setMsgs(prev => prev.find(m => m.id === message.id) ? prev : [...prev, message])
+        setConvs(prev => prev.map(c => c.id === selected.id
+          ? { ...c, last_message: '📷 Photo', last_message_at: new Date().toISOString() }
+          : c))
+        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+      }
+      
+      // Reset image state and input
+      setSelectedImage(null)
+      setImagePreview(null)
+      setInput('')
+    } catch (error) {
+      console.error('Send image error:', error)
+      alert('Failed to send image')
+    }
     setSending(false)
   }
 
@@ -499,8 +586,10 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                 return (
                   <div key={m.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
                     {m.gif_url ? (
-                      <img src={m.gif_url} alt="GIF" className="max-w-[220px] rounded-[16px] block" style={{ border: isMine ? '2px solid rgba(100,80,200,0.3)' : '2px solid #E8E8E8' }} />
-                    ) : (
+                      <img src={`/api/gif-proxy?url=${encodeURIComponent(m.gif_url)}`} alt="GIF" className="max-w-[220px] rounded-[16px] block" style={{ border: isMine ? '2px solid rgba(100,80,200,0.3)' : '2px solid #E8E8E8' }} />
+                    ) : m.image_url ? (
+                      <img src={m.image_url} alt="Photo" className="max-w-[220px] rounded-[16px] block" style={{ border: isMine ? '2px solid rgba(100,80,200,0.3)' : '2px solid #E8E8E8' }} />
+                    ) : m.content ? (
                     <div
                       className="max-w-[78%] px-4 py-3"
                       style={{
@@ -512,7 +601,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                     >
                       <p style={{ color: isMine ? '#FFFFFF' : '#0D0D0D', fontSize: '15px', lineHeight: '1.4' }}>{m.content}</p>
                     </div>
-                    )}
+                    ) : null}
                     {(isLastMine || (i === msgs.length - 1 && !isMine)) && (
                       <div className={`flex items-center gap-1 mt-0.5 px-1 ${isMine ? 'flex-row-reverse' : ''}`}>
                         <span className="text-[10px] text-[#C8C8C8]">{timeAgo(m.created_at)}</span>
@@ -541,6 +630,22 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                 />
               </div>
             )}
+            
+            {/* Image preview */}
+            {imagePreview && (
+              <div className="mb-3 relative">
+                <img src={imagePreview} alt="Preview" className="w-full max-h-[200px] object-contain rounded-[16px]" />
+                <button
+                  onClick={() => { setSelectedImage(null); setImagePreview(null) }}
+                  className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center active:scale-90 transition-transform"
+                >
+                  <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+                    <path d="M18 6L6 18M6 6l12 12" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                </button>
+              </div>
+            )}
+            
             <div className="flex gap-2">
               <button
                 onClick={() => setShowGifPicker(p => !p)}
@@ -549,18 +654,46 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
               >
                 <span style={{ filter: showGifPicker ? 'brightness(0) invert(1)' : 'none' }}>🎬</span>
               </button>
+              
+              <label className="w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition-transform flex-shrink-0 cursor-pointer text-[18px]"
+                style={{ background: '#F5F5F5' }}
+              >
+                <span>📷</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                  className="hidden"
+                />
+              </label>
+              
               <input
                 value={input}
                 onChange={e => setInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); send() } }}
+                onKeyDown={e => { 
+                  if (e.key === 'Enter') { 
+                    e.preventDefault(); 
+                    if (imagePreview) {
+                      sendImage()
+                    } else if (input.trim()) {
+                      send()
+                    }
+                  } 
+                }}
                 placeholder="Message…"
                 maxLength={500}
                 className="flex-1 rounded-full bg-[#F5F5F5] px-4 py-3 text-[15px] text-[#0D0D0D] outline-none"
                 style={{ fontFamily: 'inherit' }}
               />
               <button
-                onClick={send}
-                disabled={!input.trim() || sending}
+                onClick={() => {
+                  if (imagePreview) {
+                    sendImage()
+                  } else if (input.trim()) {
+                    send()
+                  }
+                }}
+                disabled={sending || (!input.trim() && !imagePreview)}
                 className="w-10 h-10 rounded-full bg-[#0D0D0D] flex items-center justify-center active:scale-90 transition-transform disabled:opacity-30 flex-shrink-0"
               >
                 {sending
