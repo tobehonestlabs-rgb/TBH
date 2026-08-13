@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
 
-const PREMIUM_PRICE_XOF = 1800
+const PREMIUM_PRICE_XOF = 500
 
 const FEATURES = [
   { emoji: '👁️', label: 'Sender insights', sub: 'See who sent you a message' },
@@ -106,7 +106,7 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
           {loading ? (
             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
           ) : (
-            `Unlock TBH Pro — ${PREMIUM_PRICE_XOF.toLocaleString()} FCFA (≈ $4.99)`
+            `Unlock TBH Pro — ${PREMIUM_PRICE_XOF.toLocaleString()} FCFA `
           )}
         </button>
         <p className="text-white/25 text-[11px] text-center mb-3">

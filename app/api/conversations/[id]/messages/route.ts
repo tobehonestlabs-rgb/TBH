@@ -28,7 +28,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { content, gif_url, image_url } = await req.json()
+    const { content, gif_url, image_url, photos } = await req.json()
     if (!content?.trim() && !gif_url && !image_url) return NextResponse.json({ error: 'Empty message' }, { status: 400 })
 
     const insertData: Record<string, any> = {
@@ -37,7 +37,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       content: content?.trim() || '', // content is required in DB but can be empty string
     }
     if (gif_url)         insertData.gif_url = gif_url
-    if (image_url)       insertData.image_url = image_url
+    if (photos)          insertData.photos = photos
+    else if (image_url)  insertData.image_url = image_url
 
     const { data, error } = await supabaseAdmin
       .from('conversation_messages')
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     // Update conversation last_message
     let lastMessageText = content?.trim() ?? ''
     if (gif_url) lastMessageText = '🎬 GIF'
-    if (image_url) lastMessageText = '📷 Photo'
+    if (photos || image_url) lastMessageText = '📷 Photo'
     if (!lastMessageText) lastMessageText = '📷 Photo'
     
     await supabaseAdmin
