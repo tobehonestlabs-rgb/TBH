@@ -12,6 +12,7 @@ type Conversation = {
   last_message_at: string | null
   last_message: string | null
   original_message_id: string | null
+  original_message_content?: string | null
   participant_1: string | null
   participant_2: string | null
 }
@@ -183,7 +184,12 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
   }
 
   const convDisplayName = (conv: Conversation) =>
-    convNames[conv.id] || conv.last_message || 'New conversation'
+    convNames[conv.id] || (conv.original_message_content ? truncate(conv.original_message_content, 60) : conv.last_message) || 'New conversation'
+
+  function truncate(s: string, n = 60) {
+    if (!s) return ''
+    return s.length > n ? s.slice(0, n - 1).trim() + '…' : s
+  }
 
   const sortedConvs = [...convs].sort((a, b) => {
     const aFav = favorites.has(a.id) ? 1 : 0
@@ -299,6 +305,32 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
     setShowGifPicker(false)
     // Refresh list on close to pick up any new last_message_at
     fetchConvs()
+  }
+
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const deleteConversation = async (convId: string) => {
+    const ok = window.confirm('Delete this conversation? This cannot be undone.')
+    if (!ok) return
+    setDeletingId(convId)
+    // optimistic UI remove
+    setConvs(prev => prev.filter(c => c.id !== convId))
+    if (selected?.id === convId) {
+      closeConv()
+    }
+    try {
+      const res = await fetch(`/api/conversations/${convId}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data?.error || 'Delete failed')
+      }
+    } catch (e) {
+      console.error('Delete conversation error', e)
+      // reload list if delete failed
+      fetchConvs()
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   useEffect(() => () => {
@@ -531,6 +563,17 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
                   </svg>
                 </button>
+                <button
+                  onClick={e => { e.stopPropagation(); deleteConversation(conv.id) }}
+                  className="w-6 h-6 flex items-center justify-center active:scale-75 transition-transform"
+                  title="Delete"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#CC5757" strokeWidth="1.8">
+                    <path d="M3 6h18" />
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                    <path d="M10 11v6M14 11v6M9 6V4h6v2" />
+                  </svg>
+                </button>
               </div>
             </button>
           )
@@ -612,6 +655,17 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
               <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
                 <path d="M12 20h9" stroke="#555" strokeWidth="2" strokeLinecap="round"/>
                 <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+            <button
+              onClick={() => deleteConversation(selected.id)}
+              className="w-8 h-8 rounded-full bg-[#F5F5F5] flex items-center justify-center active:scale-90 transition-transform flex-shrink-0 ml-2"
+              title="Delete conversation"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#CC5757" strokeWidth="1.6">
+                <path d="M3 6h18" />
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                <path d="M10 11v6M14 11v6M9 6V4h6v2" />
               </svg>
             </button>
           </div>
