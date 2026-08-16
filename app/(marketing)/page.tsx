@@ -454,7 +454,7 @@ function Hero({ locale }: { locale: Locale }) {
         <div className="marquee-track flex w-max gap-4">
           {marqueeNotes.map((note, i) => (
             <div
-              key={`${note.text}-${i}`}
+              key={`${note}-${i}`}
               className="relative shrink-0 w-64 rounded-xl bg-[#F5EFE3] text-[#1B1810] p-4 text-sm font-medium leading-snug shadow-[0_10px_24px_rgba(0,0,0,0.35)]"
               style={{ transform: `rotate(${i % 2 === 0 ? "-1.5deg" : "1.5deg"})` }}
             >
@@ -463,7 +463,7 @@ function Hero({ locale }: { locale: Locale }) {
                 className="absolute -top-2 left-1/2 -translate-x-1/2 w-9 h-3.5 rotate-[-3deg]"
                 style={{ background: "rgba(255,79,160,0.65)" }}
               />
-              {note.text}
+              {note}
             </div>
           ))}
         </div>

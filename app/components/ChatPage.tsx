@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { supabaseClient } from '@/lib/supabaseClient'
+import { formatMessageTime, formatGroupLabel, groupMessagesByDate } from '@/lib/chatUtils'
 import GifPicker, { GifResult } from './GifPicker'
 import ImageEditor from './ImageEditor'
 
@@ -23,7 +24,7 @@ type ConvMsg = {
   content: string | null
   gif_url?: string | null
   image_url?: string | null
-  photos?: string | null
+  photos?: string[] | string | null
   created_at: string
   is_read: boolean
 }
@@ -434,7 +435,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
 
   const sendImage = async () => {
     if (!selectedImage || !selected || sending) return
-    
+
     setSending(true)
     try {
       const imageUrl = await uploadImage(selectedImage)
@@ -443,10 +444,10 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
         setSending(false)
         return
       }
-      
+
       const r = await fetch(`/api/conversations/${selected.id}/messages`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: input.trim(), photos: imageUrl }),
+        body: JSON.stringify({ content: input.trim() || '', photos: [imageUrl] }),
       })
       const { message } = await r.json()
       if (message) {
@@ -456,8 +457,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
           : c))
         setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
       }
-      
-      // Reset image state and input
+
       setSelectedImage(null)
       setImagePreview(null)
       setInput('')
@@ -469,6 +469,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
   }
 
   const lastReadSentId = [...msgs].reverse().find(m => m.sender_id === myUserId && m.is_read)?.id
+  const groupedMessages = groupMessagesByDate(msgs)
 
   if (loading) {
     return (
@@ -689,20 +690,54 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                 <p className="text-[14px] text-[#ADADAD] text-center">No messages yet. Say hello!</p>
               </div>
             ) : (
-              msgs.map((m, i) => {
-                const isMine = m.sender_id === myUserId
-                const isLastMine = isMine && msgs.slice(i + 1).every(n => n.sender_id !== myUserId)
+              groupedMessages.map(group => (
+                <div key={group.key} className="flex flex-col gap-1.5">
+                  {group.label && (
+                    <div className="mx-auto my-2 rounded-full bg-[#0D0D0D] px-3 py-1.5 text-[10px] font-semibold text-white tracking-[0.08em] uppercase">
+                      {group.label}
+                    </div>
+                  )}
+                  {group.items.map((m, i) => {
+                    const isMine = m.sender_id === myUserId
+                    const isLastMine = isMine && group.items.slice(i + 1).every(n => n.sender_id !== myUserId)
+                    const photoUrls = Array.isArray(m.photos)
+                      ? m.photos.filter(Boolean)
+                      : typeof m.photos === 'string' && m.photos
+                        ? [m.photos]
+                        : m.image_url
+                          ? [m.image_url]
+                          : []
+
                     return (
                       <div key={m.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} ${animatingIds.has(m.id) ? 'msg-appear' : ''}`}>
-                    {m.gif_url ? (
-                      <img src={`/api/gif-proxy?url=${encodeURIComponent(m.gif_url)}`} alt="GIF" className="max-w-[220px] rounded-[16px] block" style={{ border: isMine ? '2px solid rgba(100,80,200,0.3)' : '2px solid #E8E8E8' }} />
-                    ) : ((): any => {
-                      const photoUrl = (m as ConvMsg).photos ?? m.image_url
-                      if (photoUrl) {
-                        return <img src={photoUrl} alt="Photo" className="max-w-[220px] rounded-[16px] block" style={{ border: isMine ? '2px solid rgba(100,80,200,0.3)' : '2px solid #E8E8E8' }} />
-                      }
-                      if (m.content) {
-                        return (
+                        {m.gif_url ? (
+                          <img src={`/api/gif-proxy?url=${encodeURIComponent(m.gif_url)}`} alt="GIF" className="max-w-[220px] rounded-[16px] block" style={{ border: isMine ? '2px solid rgba(100,80,200,0.3)' : '2px solid #E8E8E8' }} />
+                        ) : photoUrls.length > 0 ? (
+                          <div className="flex max-w-[220px] flex-col gap-2">
+                            {m.content && (
+                              <div
+                                className="px-4 py-3"
+                                style={{
+                                  background: isMine
+                                    ? 'linear-gradient(145deg, #0D0D0D 0%, #1C1C2E 55%, #2D1B69 100%)'
+                                    : '#F2F2F2',
+                                  borderRadius: isMine ? '20px 20px 5px 20px' : '20px 20px 20px 5px',
+                                }}
+                              >
+                                <p style={{ color: isMine ? '#FFFFFF' : '#0D0D0D', fontSize: '15px', lineHeight: '1.4' }}>{m.content}</p>
+                              </div>
+                            )}
+                            {photoUrls.map((photoUrl) => (
+                              <img
+                                key={`${m.id}-${photoUrl}`}
+                                src={photoUrl}
+                                alt="Photo"
+                                className="max-w-[220px] rounded-[16px] block object-cover"
+                                style={{ border: isMine ? '2px solid rgba(100,80,200,0.3)' : '2px solid #E8E8E8' }}
+                              />
+                            ))}
+                          </div>
+                        ) : m.content ? (
                           <div
                             className="max-w-[78%] px-4 py-3"
                             style={{
@@ -714,24 +749,21 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                           >
                             <p style={{ color: isMine ? '#FFFFFF' : '#0D0D0D', fontSize: '15px', lineHeight: '1.4' }}>{m.content}</p>
                           </div>
-                        )
-                      }
-                      return null
-                    })()}
-                    {(isLastMine || (i === msgs.length - 1 && !isMine)) && (
-                      <div className={`flex items-center gap-1 mt-0.5 px-1 ${isMine ? 'flex-row-reverse' : ''}`}>
-                        <span className="text-[10px] text-[#C8C8C8]">{timeAgo(m.created_at)}</span>
-                        {isMine && m.id === lastReadSentId && (
-                          <span className="text-[10px] text-[#2AC642] font-medium">Read</span>
-                        )}
-                        {isMine && m.id !== lastReadSentId && isLastMine && (
-                          <span className="text-[10px] text-[#C8C8C8]">Sent</span>
-                        )}
+                        ) : null}
+                        <div className={`flex items-center gap-1 mt-0.5 px-1 ${isMine ? 'flex-row-reverse' : ''}`}>
+                          <span className="text-[10px] text-[#C8C8C8]">{formatMessageTime(m.created_at)}</span>
+                          {isMine && m.id === lastReadSentId && (
+                            <span className="text-[10px] text-[#2AC642] font-medium">Read</span>
+                          )}
+                          {isMine && m.id !== lastReadSentId && isLastMine && (
+                            <span className="text-[10px] text-[#C8C8C8]">Sent</span>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                )
-              })
+                    )
+                  })}
+                </div>
+              ))
             )}
             <div ref={bottomRef} />
           </div>

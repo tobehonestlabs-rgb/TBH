@@ -26,15 +26,19 @@ export async function POST(req: NextRequest) {
     // Create Supabase client with service role key for admin access
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Generate unique filename
-    const fileExt = file.name.split('.').pop()
-    const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`
-    const filePath = `${fileName}`
+    // Require an authenticated user and scope images by user id
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-    // Upload to Supabase storage
-    const { data: uploadData, error: uploadError } = await supabase
+    const fileExt = file.name.split('.').pop() || 'jpg'
+    const cleanName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_') || `chat-${Date.now()}.jpg`
+    const filePath = `${user.id}/${Date.now()}_${cleanName}`
+
+    const { error: uploadError } = await supabase
       .storage
-      .from('images')
+      .from('chat_images')
       .upload(filePath, file, {
         upsert: false,
         contentType: file.type,
@@ -45,10 +49,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Upload failed' }, { status: 500 })
     }
 
-    // Get public URL
     const { data: { publicUrl } } = supabase
       .storage
-      .from('images')
+      .from('chat_images')
       .getPublicUrl(filePath)
 
     return NextResponse.json({ url: publicUrl })
