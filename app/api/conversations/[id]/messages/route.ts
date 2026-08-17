@@ -1,39 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
-import { createClient } from '@supabase/supabase-js'
+import { getServerSupabase } from '@/lib/serverSupabase'
 
 // --------------------------------------------------------------------
 // GET : Récupère les messages d'une conversation
 // --------------------------------------------------------------------
-export async function GET(
+export async function GET( 
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
 
-    // 1. Extraire le token du header Authorization
-    const authHeader = req.headers.get('Authorization')
-    const token = authHeader?.split(' ')[1] // "Bearer <token>"
+    const supabase = getServerSupabase()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized: missing token' }, { status: 401 })
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // 2. Créer un client Supabase avec ce token pour vérifier l'utilisateur
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { global: { headers: { Authorization: `Bearer ${token}` } } }
-    )
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-
-    if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized: invalid token' }, { status: 401 })
-    }
-
-    // 3. Récupérer les messages (avec supabaseAdmin qui a les droits)
     const { data, error } = await supabaseAdmin
       .from('conversation_messages')
       .select('*')
@@ -60,27 +45,16 @@ export async function POST(
   try {
     const { id } = await params
 
-    const authHeader = req.headers.get('Authorization')
-    const token = authHeader?.split(' ')[1]
+    const supabase = getServerSupabase()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized: missing token' }, { status: 401 })
-    }
-
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { global: { headers: { Authorization: `Bearer ${token}` } } }
-    )
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-
-    if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized: invalid token' }, { status: 401 })
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { content, gif_url, image_url, photos } = await req.json()
 
+    // Vérifier qu'il y a au moins un contenu
     const hasText = content?.trim()?.length > 0
     const hasGif = !!gif_url
     const hasImageUrl = !!image_url
@@ -90,16 +64,18 @@ export async function POST(
       return NextResponse.json({ error: 'Empty message' }, { status: 400 })
     }
 
+    // Construire l'objet d'insertion
     const insertData: Record<string, any> = {
       conversation_id: id,
       sender_id: user.id,
-      content: content?.trim() || '',
+      content: content?.trim() || '', // champ requis en DB
     }
 
     if (hasGif) insertData.gif_url = gif_url
     if (hasPhotos) insertData.photos = photos
     else if (hasImageUrl) insertData.image_url = image_url
 
+    // Insérer le message
     const { data, error } = await supabaseAdmin
       .from('conversation_messages')
       .insert(insertData)
@@ -110,8 +86,8 @@ export async function POST(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Mettre à jour la conversation
-    let lastMessageText = '📷 Photo'
+    // Mettre à jour la conversation (dernier message)
+    let lastMessageText = '📷 Photo' // fallback
     if (hasText) lastMessageText = content.trim()
     else if (hasGif) lastMessageText = '🎬 GIF'
     else if (hasPhotos || hasImageUrl) lastMessageText = '📷 Photo'
