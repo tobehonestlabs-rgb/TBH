@@ -413,11 +413,21 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
 
   const uploadImage = async (file: File): Promise<string | null> => {
     try {
+      // Ensure we send the user's JWT so the upload route can authenticate
+      const { data: { session } } = await supabaseClient.auth.getSession()
+      if (!session) {
+        alert('Please sign in to upload images')
+        return null
+      }
+
       const formData = new FormData()
       formData.append('file', file)
-      
+
       const response = await fetch('/api/upload-image', {
         method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: formData,
       })
       
