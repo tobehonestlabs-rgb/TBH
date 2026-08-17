@@ -5,7 +5,7 @@ import { getServerSupabase } from '@/lib/serverSupabase'
 // --------------------------------------------------------------------
 // GET : Récupère les messages d'une conversation
 // --------------------------------------------------------------------
-export async function GET(
+export async function GET( 
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
