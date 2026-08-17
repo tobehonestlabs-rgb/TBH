@@ -2,103 +2,65 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { getServerSupabase } from '@/lib/serverSupabase'
 
-// --------------------------------------------------------------------
-// GET : Récupère les messages d'une conversation
-// --------------------------------------------------------------------
-export async function GET( 
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params
 
+export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+  try {
     const supabase = getServerSupabase()
     const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { data, error } = await supabaseAdmin
       .from('conversation_messages')
       .select('*')
-      .eq('conversation_id', id)
+      .eq('conversation_id', params.id)
       .order('created_at', { ascending: true })
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ messages: data ?? [] })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }
 
-// --------------------------------------------------------------------
-// POST : Envoie un nouveau message (texte, GIF, image, photos)
-// --------------------------------------------------------------------
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { id } = await params
-
     const supabase = getServerSupabase()
     const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { content, gif_url, image_url, photos } = await req.json()
+    if (!content?.trim() && !gif_url && !image_url) return NextResponse.json({ error: 'Empty message' }, { status: 400 })
 
-    // Vérifier qu'il y a au moins un contenu
-    const hasText = content?.trim()?.length > 0
-    const hasGif = !!gif_url
-    const hasImageUrl = !!image_url
-    const hasPhotos = photos && Array.isArray(photos) && photos.length > 0
-
-    if (!hasText && !hasGif && !hasImageUrl && !hasPhotos) {
-      return NextResponse.json({ error: 'Empty message' }, { status: 400 })
-    }
-
-    // Construire l'objet d'insertion
     const insertData: Record<string, any> = {
-      conversation_id: id,
+      conversation_id: params.id,
       sender_id: user.id,
-      content: content?.trim() || '', // champ requis en DB
+      content: content?.trim() || '', // content is required in DB but can be empty string
     }
+    if (gif_url)         insertData.gif_url = gif_url
+    if (photos)          insertData.photos = photos
+    else if (image_url)  insertData.image_url = image_url
 
-    if (hasGif) insertData.gif_url = gif_url
-    if (hasPhotos) insertData.photos = photos
-    else if (hasImageUrl) insertData.image_url = image_url
-
-    // Insérer le message
     const { data, error } = await supabaseAdmin
       .from('conversation_messages')
       .insert(insertData)
       .select()
       .single()
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    // Mettre à jour la conversation (dernier message)
-    let lastMessageText = '📷 Photo' // fallback
-    if (hasText) lastMessageText = content.trim()
-    else if (hasGif) lastMessageText = '🎬 GIF'
-    else if (hasPhotos || hasImageUrl) lastMessageText = '📷 Photo'
-
+    // Update conversation last_message
+    let lastMessageText = content?.trim() ?? ''
+    if (gif_url) lastMessageText = '🎬 GIF'
+    if (photos || image_url) lastMessageText = '📷 Photo'
+    if (!lastMessageText) lastMessageText = '📷 Photo'
+    
     await supabaseAdmin
       .from('conversations')
       .update({
-        last_message: lastMessageText,
+        last_message:    lastMessageText,
         last_message_at: new Date().toISOString(),
       })
-      .eq('id', id)
+      .eq('id', params.id)
 
     return NextResponse.json({ message: data })
   } catch (e: any) {
