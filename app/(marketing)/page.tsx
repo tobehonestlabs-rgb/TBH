@@ -8,52 +8,223 @@ import { useEffect, useState } from "react";
 // data
 // ────────────────────────────────────────────────────────────
 
-const notes = [
-  { text: "ok but why are you always this funny 😭" },
-  { text: "who ru texting rn... spill" },
-  { text: "not me thinking about what you said all week" },
-  { text: "rate my fit check, be honest" },
-  { text: "you're giving main character energy fr" },
-  { text: "had a crush on you since forever, ngl 👀" },
-  { text: "send help i can't stop laughing at your story" },
-  { text: "be honest, do you even remember me 💀" },
+type Locale = 'en' | 'fr' | 'es'
+
+type LandingCopy = {
+  nav: { how: string; features: string; live: string; about: string; logIn: string; getMyLink: string }
+  hero: {
+    badge: string
+    title: string
+    subtitle: string
+    ctaPrimary: string
+    ctaSecondary: string
+  }
+  sections: {
+    lowEffort: string
+    howTitle: string
+    steps: { n: string; title: string; body: string }[]
+    featuresEyebrow: string
+    featuresTitle: string
+    reasons: { n: string; title: string; body: string }[]
+    lovedTitle: string
+    lovedBody: string
+    liveTitle: string
+    liveBody: string
+    ctaTitle: string
+    ctaBody: string
+    ctaButton: string
+    footerTagline: string
+    legal: string
+  }
+  notes: string[]
+}
+
+const notesByLocale: Record<Locale, string[]> = {
+  en: [
+    "ok but why are you always this funny 😭",
+    "who ru texting rn... spill",
+    "not me thinking about what you said all week",
+    "rate my fit check, be honest",
+    "you're giving main character energy fr",
+    "had a crush on you since forever, ngl 👀",
+    "send help i can't stop laughing at your story",
+    "be honest, do you even remember me 💀",
+  ],
+  fr: [
+    "ok mais pourquoi tu es toujours aussi drôle 😭",
+    "qui tu messages là... balance",
+    "pas moi qui pense à ce que tu as dit toute la semaine",
+    "note mon look, sois honnête",
+    "tu as une énergie de personnage principal en vrai",
+    "je te kiffais depuis toujours, sans mentir 👀",
+    "aide-moi, je peux pas arrêter de rire à ton histoire",
+    "sois honnête, tu te souviens encore de moi 💀",
+  ],
+  es: [
+    "ok pero ¿por qué siempre eres tan gracioso 😭",
+    "a quién le estás escribiendo ahora... cuéntalo",
+    "yo no, pensando en lo que me dijiste toda la semana",
+    "califica mi look, sé honesto",
+    "estás dando energía de protagonista, de verdad",
+    "he tenido crush por ti desde siempre, en serio 👀",
+    "ayuda, no puedo parar de reír con tu historia",
+    "sé honesto, ¿te acuerdas de mí? 💀",
+  ],
+}
+
+const landingCopy: Record<Locale, LandingCopy> = {
+  en: {
+    nav: { how: 'how it works', features: 'features', live: 'see it live', about: 'about', logIn: 'log in', getMyLink: 'get my link' },
+    hero: { badge: 'real friends. real fun. real you.', title: 'have real fun with\n your real friends.', subtitle: 'Drop your link. Get anonymous notes from people who already care about you. Spoiler: you\'re probably more popular than you think.', ctaPrimary: 'get my link →', ctaSecondary: 'see it live' },
+    sections: {
+      lowEffort: 'low effort, high reward',
+      howTitle: 'how it actually works',
+      steps: [
+        { n: '01', title: 'make your link', body: 'takes like 10 secs. no cap.' },
+        { n: '02', title: 'drop it everywhere', body: 'story, bio, group chat — wherever your people already hang.' },
+        { n: '03', title: 'watch the notes roll in', body: 'anonymous messages from your actual circle. read, reply, vibe.' },
+      ],
+      featuresEyebrow: 'why tbh hits different',
+      featuresTitle: 'your social life, but louder',
+      reasons: [
+        { n: '01', title: 'fully anonymous, fr', body: 'no usernames, no receipts. just the message.' },
+        { n: '02', title: 'it\'s your people', body: 'notes come from your circle — not randoms on the internet.' },
+        { n: '03', title: 'say something back', body: 'reply, react, keep the convo going. it\'s social, not a drop box.' },
+        { n: '04', title: 'make it yours', body: 'customize your page so it actually feels like you.' },
+        { n: '05', title: 'pics & voice notes', body: 'send photos, memes, and voice messages — pitch-shifted for extra mystery.' },
+        { n: '06', title: 'keep the thread alive', body: 'one note can turn into a whole convo. lowkey addictive.' },
+      ],
+      lovedTitle: 'you\'re more loved\nthan you think.',
+      lovedBody: 'Every note in your inbox is proof someone was thinking about you today. That\'s literally the whole point — we\'re here to show you how loved you actually are.',
+      liveTitle: 'here\'s what it looks like',
+      liveBody: 'No names attached. Just the message. Reply, screenshot it, or let it sit in your inbox as proof someone cares.',
+      ctaTitle: 'ready to find out\n how loved you actually are?',
+      ctaBody: 'it\'s free. your friends are already waiting.',
+      ctaButton: 'create my tbh →',
+      footerTagline: 'real notes. real people. real excitement.',
+      legal: 'legal',
+    },
+    notes: [
+      'ok your playlist is unreal, send the link',
+      'not gonna lie you\'ve been on my mind all day',
+      'who taught you to dress like that 😭 (compliment)',
+      'you always know what to say, how',
+    ],
+  },
+  fr: {
+    nav: { how: 'comment ça marche', features: 'fonctionnalités', live: 'voir en direct', about: 'à propos', logIn: 'connexion', getMyLink: 'obtenir mon lien' },
+    hero: { badge: 'de vrais amis. du vrai fun. toi, vraiment.', title: 'amuse-toi vraiment\n avec tes vrais amis.', subtitle: 'Partage ton lien. Reçois des messages anonymes de personnes qui se soucient déjà de toi. Spoiler : tu es probablement plus populaire que tu penses.', ctaPrimary: 'obtenir mon lien →', ctaSecondary: 'voir en direct' },
+    sections: {
+      lowEffort: 'peu d’effort, gros bénéfice',
+      howTitle: 'comment ça marche vraiment',
+      steps: [
+        { n: '01', title: 'crée ton lien', body: 'ça prend 10 secondes. sans blague.' },
+        { n: '02', title: 'partage-le partout', body: 'story, bio, groupe — là où tes gens se trouvent déjà.' },
+        { n: '03', title: 'regarde les notes arriver', body: 'des messages anonymes de ton cercle. lis, réponds, profites.' },
+      ],
+      featuresEyebrow: 'pourquoi tbh ça déchire',
+      featuresTitle: 'ta vie sociale, mais plus forte',
+      reasons: [
+        { n: '01', title: 'entièrement anonyme', body: 'pas de pseudos, pas de traces. juste le message.' },
+        { n: '02', title: 'ce sont tes gens', body: 'les notes viennent de ton cercle — pas de gens aléatoires sur internet.' },
+        { n: '03', title: 'réponds en retour', body: 'réponds, réagis, garde la conversation. c\'est social, pas une boîte.' },
+        { n: '04', title: 'fais-le à ton image', body: 'personnalise ta page pour qu\'elle te ressemble vraiment.' },
+        { n: '05', title: 'photos et voix', body: 'envoie des photos, memes et messages vocaux — déformés pour plus de mystère.' },
+        { n: '06', title: 'garde la discussion vivante', body: 'une note peut devenir une vraie conversation. addictif, vraiment.' },
+      ],
+      lovedTitle: 'tu es plus aimé\n que tu le penses.',
+      lovedBody: 'Chaque note dans ta boîte est la preuve que quelqu’un pensait à toi aujourd’hui. C\'est précisément le but — on est là pour te montrer à quel point tu es aimé.',
+      liveTitle: 'voilà à quoi ça ressemble',
+      liveBody: 'Pas de noms. Juste le message. Réponds, prends une capture, ou laisse-le dans ta boîte comme preuve que quelqu\'un se soucie de toi.',
+      ctaTitle: 'prêt à savoir\n à quel point tu es aimé ?',
+      ctaBody: 'c\'est gratuit. tes amis t\'attendent déjà.',
+      ctaButton: 'crée mon tbh →',
+      footerTagline: 'de vraies notes. de vraies personnes. de vrai buzz.',
+      legal: 'légal',
+    },
+    notes: [
+      'ta playlist est incroyable, envoie le lien',
+      'à vrai dire, tu m\'es dans la tête toute la journée',
+      'qui t\'a appris à t\'habiller comme ça 😭 (compliment)',
+      'tu sais toujours quoi dire, tu vois',
+    ],
+  },
+  es: {
+    nav: { how: 'cómo funciona', features: 'características', live: 'ver en vivo', about: 'sobre nosotros', logIn: 'iniciar sesión', getMyLink: 'obtener mi enlace' },
+    hero: { badge: 'amigos reales. diversión real. tú.', title: 'diviértete de verdad\n con tus amigos reales.', subtitle: 'Comparte tu enlace. Recibe notas anónimas de gente que ya se preocupa por ti. Spoiler: probablemente eres más popular de lo que crees.', ctaPrimary: 'obtener mi enlace →', ctaSecondary: 'ver en vivo' },
+    sections: {
+      lowEffort: 'poco esfuerzo, gran premio',
+      howTitle: 'cómo funciona de verdad',
+      steps: [
+        { n: '01', title: 'crea tu enlace', body: 'toma 10 segundos. sin drama.' },
+        { n: '02', title: 'compártelo por todos lados', body: 'stories, bio, grupo — donde ya estén tus personas.' },
+        { n: '03', title: 'mira llegar las notas', body: 'mensajes anónimos de tu círculo. lee, responde y disfruta.' },
+      ],
+      featuresEyebrow: 'por qué tbh es distinto',
+      featuresTitle: 'tu vida social, pero más fuerte',
+      reasons: [
+        { n: '01', title: 'totalmente anónimo', body: 'sin nombres, sin rastros. solo el mensaje.' },
+        { n: '02', title: 'son tu gente', body: 'las notas vienen de tu círculo — no de cualquiera en internet.' },
+        { n: '03', title: 'responde', body: 'responde, reacciona y sigue la conversación. es social, no una caja.' },
+        { n: '04', title: 'hazlo tuyo', body: 'personaliza tu página para que se sienta como tú.' },
+        { n: '05', title: 'fotos y notas de voz', body: 'envía fotos, memes y mensajes de voz — con efecto para más misterio.' },
+        { n: '06', title: 'mantén la conversación viva', body: 'una nota puede volverse en toda una charla. bastante adictivo.' },
+      ],
+      lovedTitle: 'eres más querido\n de lo que piensas.',
+      lovedBody: 'Cada nota en tu bandeja es la prueba de que alguien pensó en ti hoy. Ese es el punto — estamos aquí para mostrarte cuánto te quieren.',
+      liveTitle: 'así es como se ve',
+      liveBody: 'Sin nombres. Solo el mensaje. Responde, haz captura o déjalo en la bandeja como prueba de que alguien te quiere.',
+      ctaTitle: '¿listo para descubrir\n cuánto te quieren de verdad?',
+      ctaBody: 'es gratis. tus amigos ya te están esperando.',
+      ctaButton: 'crear mi tbh →',
+      footerTagline: 'notas reales. personas reales. emoción real.',
+      legal: 'legal',
+    },
+    notes: [
+      'tu playlist está increíble, envía el enlace',
+      'la verdad es que te he tenido en la cabeza todo el día',
+      '¿quién te enseñó a vestir así 😭 (complimento)',
+      'siempre sabes qué decir, en serio',
+    ],
+  },
+}
+
+const navLinks = (locale: Locale) => [
+  { href: '#how', label: landingCopy[locale].nav.how },
+  { href: '#features', label: landingCopy[locale].nav.features },
+  { href: '#live', label: landingCopy[locale].nav.live },
 ];
 
-const steps = [
-  { n: "01", title: "make your link", body: "takes like 10 secs. no cap." },
-  { n: "02", title: "drop it everywhere", body: "story, bio, group chat — wherever your people already hang." },
-  { n: "03", title: "watch the notes roll in", body: "anonymous messages from your actual circle. read, reply, vibe." },
+const languageOptions: { value: Locale; label: string }[] = [
+  { value: 'en', label: 'English' },
+  { value: 'fr', label: 'Français' },
+  { value: 'es', label: 'Español' },
 ];
 
-const reasons = [
-  { n: "01", title: "fully anonymous, fr", body: "no usernames, no receipts. just the message." },
-  { n: "02", title: "it's your people", body: "notes come from your circle — not randoms on the internet." },
-  { n: "03", title: "say something back", body: "reply, react, keep the convo going. it's social, not a drop box." },
-  { n: "04", title: "make it yours", body: "customize your page so it actually feels like you." },
-  { n: "05", title: "pics & voice notes", body: "send photos, memes, and voice messages — pitch-shifted for extra mystery." },
-  { n: "06", title: "keep the thread alive", body: "one note can turn into a whole convo. lowkey addictive." },
-];
+const getStoredLocale = (): Locale => {
+  if (typeof window === 'undefined') return 'en';
+  const stored = window.localStorage.getItem('tbh-locale');
+  if (stored === 'en' || stored === 'fr' || stored === 'es') return stored;
+  const lang = window.navigator.language?.toLowerCase() ?? 'en';
+  if (lang.startsWith('fr')) return 'fr';
+  if (lang.startsWith('es')) return 'es';
+  return 'en';
+};
 
-const feed = [
-  "ok your playlist is unreal, send the link",
-  "not gonna lie you've been on my mind all day",
-  "who taught you to dress like that 😭 (compliment)",
-  "you always know what to say, how",
-];
-
-const navLinks = [
-  { href: "#how", label: "how it works" },
-  { href: "#features", label: "features" },
-  { href: "#live", label: "see it live" },
-];
+const isIvoryCoast = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const country = window.navigator.language?.split('-')[1]?.toUpperCase() ?? '';
+  return country === 'CI';
+};
 
 // ────────────────────────────────────────────────────────────
 // nav
 // ────────────────────────────────────────────────────────────
 
-function Nav() {
+function Nav({ locale, onLocaleChange }: { locale: Locale; onLocaleChange: (value: Locale) => void }) {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const copy = landingCopy[locale];
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -88,7 +259,7 @@ function Nav() {
 
           {/* desktop nav */}
           <nav className="hidden md:flex items-center gap-1">
-            {navLinks.map(link => (
+            {navLinks(locale).map(link => (
               <a
                 key={link.href}
                 href={link.href}
@@ -97,23 +268,35 @@ function Nav() {
                 {link.label}
               </a>
             ))}
+            <div className="ml-2 flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-2 py-1">
+              {languageOptions.map(option => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => onLocaleChange(option.value)}
+                  className={`rounded-full px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${locale === option.value ? 'bg-white text-[#0B0B10]' : 'text-[#8B8894] hover:text-[#F5F4F2]'}`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
             <Link
               href="/about"
               className="px-4 py-2 text-sm font-medium text-[#8B8894] hover:text-[#F5F4F2] rounded-full hover:bg-white/[0.05] transition-all"
             >
-              about
+              {copy.nav.about}
             </Link>
             <Link
               href="/sign-up"
               className="ml-2 px-4 py-2 text-sm font-medium text-[#8B8894] hover:text-[#F5F4F2] transition-colors"
             >
-              log in
+              {copy.nav.logIn}
             </Link>
             <Link
               href="/sign-up"
               className="ml-1 px-5 py-2.5 rounded-full text-sm font-semibold bg-[#F5F4F2] text-[#0B0B10] hover:scale-105 active:scale-95 transition-transform focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF4FA0]"
             >
-              get my link
+              {copy.nav.getMyLink}
             </Link>
           </nav>
 
@@ -155,7 +338,7 @@ function Nav() {
               className="fixed top-0 right-0 bottom-0 z-50 w-[min(320px,85vw)] md:hidden bg-[#111017] border-l border-white/10 flex flex-col pt-24 px-6 pb-8"
             >
               <div className="flex flex-col gap-1">
-                {navLinks.map((link, i) => (
+                {navLinks(locale).map((link, i) => (
                   <motion.a
                     key={link.href}
                     href={link.href}
@@ -168,9 +351,23 @@ function Nav() {
                     {link.label}
                   </motion.a>
                 ))}
+                <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 }} className="mt-2 rounded-2xl border border-white/10 bg-white/[0.03] p-2">
+                  <div className="flex gap-2">
+                    {languageOptions.map(option => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => { onLocaleChange(option.value); closeMenu(); }}
+                        className={`flex-1 rounded-xl px-3 py-2 text-sm font-semibold ${locale === option.value ? 'bg-white text-[#0B0B10]' : 'text-[#8B8894] bg-transparent'}`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
                 <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 }}>
                   <Link href="/about" onClick={closeMenu} className="block px-4 py-3.5 text-lg font-semibold text-[#8B8894] rounded-2xl hover:bg-white/[0.06] transition-colors">
-                    about
+                    {copy.nav.about}
                   </Link>
                 </motion.div>
               </div>
@@ -181,14 +378,14 @@ function Nav() {
                   onClick={closeMenu}
                   className="w-full py-4 rounded-full text-center text-sm font-semibold border border-white/15 text-[#F5F4F2] hover:bg-white/[0.05] transition-colors"
                 >
-                  log in
+                  {copy.nav.logIn}
                 </Link>
                 <Link
                   href="/sign-up"
                   onClick={closeMenu}
                   className="w-full py-4 rounded-full text-center text-sm font-bold bg-gradient-to-r from-[#FF6B4D] via-[#FF4FA0] to-[#8B5CF6] text-white hover:scale-[1.02] active:scale-95 transition-transform"
                 >
-                  get my link →
+                  {copy.nav.getMyLink} →
                 </Link>
               </div>
             </motion.nav>
@@ -203,8 +400,9 @@ function Nav() {
 // sections
 // ────────────────────────────────────────────────────────────
 
-function Hero() {
-  const marqueeNotes = [...notes, ...notes];
+function Hero({ locale }: { locale: Locale }) {
+  const copy = landingCopy[locale];
+  const marqueeNotes = [...copy.notes, ...copy.notes];
 
   return (
     <section className="relative overflow-hidden bg-[#0B0B10] pt-36 sm:pt-40 pb-8 px-6">
@@ -219,7 +417,7 @@ function Hero() {
       >
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/10 bg-white/[0.04] text-xs font-semibold text-[#8B8894] mb-8">
           <span className="w-1.5 h-1.5 rounded-full bg-[#34C759] animate-pulse" />
-          real friends. real fun. real you.
+          {copy.hero.badge}
         </div>
 
         <div className="mx-auto mb-8 w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF6B4D] via-[#FF4FA0] to-[#8B5CF6] flex items-center justify-center shadow-[0_10px_30px_rgba(255,79,160,0.35)]">
@@ -227,26 +425,27 @@ function Hero() {
         </div>
 
         <h1 className="font-display text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[0.95] text-[#F5F4F2]">
-          have real fun with
-          <br />
-          your <span className="gradient-text">real friends.</span>
+          {copy.hero.title.split('\n').map((line, index) => (
+            <span key={line + index} className="block">
+              {index === 1 ? <span className="gradient-text">{line}</span> : line}
+            </span>
+          ))}
         </h1>
         <p className="mt-6 text-lg text-[#8B8894] max-w-md mx-auto leading-relaxed">
-          Drop your link. Get anonymous notes from people who already care about you.
-          Spoiler: you&apos;re probably more popular than you think.
+          {copy.hero.subtitle}
         </p>
         <div className="mt-9 flex flex-wrap justify-center gap-4">
           <Link
             href="/sign-up"
             className="px-8 py-4 rounded-full bg-[#F5F4F2] text-[#0B0B10] font-semibold hover:scale-105 active:scale-95 transition-transform focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF4FA0]"
           >
-            get my link →
+            {copy.hero.ctaPrimary}
           </Link>
           <a
             href="#live"
             className="px-8 py-4 rounded-full border border-white/15 text-[#F5F4F2] font-semibold hover:bg-white/5 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF4FA0]"
           >
-            see it live
+            {copy.hero.ctaSecondary}
           </a>
         </div>
       </motion.div>
@@ -255,7 +454,7 @@ function Hero() {
         <div className="marquee-track flex w-max gap-4">
           {marqueeNotes.map((note, i) => (
             <div
-              key={`${note.text}-${i}`}
+              key={`${note}-${i}`}
               className="relative shrink-0 w-64 rounded-xl bg-[#F5EFE3] text-[#1B1810] p-4 text-sm font-medium leading-snug shadow-[0_10px_24px_rgba(0,0,0,0.35)]"
               style={{ transform: `rotate(${i % 2 === 0 ? "-1.5deg" : "1.5deg"})` }}
             >
@@ -264,7 +463,7 @@ function Hero() {
                 className="absolute -top-2 left-1/2 -translate-x-1/2 w-9 h-3.5 rotate-[-3deg]"
                 style={{ background: "rgba(255,79,160,0.65)" }}
               />
-              {note.text}
+              {note}
             </div>
           ))}
         </div>
@@ -275,17 +474,18 @@ function Hero() {
   );
 }
 
-function HowItWorks() {
+function HowItWorks({ locale }: { locale: Locale }) {
+  const copy = landingCopy[locale];
   return (
     <section id="how" className="relative bg-[#0B0B10] px-6 py-24 scroll-mt-24">
       <div className="max-w-4xl mx-auto text-center">
-        <p className="text-sm font-semibold uppercase tracking-widest text-[#FF4FA0] mb-3">low effort, high reward</p>
+        <p className="text-sm font-semibold uppercase tracking-widest text-[#FF4FA0] mb-3">{copy.sections.lowEffort}</p>
         <h2 className="font-display text-3xl sm:text-4xl font-bold text-[#F5F4F2]">
-          how it actually works
+          {copy.sections.howTitle}
         </h2>
         <div className="grid sm:grid-cols-3 gap-10 relative mt-16">
           <div className="hidden sm:block absolute top-6 left-0 right-0 h-px bg-white/10" />
-          {steps.map((step, i) => (
+          {copy.sections.steps.map((step, i) => (
             <motion.div
               key={step.n}
               initial={{ opacity: 0, y: 20 }}
@@ -307,16 +507,17 @@ function HowItWorks() {
   );
 }
 
-function Features() {
+function Features({ locale }: { locale: Locale }) {
+  const copy = landingCopy[locale];
   return (
     <section id="features" className="bg-[#0B0B10] px-6 py-24 border-t border-white/5 scroll-mt-24">
       <div className="max-w-5xl mx-auto text-center">
-        <p className="text-sm font-semibold uppercase tracking-widest text-[#8B5CF6] mb-3">why tbh hits different</p>
+        <p className="text-sm font-semibold uppercase tracking-widest text-[#8B5CF6] mb-3">{copy.sections.featuresEyebrow}</p>
         <h2 className="font-display text-3xl sm:text-4xl font-bold text-[#F5F4F2]">
-          your social life, but louder
+          {copy.sections.featuresTitle}
         </h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-16">
-          {reasons.map((r, i) => (
+          {copy.sections.reasons.map((r, i) => (
             <motion.div
               key={r.n}
               initial={{ opacity: 0, y: 16 }}
@@ -338,7 +539,8 @@ function Features() {
   );
 }
 
-function LovedSection() {
+function LovedSection({ locale }: { locale: Locale }) {
+  const copy = landingCopy[locale];
   return (
     <section className="relative bg-[#0B0B10] px-6 py-28 overflow-hidden">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(139,92,246,0.14),transparent_60%)]" />
@@ -350,29 +552,28 @@ function LovedSection() {
         className="relative max-w-3xl mx-auto text-center"
       >
         <p className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight text-[#F5F4F2]">
-          you&apos;re more loved
-          <br />
-          than you think.
+          {copy.sections.lovedTitle.split('\n').map((line, index) => (
+            <span key={line + index} className="block">{line}</span>
+          ))}
         </p>
         <p className="mt-6 text-lg text-[#8B8894] max-w-xl mx-auto leading-relaxed">
-          Every note in your inbox is proof someone was thinking about you today.
-          That&apos;s literally the whole point — we&apos;re here to show you how loved you actually are.
+          {copy.sections.lovedBody}
         </p>
       </motion.div>
     </section>
   );
 }
 
-function LiveDemo() {
+function LiveDemo({ locale }: { locale: Locale }) {
+  const copy = landingCopy[locale];
   return (
     <section id="live" className="bg-[#0B0B10] px-6 py-24 border-t border-white/5 scroll-mt-24">
       <div className="max-w-xl mx-auto text-center">
         <h2 className="font-display text-3xl sm:text-4xl font-bold text-[#F5F4F2] mb-4">
-          here&apos;s what it looks like
+          {copy.sections.liveTitle}
         </h2>
         <p className="text-[#8B8894] leading-relaxed">
-          No names attached. Just the message. Reply, screenshot it, or let it sit
-          in your inbox as proof someone cares.
+          {copy.sections.liveBody}
         </p>
       </div>
 
@@ -381,7 +582,7 @@ function LiveDemo() {
           <div className="w-24 h-5 bg-[#0B0B10] rounded-b-2xl" />
         </div>
         <div className="pt-12 px-4 space-y-3 h-full overflow-hidden">
-          {feed.map((msg, i) => (
+          {copy.notes.map((msg, i) => (
             <motion.div
               key={msg}
               initial={{ opacity: 0, y: 24 }}
@@ -399,37 +600,39 @@ function LiveDemo() {
   );
 }
 
-function CallToAction() {
+function CallToAction({ locale }: { locale: Locale }) {
+  const copy = landingCopy[locale];
   return (
     <section className="relative bg-[#0B0B10] px-6 py-28 text-center overflow-hidden border-t border-white/5">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,79,160,0.15),transparent_60%)]" />
       <div className="relative max-w-2xl mx-auto">
         <h2 className="font-display text-4xl sm:text-5xl font-bold text-[#F5F4F2] mb-6 leading-tight">
-          ready to find out
-          <br />
-          how loved you actually are?
+          {copy.sections.ctaTitle.split('\n').map((line, index) => (
+            <span key={line + index} className="block">{line}</span>
+          ))}
         </h2>
-        <p className="text-[#8B8894] mb-8">it&apos;s free. your friends are already waiting.</p>
+        <p className="text-[#8B8894] mb-8">{copy.sections.ctaBody}</p>
         <Link
           href="/sign-up"
           className="inline-block px-10 py-4 rounded-full bg-gradient-to-r from-[#FF6B4D] via-[#FF4FA0] to-[#8B5CF6] text-white font-semibold hover:scale-105 active:scale-95 transition-transform focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
         >
-          create my tbh →
+          {copy.sections.ctaButton}
         </Link>
       </div>
     </section>
   );
 }
 
-function Footer() {
+function Footer({ locale }: { locale: Locale }) {
+  const copy = landingCopy[locale];
   return (
     <footer className="bg-[#0B0B10] border-t border-white/5 px-6 py-14">
       <div className="max-w-7xl mx-auto flex flex-col items-center text-center gap-3">
         <span className="font-display text-xl font-bold text-[#F5F4F2]">tbh</span>
-        <p className="text-sm text-[#8B8894]">real notes. real people. real excitement.</p>
+        <p className="text-sm text-[#8B8894]">{copy.sections.footerTagline}</p>
         <div className="flex gap-6 text-sm text-[#8B8894] mt-3">
-          <Link href="/about" className="hover:text-[#F5F4F2] transition-colors">about</Link>
-          <Link href="/legal" className="hover:text-[#F5F4F2] transition-colors">legal</Link>
+          <Link href="/about" className="hover:text-[#F5F4F2] transition-colors">{copy.nav.about}</Link>
+          <Link href="/legal" className="hover:text-[#F5F4F2] transition-colors">{copy.sections.legal}</Link>
         </div>
       </div>
     </footer>
@@ -437,16 +640,34 @@ function Footer() {
 }
 
 export default function Home() {
+  const [locale, setLocale] = useState<Locale>('en');
+
+  useEffect(() => {
+    const initialLocale = getStoredLocale();
+    if (initialLocale === 'fr' || initialLocale === 'es') {
+      setLocale(initialLocale);
+      return;
+    }
+    const defaultLocale = isIvoryCoast() || window.navigator.language?.toLowerCase().startsWith('fr') ? 'fr' : 'en';
+    setLocale(defaultLocale);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('tbh-locale', locale);
+    }
+  }, [locale]);
+
   return (
     <main className="bg-[#0B0B10]">
-      <Nav />
-      <Hero />
-      <HowItWorks />
-      <Features />
-      <LovedSection />
-      <LiveDemo />
-      <CallToAction />
-      <Footer />
+      <Nav locale={locale} onLocaleChange={setLocale} />
+      <Hero locale={locale} />
+      <HowItWorks locale={locale} />
+      <Features locale={locale} />
+      <LovedSection locale={locale} />
+      <LiveDemo locale={locale} />
+      <CallToAction locale={locale} />
+      <Footer locale={locale} />
     </main>
   );
 }

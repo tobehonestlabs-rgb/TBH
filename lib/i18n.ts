@@ -1566,20 +1566,33 @@ const ko: T = {
   changeGif: 'GIF 변경',
 }
 
-export function getT(): T {
-  if (typeof navigator === 'undefined') return en;
-  const lang = navigator.language?.toLowerCase() ?? 'en';
-  if (lang.startsWith('fr')) return fr;
-  if (lang.startsWith('es')) return es;
-  if (lang.startsWith('pt')) return pt;
-  if (lang.startsWith('de')) return de;
-  if (lang.startsWith('it')) return it;
-  if (lang.startsWith('ja')) return ja;
-  if (lang.startsWith('ru')) return ru;
-  if (lang.startsWith('zh')) return zh;
-  if (lang.startsWith('ko')) return ko;
-  if (lang.startsWith('ar')) return ar;
-  if (lang.startsWith('tr')) return tr;
-  if (lang.startsWith('nl')) return nl;
-  return en;
+export type SupportedLocale = 'en' | 'fr' | 'es'
+
+export function normalizeLocale(value?: string | null): SupportedLocale {
+  const raw = (value ?? (typeof navigator !== 'undefined' ? navigator.language : 'en') ?? 'en')
+    .toLowerCase()
+    .replace('_', '-')
+
+  if (raw.startsWith('fr')) return 'fr'
+  if (raw.startsWith('es')) return 'es'
+  return 'en'
+}
+
+export function getStoredLocale(): SupportedLocale {
+  if (typeof window === 'undefined') return 'en'
+  const stored = window.localStorage.getItem('tbh-locale')
+  if (stored === 'fr' || stored === 'es' || stored === 'en') return stored
+  return normalizeLocale(window.navigator?.language ?? 'en')
+}
+
+export function setStoredLocale(locale: SupportedLocale) {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem('tbh-locale', locale)
+}
+
+export function getT(locale?: string | null): T {
+  const target = normalizeLocale(locale ?? getStoredLocale())
+  if (target === 'fr') return fr
+  if (target === 'es') return es
+  return en
 }

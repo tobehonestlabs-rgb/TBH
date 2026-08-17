@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
 import InAppBrowserBanner from '@/app/components/InAppBrowserBanner'
 import ImageEditor from '@/app/components/ImageEditor'
-import { getT, type T } from '@/lib/i18n'
+import { getStoredLocale, getT, type T } from '@/lib/i18n'
 
 const SUGGESTIONS = [
   "You deserve a kiss 😘",
@@ -106,7 +106,7 @@ export default function SendMessagePage() {
   const { slug } = useParams<{ slug: string }>()
   const router = useRouter()
 
-  const [t, setT] = useState<T>(() => getT())
+  const [t, setT] = useState<T>(() => getT(getStoredLocale()))
   const [recipient, setRecipient] = useState<RecipientProfile | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -143,7 +143,7 @@ export default function SendMessagePage() {
     ((e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)')
 
   // Resolve locale once on client
-  useEffect(() => { setT(getT()) }, [])
+  useEffect(() => { setT(getT(getStoredLocale())) }, [])
 
   // Fetch IP and country eagerly on mount
   useEffect(() => {

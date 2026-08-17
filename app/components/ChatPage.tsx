@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { supabaseClient } from '@/lib/supabaseClient'
+import { formatMessageTime, formatGroupLabel, groupMessagesByDate } from '@/lib/chatUtils'
 import GifPicker, { GifResult } from './GifPicker'
 import ImageEditor from './ImageEditor'
 
@@ -12,6 +13,7 @@ type Conversation = {
   last_message_at: string | null
   last_message: string | null
   original_message_id: string | null
+  original_message_content?: string | null
   participant_1: string | null
   participant_2: string | null
 }
@@ -22,7 +24,7 @@ type ConvMsg = {
   content: string | null
   gif_url?: string | null
   image_url?: string | null
-  photos?: string | null
+  photos?: string[] | string | null
   created_at: string
   is_read: boolean
 }
@@ -183,7 +185,12 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
   }
 
   const convDisplayName = (conv: Conversation) =>
-    convNames[conv.id] || conv.last_message || 'New conversation'
+    convNames[conv.id] || (conv.original_message_content ? truncate(conv.original_message_content, 60) : conv.last_message) || 'New conversation'
+
+  function truncate(s: string, n = 60) {
+    if (!s) return ''
+    return s.length > n ? s.slice(0, n - 1).trim() + '…' : s
+  }
 
   const sortedConvs = [...convs].sort((a, b) => {
     const aFav = favorites.has(a.id) ? 1 : 0
@@ -301,6 +308,32 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
     fetchConvs()
   }
 
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const deleteConversation = async (convId: string) => {
+    const ok = window.confirm('Delete this conversation? This cannot be undone.')
+    if (!ok) return
+    setDeletingId(convId)
+    // optimistic UI remove
+    setConvs(prev => prev.filter(c => c.id !== convId))
+    if (selected?.id === convId) {
+      closeConv()
+    }
+    try {
+      const res = await fetch(`/api/conversations/${convId}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data?.error || 'Delete failed')
+      }
+    } catch (e) {
+      console.error('Delete conversation error', e)
+      // reload list if delete failed
+      fetchConvs()
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   useEffect(() => () => {
     if (channelRef.current) supabaseClient.removeChannel(channelRef.current).catch(() => {})
     if (pollRef.current) clearInterval(pollRef.current)
@@ -402,7 +435,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
 
   const sendImage = async () => {
     if (!selectedImage || !selected || sending) return
-    
+
     setSending(true)
     try {
       const imageUrl = await uploadImage(selectedImage)
@@ -411,10 +444,10 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
         setSending(false)
         return
       }
-      
+
       const r = await fetch(`/api/conversations/${selected.id}/messages`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: input.trim(), photos: imageUrl }),
+        body: JSON.stringify({ content: input.trim() || '', photos: [imageUrl] }),
       })
       const { message } = await r.json()
       if (message) {
@@ -424,8 +457,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
           : c))
         setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
       }
-      
-      // Reset image state and input
+
       setSelectedImage(null)
       setImagePreview(null)
       setInput('')
@@ -437,6 +469,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
   }
 
   const lastReadSentId = [...msgs].reverse().find(m => m.sender_id === myUserId && m.is_read)?.id
+  const groupedMessages = groupMessagesByDate(msgs)
 
   if (loading) {
     return (
@@ -531,6 +564,17 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
                   </svg>
                 </button>
+                <button
+                  onClick={e => { e.stopPropagation(); deleteConversation(conv.id) }}
+                  className="w-6 h-6 flex items-center justify-center active:scale-75 transition-transform"
+                  title="Delete"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#CC5757" strokeWidth="1.8">
+                    <path d="M3 6h18" />
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                    <path d="M10 11v6M14 11v6M9 6V4h6v2" />
+                  </svg>
+                </button>
               </div>
             </button>
           )
@@ -614,6 +658,17 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                 <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
+            <button
+              onClick={() => deleteConversation(selected.id)}
+              className="w-8 h-8 rounded-full bg-[#F5F5F5] flex items-center justify-center active:scale-90 transition-transform flex-shrink-0 ml-2"
+              title="Delete conversation"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#CC5757" strokeWidth="1.6">
+                <path d="M3 6h18" />
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                <path d="M10 11v6M14 11v6M9 6V4h6v2" />
+              </svg>
+            </button>
           </div>
 
           {/* Messages */}
@@ -635,20 +690,54 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                 <p className="text-[14px] text-[#ADADAD] text-center">No messages yet. Say hello!</p>
               </div>
             ) : (
-              msgs.map((m, i) => {
-                const isMine = m.sender_id === myUserId
-                const isLastMine = isMine && msgs.slice(i + 1).every(n => n.sender_id !== myUserId)
+              groupedMessages.map(group => (
+                <div key={group.key} className="flex flex-col gap-1.5">
+                  {group.label && (
+                    <div className="mx-auto my-2 rounded-full bg-[#0D0D0D] px-3 py-1.5 text-[10px] font-semibold text-white tracking-[0.08em] uppercase">
+                      {group.label}
+                    </div>
+                  )}
+                  {group.items.map((m, i) => {
+                    const isMine = m.sender_id === myUserId
+                    const isLastMine = isMine && group.items.slice(i + 1).every(n => n.sender_id !== myUserId)
+                    const photoUrls = Array.isArray(m.photos)
+                      ? m.photos.filter(Boolean)
+                      : typeof m.photos === 'string' && m.photos
+                        ? [m.photos]
+                        : m.image_url
+                          ? [m.image_url]
+                          : []
+
                     return (
                       <div key={m.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} ${animatingIds.has(m.id) ? 'msg-appear' : ''}`}>
-                    {m.gif_url ? (
-                      <img src={`/api/gif-proxy?url=${encodeURIComponent(m.gif_url)}`} alt="GIF" className="max-w-[220px] rounded-[16px] block" style={{ border: isMine ? '2px solid rgba(100,80,200,0.3)' : '2px solid #E8E8E8' }} />
-                    ) : ((): any => {
-                      const photoUrl = (m as ConvMsg).photos ?? m.image_url
-                      if (photoUrl) {
-                        return <img src={photoUrl} alt="Photo" className="max-w-[220px] rounded-[16px] block" style={{ border: isMine ? '2px solid rgba(100,80,200,0.3)' : '2px solid #E8E8E8' }} />
-                      }
-                      if (m.content) {
-                        return (
+                        {m.gif_url ? (
+                          <img src={`/api/gif-proxy?url=${encodeURIComponent(m.gif_url)}`} alt="GIF" className="max-w-[220px] rounded-[16px] block" style={{ border: isMine ? '2px solid rgba(100,80,200,0.3)' : '2px solid #E8E8E8' }} />
+                        ) : photoUrls.length > 0 ? (
+                          <div className="flex max-w-[220px] flex-col gap-2">
+                            {m.content && (
+                              <div
+                                className="px-4 py-3"
+                                style={{
+                                  background: isMine
+                                    ? 'linear-gradient(145deg, #0D0D0D 0%, #1C1C2E 55%, #2D1B69 100%)'
+                                    : '#F2F2F2',
+                                  borderRadius: isMine ? '20px 20px 5px 20px' : '20px 20px 20px 5px',
+                                }}
+                              >
+                                <p style={{ color: isMine ? '#FFFFFF' : '#0D0D0D', fontSize: '15px', lineHeight: '1.4' }}>{m.content}</p>
+                              </div>
+                            )}
+                            {photoUrls.map((photoUrl) => (
+                              <img
+                                key={`${m.id}-${photoUrl}`}
+                                src={photoUrl}
+                                alt="Photo"
+                                className="max-w-[220px] rounded-[16px] block object-cover"
+                                style={{ border: isMine ? '2px solid rgba(100,80,200,0.3)' : '2px solid #E8E8E8' }}
+                              />
+                            ))}
+                          </div>
+                        ) : m.content ? (
                           <div
                             className="max-w-[78%] px-4 py-3"
                             style={{
@@ -660,24 +749,21 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                           >
                             <p style={{ color: isMine ? '#FFFFFF' : '#0D0D0D', fontSize: '15px', lineHeight: '1.4' }}>{m.content}</p>
                           </div>
-                        )
-                      }
-                      return null
-                    })()}
-                    {(isLastMine || (i === msgs.length - 1 && !isMine)) && (
-                      <div className={`flex items-center gap-1 mt-0.5 px-1 ${isMine ? 'flex-row-reverse' : ''}`}>
-                        <span className="text-[10px] text-[#C8C8C8]">{timeAgo(m.created_at)}</span>
-                        {isMine && m.id === lastReadSentId && (
-                          <span className="text-[10px] text-[#2AC642] font-medium">Read</span>
-                        )}
-                        {isMine && m.id !== lastReadSentId && isLastMine && (
-                          <span className="text-[10px] text-[#C8C8C8]">Sent</span>
-                        )}
+                        ) : null}
+                        <div className={`flex items-center gap-1 mt-0.5 px-1 ${isMine ? 'flex-row-reverse' : ''}`}>
+                          <span className="text-[10px] text-[#C8C8C8]">{formatMessageTime(m.created_at)}</span>
+                          {isMine && m.id === lastReadSentId && (
+                            <span className="text-[10px] text-[#2AC642] font-medium">Read</span>
+                          )}
+                          {isMine && m.id !== lastReadSentId && isLastMine && (
+                            <span className="text-[10px] text-[#C8C8C8]">Sent</span>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                )
-              })
+                    )
+                  })}
+                </div>
+              ))
             )}
             <div ref={bottomRef} />
           </div>
