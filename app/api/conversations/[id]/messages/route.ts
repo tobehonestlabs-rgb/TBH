@@ -29,7 +29,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { content, gif_url, image_url, photos } = await req.json()
-    if (!content?.trim() && !gif_url && !image_url) return NextResponse.json({ error: 'Empty message' }, { status: 400 })
+    // Accept messages with text, a gif, a single image_url, or an array of photos
+    if (!content?.trim() && !gif_url && !image_url && !(photos && Array.isArray(photos) && photos.length > 0)) {
+      return NextResponse.json({ error: 'Empty message' }, { status: 400 })
+    }
 
     const insertData: Record<string, any> = {
       conversation_id: params.id,
@@ -37,7 +40,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       content: content?.trim() || '', // content is required in DB but can be empty string
     }
     if (gif_url)         insertData.gif_url = gif_url
-    if (photos)          insertData.photos = photos
+    if (photos && Array.isArray(photos) && photos.length > 0) insertData.photos = photos
     else if (image_url)  insertData.image_url = image_url
 
     const { data, error } = await supabaseAdmin
@@ -51,7 +54,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     // Update conversation last_message
     let lastMessageText = content?.trim() ?? ''
     if (gif_url) lastMessageText = '🎬 GIF'
-    if (photos || image_url) lastMessageText = '📷 Photo'
+    if ((photos && Array.isArray(photos) && photos.length > 0) || image_url) lastMessageText = '📷 Photo'
     if (!lastMessageText) lastMessageText = '📷 Photo'
     
     await supabaseAdmin
