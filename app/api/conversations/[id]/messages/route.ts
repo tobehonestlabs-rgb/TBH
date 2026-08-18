@@ -14,7 +14,7 @@ export async function GET(
 
     // 1. Extraire le token du header Authorization
     const authHeader = req.headers.get('Authorization')
-    const token = authHeader?.split(' ')[1] // "Bearer <token>"
+    const token = authHeader?.split(' ')[1]
 
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized: missing token' }, { status: 401 })
@@ -33,7 +33,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized: invalid token' }, { status: 401 })
     }
 
-    // 3. Récupérer les messages (avec supabaseAdmin qui a les droits)
+    // 3. Récupérer les messages (avec supabaseAdmin)
     const { data, error } = await supabaseAdmin
       .from('conversation_messages')
       .select('*')
