@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { supabaseClient } from '@/lib/supabaseClient'
+import { apiFetch } from '@/lib/api'
 import { formatMessageTime, formatGroupLabel, groupMessagesByDate } from '@/lib/chatUtils'
 import GifPicker, { GifResult } from './GifPicker'
 import ImageEditor from './ImageEditor'
@@ -113,7 +114,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
 
   const fetchConvs = useCallback(async () => {
     try {
-      const r = await fetch('/api/conversations')
+      const r = await apiFetch('/api/conversations')
       const d = await r.json()
       const list: Conversation[] = d.conversations ?? []
       setConvs(list)
@@ -219,7 +220,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
       return next
     })
 
-    const r = await fetch(`/api/conversations/${conv.id}/messages`)
+    const r = await apiFetch(`/api/conversations/${conv.id}/messages`)
     const d = await r.json()
     const loaded: ConvMsg[] = d.messages ?? []
     setMsgs(loaded)
@@ -227,7 +228,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
     setTimeout(() => bottomRef.current?.scrollIntoView(), 50)
 
     // Mark incoming messages as read
-    fetch(`/api/conversations/${conv.id}/read`, { method: 'POST' }).catch(() => {})
+    apiFetch(`/api/conversations/${conv.id}/read`, { method: 'POST' }).catch(() => {})
 
     // Realtime subscription
     const ch = supabaseClient.channel(`conv-${conv.id}`)
@@ -253,7 +254,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
         setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
         setMyUserId(uid => {
           if (uid && newMsg.sender_id !== uid) {
-            fetch(`/api/conversations/${conv.id}/read`, { method: 'POST' }).catch(() => {})
+            apiFetch(`/api/conversations/${conv.id}/read`, { method: 'POST' }).catch(() => {})
           }
           return uid
         })
@@ -275,7 +276,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
     pollRef.current = setInterval(async () => {
       if (!selectedRef.current) return
       try {
-        const res = await fetch(`/api/conversations/${selectedRef.current.id}/messages`)
+        const res = await apiFetch(`/api/conversations/${selectedRef.current.id}/messages`)
         const data = await res.json()
         const fetched: ConvMsg[] = data.messages ?? []
         setMsgs(prev => {
@@ -320,7 +321,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
       closeConv()
     }
     try {
-      const res = await fetch(`/api/conversations/${convId}`, { method: 'DELETE' })
+      const res = await apiFetch(`/api/conversations/${convId}`, { method: 'DELETE' })
       const data = await res.json()
       if (!res.ok) {
         throw new Error(data?.error || 'Delete failed')
@@ -345,8 +346,8 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
     setSending(true)
     const text = input.trim(); setInput('')
     try {
-      const r = await fetch(`/api/conversations/${selected.id}/messages`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const r = await apiFetch(`/api/conversations/${selected.id}/messages`, {
+        method: 'POST',
         body: JSON.stringify({ content: text }),
       })
       const { message } = await r.json()
@@ -366,8 +367,8 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
     setSending(true)
     setShowGifPicker(false)
     try {
-      const r = await fetch(`/api/conversations/${selected.id}/messages`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const r = await apiFetch(`/api/conversations/${selected.id}/messages`, {
+        method: 'POST',
         body: JSON.stringify({ gif_url: gif.url }),
       })
       const { message } = await r.json()
@@ -423,11 +424,8 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
       const formData = new FormData()
       formData.append('file', file)
 
-      const response = await fetch('/api/upload-image', {
+      const response = await apiFetch('/api/upload-image', {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
         body: formData,
       })
       
@@ -455,8 +453,8 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
         return
       }
 
-      const r = await fetch(`/api/conversations/${selected.id}/messages`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const r = await apiFetch(`/api/conversations/${selected.id}/messages`, {
+        method: 'POST',
         body: JSON.stringify({ content: input.trim() || '', photos: [imageUrl] }),
       })
       const { message } = await r.json()

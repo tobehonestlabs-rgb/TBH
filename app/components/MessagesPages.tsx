@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { supabaseClient } from '@/lib/supabaseClient'
+import { apiFetch } from '@/lib/api'
 import { getT } from '@/lib/i18n'
 import InsightsMap from './InsightsMap'
 import GifPicker, { GifResult } from './GifPicker'
@@ -828,9 +829,8 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
   const openSheet = async (msg: Message) => {
     if (!msg.isOpened) {
       // Use server-side admin route to bypass RLS
-      fetch('/api/messages/read', {
+      apiFetch('/api/messages/read', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message_id: msg.message_id }),
       }).catch(() => {})
       setMessages(prev => prev.map(m => m.message_id === msg.message_id ? { ...m, isOpened: true } : m))
@@ -883,7 +883,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
         setConvMsgs(prev => prev.find(x => x.id === m.id) ? prev : [...prev, m])
         setTimeout(() => convBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
         if (userIdRef.current && m.sender_id !== userIdRef.current) {
-          fetch(`/api/conversations/${cid}/read`, { method: 'POST' }).catch(() => {})
+          apiFetch(`/api/conversations/${cid}/read`, { method: 'POST' }).catch(() => {})
         }
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_messages', filter: `conversation_id=eq.${cid}` }, payload => {
@@ -970,7 +970,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
         const formData = new FormData()
         formData.append('file', selectedPhoto)
         
-        const response = await fetch('/api/upload-image', {
+        const response = await apiFetch('/api/upload-image', {
           method: 'POST',
           body: formData,
         })
@@ -1048,8 +1048,8 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
     setConvSending(true)
     setShowConvGifPicker(false)
     try {
-      const res = await fetch(`/api/conversations/${convId}/messages`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const res = await apiFetch(`/api/conversations/${convId}/messages`, {
+        method: 'POST',
         body: JSON.stringify({ gif_url: gif.url }),
       })
       const { message } = await res.json()
@@ -1065,18 +1065,17 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
     if (!selectedMsg) return
     if (convId) { setShowConv(true); return }
     try {
-      const res = await fetch('/api/conversations', {
+      const res = await apiFetch('/api/conversations', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ original_message_id: selectedMsg.message_id, sender_ip: selectedMsg.ip_address ?? null }),
       })
       const { conversation } = await res.json()
       if (!conversation) return
       setConvId(conversation.id)
-      const mRes = await fetch(`/api/conversations/${conversation.id}/messages`)
+      const mRes = await apiFetch(`/api/conversations/${conversation.id}/messages`)
       const { messages: ms } = await mRes.json()
       setConvMsgs(ms ?? [])
-      fetch(`/api/conversations/${conversation.id}/read`, { method: 'POST' }).catch(() => {})
+      apiFetch(`/api/conversations/${conversation.id}/read`, { method: 'POST' }).catch(() => {})
       subscribeConv(conversation.id)
       setShowConv(true)
       setTimeout(() => convBottomRef.current?.scrollIntoView(), 50)
@@ -1088,8 +1087,8 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
     setConvSending(true)
     const text = convInput.trim(); setConvInput('')
     try {
-      const res = await fetch(`/api/conversations/${convId}/messages`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const res = await apiFetch(`/api/conversations/${convId}/messages`, {
+        method: 'POST',
         body: JSON.stringify({ content: text }),
       })
       const { message } = await res.json()
