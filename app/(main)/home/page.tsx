@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
+import { apiFetch } from '@/lib/api'
 import SharePage from '@/app/components/SharePage'
 import MessagesPage from '@/app/components/MessagesPages'
 import ChatPage from '@/app/components/ChatPage'
@@ -34,7 +35,7 @@ export default function HomePage() {
       setProfile(data)
 
       // Register user's IP for sender identification
-      fetch('/api/user/register-ip', { method: 'POST' }).catch(() => {})
+      apiFetch('/api/user/register-ip', { method: 'POST' }).catch(() => {})
  
       // Check unread messages
       const { data: msgs } = await supabaseClient

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
+import { apiFetch } from '@/lib/api'
 
 export default function PaymentChoicePage() {
   const router = useRouter()
@@ -41,9 +42,8 @@ export default function PaymentChoicePage() {
     setError(null)
 
     try {
-      const res = await fetch('/api/paystack', {
+      const res = await apiFetch('/api/paystack', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: user.email, userId: user.id }),
       })
       const data = await res.json()
