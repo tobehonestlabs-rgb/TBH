@@ -3,7 +3,6 @@
 import { FormEvent, useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
-import { apiFetch } from '@/lib/api'
 import InAppBrowserBanner from '@/app/components/InAppBrowserBanner'
 import ImageEditor from '@/app/components/ImageEditor'
 import { getStoredLocale, getT, type T } from '@/lib/i18n'
@@ -173,8 +172,8 @@ export default function SendMessagePage() {
     } catch { fingerprintRef.current = null }
 
     Promise.all([
-      apiFetch('/api/ip',  { signal: ctrl.signal }).then(r => r.json()).catch(() => ({})),
-      apiFetch('/api/geo', { signal: ctrl.signal }).then(r => r.json()).catch(() => ({})),
+      fetch('/api/ip',  { signal: ctrl.signal }).then(r => r.json()).catch(() => ({})),
+      fetch('/api/geo', { signal: ctrl.signal }).then(r => r.json()).catch(() => ({})),
     ]).then(([ipData, geoData]) => {
       ipRef.current      = ipData.ip        ?? null
       countryRef.current = geoData.country  ?? null
@@ -262,7 +261,7 @@ export default function SendMessagePage() {
     if (fingerprintRef.current) formData.append('device_fingerprint', fingerprintRef.current)
     if (phoneTypeRef.current)   formData.append('phone_type',         phoneTypeRef.current)
 
-    const response = await apiFetch('/api/messages', { method: 'POST', body: formData, signal: controller.signal })
+    const response = await fetch('/api/messages', { method: 'POST', body: formData, signal: controller.signal })
     if (!response.ok) {
       const body = await response.json().catch(() => ({}))
       const detail = body?.error || body?.details || ''
