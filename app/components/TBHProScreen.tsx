@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
 import { apiFetch } from '@/lib/api'
 
-const PREMIUM_PRICE_XOF = 525
-
+const PREMIUM_PRICE_XOF = 625
+const PREMIUM_PRICE_DISCOUNTED_XOF = 525 // 400 for first 400 users, 525 for others
 const FEATURES = [
   { emoji: '👁️', label: 'Sender insights', sub: 'See who sent you a message' },
   { emoji: '💬', label: 'Private conversations', sub: 'Reply privately to any message' },
@@ -109,7 +109,7 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
         </div>
         {error && <p className="text-[#FF6B6B] text-[13px] text-center mb-3">{error}</p>}
         <div className="text-white/60 text-[13px] text-center mb-4">
-          <p><strong>Promo:</strong> Première 400 commandes — {525.toLocaleString()} FCFA au lieu de {625.toLocaleString()} FCFA.</p>
+          <p><strong>Promo:</strong> Première 400 commandes — {PREMIUM_PRICE_DISCOUNTED_XOF.toLocaleString()} FCFA au lieu de {PREMIUM_PRICE_XOF.toLocaleString()} FCFA.</p>
           <p>Paiement via Wave (mobile money) disponible.</p>
         </div>
         <button
