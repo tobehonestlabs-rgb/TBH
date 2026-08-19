@@ -78,6 +78,8 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
   const [input, setInput]           = useState('')
   const [sending, setSending]       = useState(false)
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
+  const [showImageFull, setShowImageFull] = useState(false)
+  const [fullImageUrl, setFullImageUrl] = useState<string | null>(null)
 
   // Favorites, names, last-seen
   const [favorites, setFavorites]   = useState<Set<string>>(new Set())
@@ -111,6 +113,11 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
     setConvNames(loadNames())
     setLastSeenAt(loadLastSeen())
   }, [])
+
+  const openFullImage = (url: string) => {
+    setFullImageUrl(url)
+    setShowImageFull(true)
+  }
 
   const fetchConvs = useCallback(async () => {
     try {
@@ -740,8 +747,9 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                                 key={`${m.id}-${photoUrl}`}
                                 src={photoUrl}
                                 alt="Photo"
-                                className="max-w-[220px] rounded-[16px] block object-cover"
+                                className="max-w-[220px] rounded-[16px] block object-cover cursor-pointer"
                                 style={{ border: isMine ? '2px solid rgba(100,80,200,0.3)' : '2px solid #E8E8E8' }}
+                                onClick={() => openFullImage(photoUrl)}
                               />
                             ))}
                           </div>
@@ -775,6 +783,14 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
             )}
             <div ref={bottomRef} />
           </div>
+
+            {portalTarget && showImageFull && fullImageUrl && createPortal(
+              <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.9)' }} onClick={() => setShowImageFull(false)}>
+                <button onClick={() => setShowImageFull(false)} style={{ position: 'absolute', top: 20, right: 20, zIndex: 60, background: 'rgba(255,255,255,0.06)', borderRadius: '999px', padding: '8px' }}>Close</button>
+                <img src={fullImageUrl} alt="Fullscreen" style={{ maxWidth: '95%', maxHeight: '95%', objectFit: 'contain', borderRadius: 12 }} />
+              </div>,
+              portalTarget,
+            )}
 
           {/* Input */}
           <div className="px-4 pb-8 pt-3 border-t border-[#F2F2F2] flex-shrink-0">
