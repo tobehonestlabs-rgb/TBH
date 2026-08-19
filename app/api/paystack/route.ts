@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
   }
 
   // ✅ Price: 1800 XOF (change to 1800 for production)
-  const amount = 500 // 1 XOF for testing
+  const amount = 525 // 1 XOF for testing
 
   const payload = {
     email,

@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
+import { apiFetch } from '@/lib/api'
 
-const PREMIUM_PRICE_XOF = 500
+const PREMIUM_PRICE_XOF = 525
 
 const FEATURES = [
   { emoji: '👁️', label: 'Sender insights', sub: 'See who sent you a message' },
@@ -39,7 +40,17 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
         return
       }
 
-      router.push('/payment-choice')
+      // Initialize Paystack payment directly
+      const res = await apiFetch('/api/paystack', {
+        method: 'POST',
+        body: JSON.stringify({ email: session.user.email, userId: session.user.id }),
+      })
+      const data = await res.json()
+      if (!res.ok || data?.status !== 'success') {
+        throw new Error(data?.error || 'Impossible de démarrer le paiement')
+      }
+      // Redirect to Paystack authorization URL
+      window.location.href = data.data.authorization_url
       onClose()
     } catch (err: any) {
       setError(err.message || 'Une erreur est survenue')
@@ -97,6 +108,10 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
           ))}
         </div>
         {error && <p className="text-[#FF6B6B] text-[13px] text-center mb-3">{error}</p>}
+        <div className="text-white/60 text-[13px] text-center mb-4">
+          <p><strong>Promo:</strong> Première 400 commandes — {525.toLocaleString()} FCFA au lieu de {625.toLocaleString()} FCFA.</p>
+          <p>Paiement via Wave (mobile money) disponible.</p>
+        </div>
         <button
           onClick={handleUnlock}
           disabled={loading}
@@ -110,7 +125,7 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
           )}
         </button>
         <p className="text-white/25 text-[11px] text-center mb-3">
-          Vous serez redirigé vers le choix du paiement
+          Vous serez redirigé vers Paystack pour finaliser le paiement (Wave disponible)
         </p>
         <button
           onClick={onClose}
