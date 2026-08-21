@@ -200,6 +200,25 @@ export default function EditProfilePage() {
           </div>
         </div>
 
+        {/* ── Save button placed right after username ── */}
+        <div className="pt-2 pb-0">
+          <button
+            onClick={handleSave}
+            disabled={!canSave}
+            className="w-full h-[56px] rounded-full text-white font-bold text-[17px] active:scale-95 transition-all flex items-center justify-center gap-2"
+            style={{
+              background: canSave
+                ? 'linear-gradient(135deg, #0D0D0D, #2A2A2A)'
+                : '#DEDEDE',
+              opacity: canSave ? 1 : 0.7,
+            }}
+          >
+            {saving ? (
+              <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : hasChanges ? 'Save changes' : 'No changes to save'}
+          </button>
+        </div>
+
         {/* ── Error / success banners ── */}
         {error && (
           <div className="flex items-center gap-2 py-3 px-4 rounded-[16px] bg-[#FFF0F0]">
@@ -221,25 +240,6 @@ export default function EditProfilePage() {
             <span className="text-[#22C55E] font-semibold text-[14px]">Saved! Redirecting…</span>
           </div>
         )}
-      </div>
-
-      {/* ── Save button ── */}
-      <div className="px-5 pb-12 pt-2 mt-auto">
-        <button
-          onClick={handleSave}
-          disabled={!canSave}
-          className="w-full h-[56px] rounded-full text-white font-bold text-[17px] active:scale-95 transition-all flex items-center justify-center gap-2"
-          style={{
-            background: canSave
-              ? 'linear-gradient(135deg, #0D0D0D, #2A2A2A)'
-              : '#DEDEDE',
-            opacity: canSave ? 1 : 0.7,
-          }}
-        >
-          {saving ? (
-            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          ) : hasChanges ? 'Save changes' : 'No changes to save'}
-        </button>
       </div>
     </main>
   )
