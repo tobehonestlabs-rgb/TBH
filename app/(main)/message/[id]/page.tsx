@@ -34,6 +34,68 @@ const GLOBAL_STYLES = `
   textarea::placeholder { color: rgba(255,255,255,0.35); }
   * { -webkit-tap-highlight-color: transparent; }
 `
+
+const BACKGROUND_BLUR_RADIUS = 48
+const BACKGROUND_DRAW_EXPANSION = BACKGROUND_BLUR_RADIUS * 2
+const BACKGROUND_IMAGE_BRIGHTNESS = 0.3
+const BACKGROUND_IMAGE_SATURATION = 1.4
+const BACKGROUND_OVERLAY_COLOR = 'rgba(0,0,0,0.52)'
+const BACKGROUND_VIGNETTE_INNER_RADIUS = 0.2
+const BACKGROUND_VIGNETTE_OUTER_RADIUS = 0.85
+const BACKGROUND_VIGNETTE_COLOR = 'rgba(0,0,0,0.4)'
+const CARD_RENDER_SCALE = 2
+const MESSAGE_BODY_MAX_WIDTH = 860
+const MESSAGE_BODY_PADDING = 72
+const MESSAGE_BODY_RADIUS = 40
+const MESSAGE_BODY_SHADOW_COLOR = 'rgba(0,0,0,0.22)'
+const MESSAGE_BODY_SHADOW_BLUR = 44
+const MESSAGE_BODY_SHADOW_OFFSET_Y = 18
+const MESSAGE_BODY_SECONDARY_SHADOW_COLOR = 'rgba(0,0,0,0.12)'
+const MESSAGE_BODY_SECONDARY_SHADOW_BLUR = 18
+const MESSAGE_BODY_SECONDARY_SHADOW_OFFSET_Y = 6
+const MESSAGE_BODY_TEXT_COLOR = '#111111'
+const MESSAGE_BODY_AREA_TOP = 430
+const MESSAGE_BODY_AREA_BOTTOM = 1650
+const MESSAGE_BODY_FONT_MAX_SIZE = 210
+const MESSAGE_BODY_FONT_MIN_SIZE = 48
+const MESSAGE_BODY_LINE_HEIGHT_RATIO = 1.25
+
+function drawBlurredBackground(
+  ctx: CanvasRenderingContext2D,
+  image: HTMLImageElement | null,
+  width: number,
+  height: number,
+  fallbackColor: string,
+) {
+  if (image) {
+    const expansion = BACKGROUND_DRAW_EXPANSION
+    ctx.save()
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = 'high'
+    ctx.filter = `blur(${BACKGROUND_BLUR_RADIUS}px) brightness(${BACKGROUND_IMAGE_BRIGHTNESS}) saturate(${BACKGROUND_IMAGE_SATURATION})`
+    drawImageCover(ctx, image, -expansion, -expansion, width + expansion * 2, height + expansion * 2)
+    ctx.restore()
+  } else {
+    ctx.fillStyle = fallbackColor
+    ctx.fillRect(0, 0, width, height)
+  }
+
+  ctx.fillStyle = BACKGROUND_OVERLAY_COLOR
+  ctx.fillRect(0, 0, width, height)
+
+  const vignette = ctx.createRadialGradient(
+    width / 2,
+    height / 2,
+    height * BACKGROUND_VIGNETTE_INNER_RADIUS,
+    width / 2,
+    height / 2,
+    height * BACKGROUND_VIGNETTE_OUTER_RADIUS,
+  )
+  vignette.addColorStop(0, 'transparent')
+  vignette.addColorStop(1, BACKGROUND_VIGNETTE_COLOR)
+  ctx.fillStyle = vignette
+  ctx.fillRect(0, 0, width, height)
+}
  
 function FloatingEmojis() {
   return (
@@ -78,10 +140,24 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 }
  
 function wrapText(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
-  const words = text.split(' ')
+  const words = text.trim().split(/\s+/)
   const lines: string[] = []
   let cur = ''
   for (const w of words) {
+    if (ctx.measureText(w).width > maxW) {
+      if (cur) { lines.push(cur); cur = '' }
+      let chunk = ''
+      for (const char of w) {
+        const candidate = chunk + char
+        if (ctx.measureText(candidate).width <= maxW) chunk = candidate
+        else {
+          if (chunk) lines.push(chunk)
+          chunk = char
+        }
+      }
+      cur = chunk
+      continue
+    }
     const test = cur ? `${cur} ${w}` : w
     if (ctx.measureText(test).width <= maxW) { cur = test }
     else { if (cur) lines.push(cur); cur = w }
@@ -121,31 +197,14 @@ async function generateReplyCard(
   return new Promise(async (resolve) => {
     const W = 1080, H = 1920
     const canvas = document.createElement('canvas')
-    canvas.width = W; canvas.height = H
+    canvas.width = W * CARD_RENDER_SCALE; canvas.height = H * CARD_RENDER_SCALE
     const ctx = canvas.getContext('2d')!
+    ctx.scale(CARD_RENDER_SCALE, CARD_RENDER_SCALE)
  
     let pfpImg: HTMLImageElement | null = null
     if (userPfp) pfpImg = await loadImage(userPfp).catch(() => null)
  
-    if (pfpImg) {
-      ctx.save()
-      ctx.filter = 'blur(48px) brightness(0.3) saturate(1.4)'
-      ctx.drawImage(pfpImg, -80, -80, W + 160, H + 160)
-      ctx.filter = 'none'
-      ctx.restore()
-    } else {
-      ctx.fillStyle = '#0A0A0C'
-      ctx.fillRect(0, 0, W, H)
-    }
- 
-    ctx.fillStyle = 'rgba(0,0,0,0.52)'
-    ctx.fillRect(0, 0, W, H)
- 
-    const vignette = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.85)
-    vignette.addColorStop(0, 'transparent')
-    vignette.addColorStop(1, 'rgba(0,0,0,0.4)')
-    ctx.fillStyle = vignette
-    ctx.fillRect(0, 0, W, H)
+    drawBlurredBackground(ctx, pfpImg, W, H, '#0A0A0C')
  
     const emojiPositions = [
       { src: '/assets/poop.svg',    size: 180, x: 60,  y: 120,  rot: -15, opacity: 0.18 },
@@ -311,31 +370,14 @@ async function generateMessageCard(
   return new Promise(async (resolve) => {
     const W = 1080, H = 1920
     const canvas = document.createElement('canvas')
-    canvas.width = W; canvas.height = H
+    canvas.width = W * CARD_RENDER_SCALE; canvas.height = H * CARD_RENDER_SCALE
     const ctx = canvas.getContext('2d')!
+    ctx.scale(CARD_RENDER_SCALE, CARD_RENDER_SCALE)
  
     let pfpImg: HTMLImageElement | null = null
     if (userPfp) pfpImg = await loadImage(userPfp).catch(() => null)
  
-    if (pfpImg) {
-      ctx.save()
-      ctx.filter = 'blur(48px) brightness(0.3) saturate(1.4)'
-      ctx.drawImage(pfpImg, -80, -80, W + 160, H + 160)
-      ctx.filter = 'none'
-      ctx.restore()
-    } else {
-      ctx.fillStyle = '#0D0D0D'
-      ctx.fillRect(0, 0, W, H)
-    }
- 
-    ctx.fillStyle = 'rgba(0,0,0,0.5)'
-    ctx.fillRect(0, 0, W, H)
- 
-    const vignette = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.85)
-    vignette.addColorStop(0, 'transparent')
-    vignette.addColorStop(1, 'rgba(0,0,0,0.4)')
-    ctx.fillStyle = vignette
-    ctx.fillRect(0, 0, W, H)
+    drawBlurredBackground(ctx, pfpImg, W, H, '#0D0D0D')
  
     const emojiPositions = [
       { src: '/assets/poop.svg',    size: 180, x: 60,  y: 120,  rot: -15, opacity: 0.18 },
@@ -410,23 +452,45 @@ async function generateMessageCard(
         ctx.shadowBlur = 0
       }
     } else {
-      ctx.textAlign = 'center'
-      ctx.fillStyle = '#FFFFFF'
-      ctx.shadowColor = 'rgba(0,0,0,0.5)'
-      ctx.shadowBlur = 28
-      let fontSize = 210
-      while (fontSize > 48) {
+      let fontSize = MESSAGE_BODY_FONT_MAX_SIZE
+      let lines: string[] = []
+      let bodyHeight = 0
+      const bodyWidth = Math.min(MESSAGE_BODY_MAX_WIDTH, W - MESSAGE_BODY_PADDING * 2)
+      const textWidth = bodyWidth - MESSAGE_BODY_PADDING * 2
+      const availableBodyHeight = MESSAGE_BODY_AREA_BOTTOM - MESSAGE_BODY_AREA_TOP
+
+      while (fontSize > MESSAGE_BODY_FONT_MIN_SIZE) {
         ctx.font = `bold ${fontSize}px -apple-system, sans-serif`
-        const lines = wrapText(ctx, messageText, W - 180)
-        const totalH = lines.length * fontSize * 1.25
-        if (totalH < H - 600) {
-          const startY = H / 2 - totalH / 2 + fontSize * 0.8
-          lines.forEach((line, i) => ctx.fillText(line, W / 2, startY + i * fontSize * 1.25))
-          break
-        }
+        lines = wrapText(ctx, messageText || ' ', textWidth)
+        bodyHeight = lines.length * fontSize * MESSAGE_BODY_LINE_HEIGHT_RATIO + MESSAGE_BODY_PADDING * 2
+        if (bodyHeight <= availableBodyHeight) break
         fontSize -= 8
       }
-      ctx.shadowBlur = 0
+
+      const bodyX = (W - bodyWidth) / 2
+      const bodyY = MESSAGE_BODY_AREA_TOP + (availableBodyHeight - bodyHeight) / 2
+      ctx.save()
+      ctx.shadowColor = MESSAGE_BODY_SHADOW_COLOR
+      ctx.shadowBlur = MESSAGE_BODY_SHADOW_BLUR
+      ctx.shadowOffsetY = MESSAGE_BODY_SHADOW_OFFSET_Y
+      ctx.shadowOffsetX = 0
+      ctx.fillStyle = '#FFFFFF'
+      roundRect(ctx, bodyX, bodyY, bodyWidth, bodyHeight, MESSAGE_BODY_RADIUS)
+      ctx.fill()
+      ctx.shadowColor = MESSAGE_BODY_SECONDARY_SHADOW_COLOR
+      ctx.shadowBlur = MESSAGE_BODY_SECONDARY_SHADOW_BLUR
+      ctx.shadowOffsetY = MESSAGE_BODY_SECONDARY_SHADOW_OFFSET_Y
+      roundRect(ctx, bodyX, bodyY, bodyWidth, bodyHeight, MESSAGE_BODY_RADIUS)
+      ctx.fill()
+      ctx.restore()
+
+      ctx.font = `bold ${fontSize}px -apple-system, sans-serif`
+      ctx.fillStyle = MESSAGE_BODY_TEXT_COLOR
+      ctx.textAlign = 'center'
+      const firstBaseline = bodyY + MESSAGE_BODY_PADDING + fontSize * 0.8
+      lines.forEach((line, i) => {
+        ctx.fillText(line, W / 2, firstBaseline + i * fontSize * MESSAGE_BODY_LINE_HEIGHT_RATIO)
+      })
     }
  
     // Last element: CTA inviting the viewer to send an anonymous message
