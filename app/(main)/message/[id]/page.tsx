@@ -1,9 +1,9 @@
 'use client'
- 
+
 import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
- 
+
 type Message = {
   message_id: string
   content: string
@@ -14,7 +14,7 @@ type Message = {
   from_user: string
   to_user: string
 }
- 
+
 const FLOATING_EMOJIS = [
   { src: '/assets/poop.svg',    size: 90,  x: 5,  y: 8,  rot: -15, dur: 7.2, delay: 0   },
   { src: '/assets/hot.svg',     size: 110, x: 75, y: 5,  rot: 12,  dur: 8.5, delay: 1.2 },
@@ -25,7 +25,7 @@ const FLOATING_EMOJIS = [
   { src: '/assets/hot.svg',     size: 70,  x: 58, y: 88, rot: -12, dur: 6.5, delay: 3.0 },
   { src: '/assets/poop.svg',    size: 75,  x: 42, y: 2,  rot: 22,  dur: 7.9, delay: 2.5 },
 ]
- 
+
 const GLOBAL_STYLES = `
   @keyframes floaty {
     0%, 100% { transform: translateY(0px);   }
@@ -59,6 +59,7 @@ const MESSAGE_BODY_AREA_BOTTOM = 1650
 const MESSAGE_BODY_FONT_MAX_SIZE = 210
 const MESSAGE_BODY_FONT_MIN_SIZE = 48
 const MESSAGE_BODY_LINE_HEIGHT_RATIO = 1.25
+
 function drawBlurredBackground(
   ctx: CanvasRenderingContext2D,
   image: HTMLImageElement | null,
@@ -66,34 +67,29 @@ function drawBlurredBackground(
   height: number,
   fallbackColor: string,
 ) {
-  // Sauvegarde du contexte et suppression de l'échelle (on travaille en résolution réelle)
   ctx.save()
-  ctx.setTransform(1, 0, 0, 1, 0, 0) // identité
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
 
-  const scale = CARD_RENDER_SCALE // 2
+  const scale = CARD_RENDER_SCALE
   const actualW = width * scale
   const actualH = height * scale
 
   if (image) {
-    const expansion = BACKGROUND_DRAW_EXPANSION * scale // agrandir le flou proportionnellement
+    const expansion = BACKGROUND_DRAW_EXPANSION * scale
     ctx.imageSmoothingEnabled = true
     ctx.imageSmoothingQuality = 'high'
-    // Le rayon du flou doit aussi être multiplié par scale
     const blurRadius = BACKGROUND_BLUR_RADIUS * scale
     ctx.filter = `blur(${blurRadius}px) brightness(${BACKGROUND_IMAGE_BRIGHTNESS}) saturate(${BACKGROUND_IMAGE_SATURATION})`
-    // Dessiner l'image en couverture sur tout le canvas
     drawImageCover(ctx, image, -expansion, -expansion, actualW + expansion * 2, actualH + expansion * 2)
   } else {
     ctx.fillStyle = fallbackColor
     ctx.fillRect(0, 0, actualW, actualH)
   }
 
-  // Overlay (assombrissement)
-  ctx.filter = 'none' // ne pas flouter l'overlay
+  ctx.filter = 'none'
   ctx.fillStyle = BACKGROUND_OVERLAY_COLOR
   ctx.fillRect(0, 0, actualW, actualH)
 
-  // Vignette
   const vignette = ctx.createRadialGradient(
     actualW / 2,
     actualH / 2,
@@ -107,8 +103,9 @@ function drawBlurredBackground(
   ctx.fillStyle = vignette
   ctx.fillRect(0, 0, actualW, actualH)
 
-  ctx.restore() // restaure l'échelle et le filtre précédents
+  ctx.restore()
 }
+
 function FloatingEmojis() {
   return (
     <>
@@ -126,7 +123,7 @@ function FloatingEmojis() {
     </>
   )
 }
- 
+
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
@@ -136,7 +133,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     img.src = src
   })
 }
- 
+
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath()
   ctx.moveTo(x + r, y)
@@ -150,7 +147,7 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.quadraticCurveTo(x, y, x + r, y)
   ctx.closePath()
 }
- 
+
 function wrapText(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
   const words = text.trim().split(/\s+/)
   const lines: string[] = []
@@ -177,9 +174,7 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxW: number): st
   if (cur) lines.push(cur)
   return lines
 }
- 
-// Draws an image into a w x h box like CSS `object-fit: cover` — scales to
-// fill the box and crops the overflow instead of stretching the aspect ratio.
+
 function drawImageCover(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -197,7 +192,7 @@ function drawImageCover(
   }
   ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h)
 }
- 
+
 async function generateReplyCard(
   messageText: string,
   replyText: string,
@@ -212,12 +207,12 @@ async function generateReplyCard(
     canvas.width = W * CARD_RENDER_SCALE; canvas.height = H * CARD_RENDER_SCALE
     const ctx = canvas.getContext('2d')!
     ctx.scale(CARD_RENDER_SCALE, CARD_RENDER_SCALE)
- 
+
     let pfpImg: HTMLImageElement | null = null
     if (userPfp) pfpImg = await loadImage(userPfp).catch(() => null)
- 
+
     drawBlurredBackground(ctx, pfpImg, W, H, '#0A0A0C')
- 
+
     const emojiPositions = [
       { src: '/assets/poop.svg',    size: 180, x: 60,  y: 120,  rot: -15, opacity: 0.18 },
       { src: '/assets/hot.svg',     size: 220, x: 780, y: 80,   rot: 12,  opacity: 0.18 },
@@ -237,7 +232,7 @@ async function generateReplyCard(
       ctx.restore()
     }
     ctx.globalAlpha = 1
- 
+
     const logo = await loadImage(logoSrc).catch(() => null)
     if (logo) {
       const lw = 200, lh = Math.round(lw * logo.height / logo.width)
@@ -252,20 +247,20 @@ async function generateReplyCard(
       ctx.drawImage(offscreen, (W - lw) / 2, 90, lw, lh)
       ctx.globalAlpha = 1
     }
- 
+
     const hPad = 72, boxW = W - hPad * 2, innerPad = 48
     let y = 320
- 
+
     let msgImg: HTMLImageElement | null = null
     if (imageUrl) msgImg = await loadImage(imageUrl).catch(() => null)
- 
+
     ctx.font = '52px -apple-system, sans-serif'
     const msgLines = wrapText(ctx, messageText || '', boxW - innerPad * 2)
     const msgLineH = 68
-    const imgSize = boxW - innerPad * 2 // square (1:1) image box
+    const imgSize = boxW - innerPad * 2
     const imgH = msgImg ? imgSize : 0
     const senderBoxH = innerPad + 60 + 20 + imgH + (imgH && messageText ? 28 : 0) + msgLines.length * msgLineH + innerPad
- 
+
     ctx.fillStyle = 'rgba(255,255,255,0.10)'
     roundRect(ctx, hPad, y, boxW, senderBoxH, 40)
     ctx.fill()
@@ -273,7 +268,7 @@ async function generateReplyCard(
     ctx.lineWidth = 2
     roundRect(ctx, hPad, y, boxW, senderBoxH, 40)
     ctx.stroke()
- 
+
     ctx.font = 'bold 40px -apple-system, sans-serif'
     const anonText = '🔒  ANONYMOUS'
     const anonW = ctx.measureText(anonText).width + 48
@@ -283,9 +278,9 @@ async function generateReplyCard(
     ctx.fillStyle = 'rgba(255,255,255,0.65)'
     ctx.textAlign = 'left'
     ctx.fillText(anonText, hPad + innerPad + 24, y + innerPad + 40)
- 
+
     let contentY = y + innerPad + 56 + 24
- 
+
     if (msgImg) {
       ctx.save()
       roundRect(ctx, hPad + innerPad, contentY, imgSize, imgSize, 24)
@@ -294,7 +289,7 @@ async function generateReplyCard(
       ctx.restore()
       contentY += imgSize + (messageText ? 28 : 0)
     }
- 
+
     if (messageText) {
       ctx.font = '52px -apple-system, sans-serif'
       ctx.fillStyle = '#FFFFFF'
@@ -303,14 +298,14 @@ async function generateReplyCard(
         ctx.fillText(line, hPad + innerPad, contentY + msgLineH * i + 48)
       })
     }
- 
+
     y += senderBoxH + 52
- 
+
     ctx.font = 'bold 68px -apple-system, sans-serif'
     const replyLines = wrapText(ctx, replyText, boxW - innerPad * 2)
     const replyLineH = 86
     const replyBoxH = innerPad + 60 + 28 + replyLines.length * replyLineH + innerPad
- 
+
     ctx.save()
     ctx.shadowColor = 'rgba(255,107,107,0.4)'
     ctx.shadowBlur = 60
@@ -318,7 +313,7 @@ async function generateReplyCard(
     roundRect(ctx, hPad, y, boxW, replyBoxH, 40)
     ctx.fill()
     ctx.restore()
- 
+
     ctx.fillStyle = 'rgba(255,255,255,0.13)'
     roundRect(ctx, hPad, y, boxW, replyBoxH, 40)
     ctx.fill()
@@ -326,12 +321,12 @@ async function generateReplyCard(
     ctx.lineWidth = 2
     roundRect(ctx, hPad, y, boxW, replyBoxH, 40)
     ctx.stroke()
- 
+
     ctx.font = 'bold 40px -apple-system, sans-serif'
     ctx.fillStyle = 'rgba(255,107,107,0.9)'
     ctx.textAlign = 'left'
     ctx.fillText('ME', hPad + innerPad, y + innerPad + 42)
- 
+
     ctx.font = 'bold 68px -apple-system, sans-serif'
     ctx.fillStyle = '#FFFFFF'
     ctx.shadowColor = 'rgba(0,0,0,0.3)'
@@ -340,8 +335,7 @@ async function generateReplyCard(
       ctx.fillText(line, hPad + innerPad, y + innerPad + 60 + 28 + replyLineH * i + 60)
     })
     ctx.shadowBlur = 0
- 
-    // Last element: CTA inviting the viewer to send an anonymous message
+
     ctx.font = 'bold 46px -apple-system, sans-serif'
     ctx.fillStyle = 'rgba(255,255,255,0.92)'
     ctx.textAlign = 'center'
@@ -352,7 +346,7 @@ async function generateReplyCard(
     const arrowsY = H - bottomMargin - arrowsH
     const ctaStartY = arrowsY - 24 - (ctaLines.length - 1) * ctaLineH
     ctaLines.forEach((line, i) => ctx.fillText(line, W / 2, ctaStartY + i * ctaLineH))
- 
+
     const arrowsImgEl = await loadImage(arrowsSrc).catch(() => null)
     if (arrowsImgEl) {
       const aw = Math.round(arrowsH * arrowsImgEl.width / arrowsImgEl.height)
@@ -367,11 +361,12 @@ async function generateReplyCard(
       ctx.drawImage(offArrows, (W - aw) / 2, arrowsY, aw, arrowsH)
       ctx.globalAlpha = 1
     }
- 
+
     canvas.toBlob(b => resolve(b!), 'image/png', 1.0)
   })
 }
- async function generateMessageCard(
+
+async function generateMessageCard(
   messageText: string,
   imageUrl: string | null,
   logoSrc: string,
@@ -390,7 +385,6 @@ async function generateReplyCard(
 
     drawBlurredBackground(ctx, pfpImg, W, H, '#0D0D0D')
 
-    // --- Émoticônes flottantes (inchangé) ---
     const emojiPositions = [
       { src: '/assets/poop.svg',    size: 180, x: 60,  y: 120,  rot: -15, opacity: 0.18 },
       { src: '/assets/hot.svg',     size: 220, x: 780, y: 80,   rot: 12,  opacity: 0.18 },
@@ -411,7 +405,6 @@ async function generateReplyCard(
     }
     ctx.globalAlpha = 1
 
-    // --- Logo (inchangé) ---
     const logo = await loadImage(logoSrc).catch(() => null)
     if (logo) {
       const lw = 220, lh = Math.round(lw * logo.height / logo.width)
@@ -427,7 +420,6 @@ async function generateReplyCard(
       ctx.globalAlpha = 1
     }
 
-    // --- Pilule "🔒 Anonymous message" (inchangé, mais on peut la garder) ---
     ctx.font = 'bold 44px -apple-system, sans-serif'
     const pillText = '🔒  Anonymous message'
     const pillW = ctx.measureText(pillText).width + 64
@@ -441,20 +433,14 @@ async function generateReplyCard(
     ctx.textAlign = 'center'
     ctx.fillText(pillText, W / 2, pillY + 48)
 
-    // --- NOUVEAU : Boîte avec bandeau noir et fond blanc ---
-
-    // Dimensions de la boîte (même largeur que l'ancienne)
+    // --- Nouveau design : boîte avec bandeau noir ---
     const boxWidth = 860
     const boxX = (W - boxWidth) / 2
-    const topY = 460 // après la pilule
-    const bandeauHeight = 90  // hauteur du bandeau noir
+    const topY = 460
+    const bandeauHeight = 90
     const messagePadding = 50
     const boxRadius = 40
 
-    // 1. On dessine la boîte complète (fond blanc) avec ombre
-    const totalBoxHeight = bandeauHeight + messagePadding * 2 + 200 // on ajustera dynamiquement
-
-    // --- Calcul de la hauteur nécessaire pour le message ---
     let fontSize = 72
     let lines: string[] = []
     let contentHeight = 0
@@ -464,14 +450,13 @@ async function generateReplyCard(
       ctx.font = `bold ${fontSize}px -apple-system, sans-serif`
       lines = wrapText(ctx, messageText || ' ', maxWidth)
       contentHeight = lines.length * fontSize * 1.3
-      if (contentHeight + messagePadding * 2 <= 600) break // on fixe une hauteur max pour la partie blanche
+      if (contentHeight + messagePadding * 2 <= 600) break
       fontSize -= 4
     }
 
     const whiteHeight = Math.max(contentHeight + messagePadding * 2, 120)
     const totalHeight = bandeauHeight + whiteHeight
 
-    // Dessiner le fond blanc (avec ombre)
     const boxY = topY
     ctx.save()
     ctx.shadowColor = 'rgba(0,0,0,0.5)'
@@ -484,10 +469,8 @@ async function generateReplyCard(
     ctx.shadowOffsetY = 0
     ctx.restore()
 
-    // 2. Bandeau noir en haut (avec coins arrondis uniquement en haut)
     ctx.save()
     ctx.beginPath()
-    // On crée un chemin avec les coins supérieurs arrondis
     const r = boxRadius
     ctx.moveTo(boxX + r, boxY)
     ctx.lineTo(boxX + boxWidth - r, boxY)
@@ -497,22 +480,19 @@ async function generateReplyCard(
     ctx.lineTo(boxX, boxY + r)
     ctx.quadraticCurveTo(boxX, boxY, boxX + r, boxY)
     ctx.closePath()
-    ctx.fillStyle = '#111111' // noir
+    ctx.fillStyle = '#111111'
     ctx.fill()
     ctx.restore()
 
-    // Texte du bandeau (centré)
     ctx.save()
     ctx.font = 'bold 44px -apple-system, sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillStyle = '#FFFFFF'
     const bandeauText = "Envoie moi un message anonyme et on chat anonymement!!"
-    // On pourrait gérer le wrapping si trop long, mais avec cette police et largeur, ça tient
     ctx.fillText(bandeauText, W / 2, boxY + bandeauHeight / 2)
     ctx.restore()
 
-    // 3. Message en blanc avec ombre
     ctx.save()
     ctx.shadowColor = 'rgba(0,0,0,0.2)'
     ctx.shadowBlur = 12
@@ -529,7 +509,6 @@ async function generateReplyCard(
     })
     ctx.restore()
 
-    // --- CTA final (inchangé) ---
     ctx.font = 'bold 46px -apple-system, sans-serif'
     ctx.fillStyle = 'rgba(255,255,255,0.92)'
     ctx.textAlign = 'center'
@@ -559,34 +538,31 @@ async function generateReplyCard(
     canvas.toBlob(b => resolve(b!), 'image/png', 1.0)
   })
 }
- 
+
 export default function ReadMessageScreen() {
   const router = useRouter()
   const params = useParams()
   const messageId = params?.id as string
- 
+
   const [message, setMessage] = useState<Message | null>(null)
   const [loading, setLoading] = useState(true)
   const [userLink, setUserLink] = useState('')
   const [userPfp, setUserPfp] = useState<string | null>(null)
- 
+
   const [imageBlurred, setImageBlurred] = useState(true)
   const [showFullscreen, setShowFullscreen] = useState(false)
   const [showReply, setShowReply] = useState(false)
   const [replyText, setReplyText] = useState('')
   const [replySending, setReplySending] = useState(false)
   const [sharing, setSharing] = useState(false)
- 
-  // Pre-generated blobs — ready before user taps to preserve iOS gesture
+
   const [messageCardBlob, setMessageCardBlob] = useState<Blob | null>(null)
   const [cardGenerating, setCardGenerating] = useState(false)
   const [replyCardBlob, setReplyCardBlob] = useState<Blob | null>(null)
- 
-  // Track in-flight reply-card generation so the debounce effect and the
-  // tap handler never race each other or generate the card twice.
+
   const replyDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const replyGenPromiseRef = useRef<Promise<Blob> | null>(null)
- 
+
   const font = "'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif"
   const logoSrc = typeof window !== 'undefined'
     ? `${window.location.origin}/assets/TBH_Title_Logo.svg`
@@ -594,31 +570,30 @@ export default function ReadMessageScreen() {
   const arrowsSrc = typeof window !== 'undefined'
     ? `${window.location.origin}/assets/arrows.svg`
     : '/assets/arrows.svg'
- 
+
   useEffect(() => {
     const load = async () => {
       const { data: { session } } = await supabaseClient.auth.getSession()
       if (!session) { router.push('/'); return }
- 
+
       const { data: msg } = await supabaseClient
         .from('messages').select('*').eq('message_id', messageId).single()
       if (msg) setMessage(msg)
- 
+
       const { data: profile } = await supabaseClient
         .from('users_table').select('slug, pfp').eq('user_id', session.user.id).single()
       if (profile?.slug) setUserLink(`${window.location.origin}/send/${profile.slug}`)
       if (profile?.pfp) setUserPfp(profile.pfp)
- 
+
       setLoading(false)
     }
     load()
   }, [messageId, router])
- 
+
   const isImageMessage = !!(message?.contains_media || message?.media_url)
   const imageUrl = message?.media_url || null
   const textContent = message?.content ?? ''
- 
-  // Pre-generate message card as soon as data is ready
+
   useEffect(() => {
     if (!message) return
     setCardGenerating(true)
@@ -627,10 +602,7 @@ export default function ReadMessageScreen() {
       .catch(console.error)
       .finally(() => setCardGenerating(false))
   }, [message, userPfp])
- 
-  // Pre-generate reply card, debounced 600ms after typing stops. This is a
-  // "warm" path only — if the user taps Go before this fires, handleSendReply
-  // generates the card itself instead of waiting on this effect.
+
   useEffect(() => {
     if (!showReply || !replyText.trim()) {
       setReplyCardBlob(null)
@@ -644,7 +616,6 @@ export default function ReadMessageScreen() {
       replyGenPromiseRef.current = promise
       promise
         .then(blob => {
-          // Only apply if nothing newer has superseded this generation
           if (replyGenPromiseRef.current === promise) setReplyCardBlob(blob)
         })
         .catch(console.error)
@@ -653,8 +624,7 @@ export default function ReadMessageScreen() {
       if (replyDebounceRef.current) clearTimeout(replyDebounceRef.current)
     }
   }, [replyText, showReply])
- 
-  // Share message — blob is pre-ready, gesture preserved
+
   const handleShareMessage = async () => {
     if (!message || sharing || !messageCardBlob) return
     setSharing(true)
@@ -668,7 +638,6 @@ export default function ReadMessageScreen() {
         await navigator.share({ url: userLink })
         return
       }
-      // Desktop fallback
       const url = URL.createObjectURL(messageCardBlob)
       const a = document.createElement('a')
       a.href = url; a.download = 'tbh.png'
@@ -680,33 +649,25 @@ export default function ReadMessageScreen() {
       setSharing(false)
     }
   }
- 
-  // Share reply — one tap, always. If the pre-generated blob isn't ready yet,
-  // this generates it inline and shares as soon as it's done, all inside the
-  // same tap-triggered call so it's still a single user action. The loading
-  // state stays on for the whole trip and only clears in `finally`, and the
-  // replySending guard above blocks any re-entrant taps while it's active.
+
   const handleSendReply = async () => {
     const text = replyText.trim()
     if (!text || replySending) return
- 
+
     setReplySending(true)
     try {
-      // Cancel any pending debounce timer — we're generating right now if needed
       if (replyDebounceRef.current) {
         clearTimeout(replyDebounceRef.current)
         replyDebounceRef.current = null
       }
- 
+
       let blob = replyCardBlob
       if (!blob) {
-        // Reuse an in-flight generation if the debounce already kicked one off,
-        // otherwise start a fresh one. Either way we wait for it right here.
         blob = replyGenPromiseRef.current
           ? await replyGenPromiseRef.current
           : await generateReplyCard(textContent, text, imageUrl, logoSrc, userPfp, arrowsSrc)
       }
- 
+
       const file = new File([blob], 'tbh.png', { type: 'image/png' })
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], text: userLink })
@@ -719,7 +680,7 @@ export default function ReadMessageScreen() {
         document.body.appendChild(a); a.click(); document.body.removeChild(a)
         setTimeout(() => URL.revokeObjectURL(url), 10000)
       }
- 
+
       setShowReply(false)
       setReplyText('')
       setReplyCardBlob(null)
@@ -730,7 +691,7 @@ export default function ReadMessageScreen() {
       setReplySending(false)
     }
   }
- 
+
   if (loading) {
     return (
       <main className="min-h-screen bg-black flex items-center justify-center">
@@ -738,7 +699,7 @@ export default function ReadMessageScreen() {
       </main>
     )
   }
- 
+
   if (!message) {
     return (
       <main className="min-h-screen bg-black flex flex-col items-center justify-center gap-3">
@@ -747,12 +708,11 @@ export default function ReadMessageScreen() {
       </main>
     )
   }
- 
+
   return (
     <main className="min-h-screen flex flex-col relative overflow-hidden" style={{ fontFamily: font }}>
       <style>{GLOBAL_STYLES}</style>
- 
-      {/* Background: blurred pfp */}
+
       <div className="absolute inset-0 z-0">
         {userPfp ? (
           <div style={{
@@ -767,16 +727,12 @@ export default function ReadMessageScreen() {
         )}
         <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.45)' }} />
       </div>
- 
-      {/* Floating emojis */}
+
       <div className="absolute inset-0 z-[1] overflow-hidden">
         <FloatingEmojis />
       </div>
- 
-      {/* Content */}
+
       <div className="relative z-10 flex flex-col min-h-screen">
- 
-        {/* Top bar */}
         <div className="flex items-center px-4 pt-12 pb-4">
           <button
             onClick={() => router.back()}
@@ -788,78 +744,83 @@ export default function ReadMessageScreen() {
             </svg>
           </button>
         </div>
- 
+
         <div className="flex-1" />
- 
-        {/* Message card */}
+
+        {/* ─── MESSAGE CARD AFFICHÉ À L'ÉCRAN ─── */}
         <div className="px-5 mb-6">
-          <div style={{
-            background: '#FFFFFF',
-            borderRadius: '28px',
-            padding: '24px',
-            boxShadow: '0 24px 60px rgba(0,0,0,0.45), 0 8px 20px rgba(0,0,0,0.25)',
-          }}>
-            {isImageMessage && imageUrl && (
-              <>
-                <button
-                  onClick={() => setShowFullscreen(true)}
-                  className="w-full flex items-center gap-3 p-3 rounded-[16px] active:scale-[0.98] transition-transform mb-4"
-                  style={{ background: 'rgba(0,0,0,0.05)' }}
-                >
-                  <div className="w-14 h-14 rounded-[12px] overflow-hidden bg-black/10 flex-shrink-0">
-                    <img
-                      src={imageUrl} alt=""
-                      className="w-full h-full object-cover"
-                      style={{ filter: imageBlurred ? 'blur(10px)' : 'none', transition: 'filter 0.3s' }}
-                    />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <p className="font-semibold text-[15px] text-black">Photo</p>
-                    <p className="text-[11px] text-black/45">Tap to view fullscreen</p>
-                  </div>
+          <div
+            className="rounded-[28px] overflow-hidden shadow-[0_24px_60px_rgba(0,0,0,0.45),0_8px_20px_rgba(0,0,0,0.25)]"
+          >
+            {/* Bandeau noir (haut) */}
+            <div className="bg-[#111111] px-6 py-4 text-center">
+              <span className="text-white font-bold text-[17px] tracking-tight">
+                Envoie moi un message anonyme et on chat anonymement!!
+              </span>
+            </div>
+
+            {/* Corps blanc avec le message */}
+            <div className="bg-white px-6 py-6 min-h-[120px] flex items-center justify-center">
+              {isImageMessage && imageUrl && (
+                <div className="w-full mb-4">
                   <button
-                    onClick={e => { e.stopPropagation(); setImageBlurred(!imageBlurred) }}
-                    className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
-                    style={{ background: imageBlurred ? '#111111' : 'rgba(0,0,0,0.08)' }}
+                    onClick={() => setShowFullscreen(true)}
+                    className="w-full flex items-center gap-3 p-3 rounded-[16px] active:scale-[0.98] transition-transform"
+                    style={{ background: 'rgba(0,0,0,0.05)' }}
                   >
-                    {imageBlurred ? (
-                      <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="#fff" strokeWidth="2"/>
-                        <circle cx="12" cy="12" r="3" stroke="#fff" strokeWidth="2"/>
-                      </svg>
-                    ) : (
-                      <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
-                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" stroke="#111" strokeWidth="2" strokeLinecap="round"/>
-                        <line x1="1" y1="1" x2="23" y2="23" stroke="#111" strokeWidth="2" strokeLinecap="round"/>
-                      </svg>
-                    )}
+                    <div className="w-14 h-14 rounded-[12px] overflow-hidden bg-black/10 flex-shrink-0">
+                      <img
+                        src={imageUrl}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        style={{ filter: imageBlurred ? 'blur(10px)' : 'none', transition: 'filter 0.3s' }}
+                      />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="font-semibold text-[15px] text-black">Photo</p>
+                      <p className="text-[11px] text-black/45">Tap to view fullscreen</p>
+                    </div>
+                    <button
+                      onClick={e => { e.stopPropagation(); setImageBlurred(!imageBlurred) }}
+                      className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
+                      style={{ background: imageBlurred ? '#111111' : 'rgba(0,0,0,0.08)' }}
+                    >
+                      {imageBlurred ? (
+                        <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="#fff" strokeWidth="2"/>
+                          <circle cx="12" cy="12" r="3" stroke="#fff" strokeWidth="2"/>
+                        </svg>
+                      ) : (
+                        <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" stroke="#111" strokeWidth="2" strokeLinecap="round"/>
+                          <line x1="1" y1="1" x2="23" y2="23" stroke="#111" strokeWidth="2" strokeLinecap="round"/>
+                        </svg>
+                      )}
+                    </button>
                   </button>
-                </button>
-                <div className="w-full h-[1px] mb-4" style={{ background: 'rgba(0,0,0,0.08)' }} />
-              </>
-            )}
- 
-            {textContent && (
-              <p
-                className="w-full text-center font-semibold text-black"
-                style={{
-                  fontSize: textContent.length > 100 ? '18px' : textContent.length > 50 ? '24px' : '32px',
-                  lineHeight: '1.3',
-                  minHeight: '80px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                {textContent}
-              </p>
-            )}
+                  <div className="w-full h-[1px] mb-4" style={{ background: 'rgba(0,0,0,0.08)' }} />
+                </div>
+              )}
+
+              {textContent ? (
+                <p
+                  className="w-full text-center font-semibold text-black"
+                  style={{
+                    fontSize: textContent.length > 100 ? '18px' : textContent.length > 50 ? '24px' : '32px',
+                    lineHeight: '1.3',
+                  }}
+                >
+                  {textContent}
+                </p>
+              ) : (
+                <p className="text-black/40 text-center italic">No message content</p>
+              )}
+            </div>
           </div>
         </div>
- 
+
         <div className="flex-1" />
- 
-        {/* Bottom buttons */}
+
         <div className="px-5 pb-10 flex flex-col gap-3">
           <div className="flex gap-3">
             <button
@@ -883,8 +844,7 @@ export default function ReadMessageScreen() {
           </div>
         </div>
       </div>
- 
-      {/* Fullscreen image viewer */}
+
       {showFullscreen && imageUrl && (
         <div className="fixed inset-0 z-50 bg-black flex flex-col">
           <div className="flex items-center justify-between px-4 pt-12 pb-4">
@@ -912,8 +872,7 @@ export default function ReadMessageScreen() {
           )}
         </div>
       )}
- 
-      {/* Reply bottom sheet */}
+
       {showReply && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/60" onClick={() => !replySending && setShowReply(false)} />
@@ -931,7 +890,7 @@ export default function ReadMessageScreen() {
             <div className="absolute inset-0 overflow-hidden">
               <FloatingEmojis />
             </div>
- 
+
             <div className="relative z-10 pb-10">
               <div className="flex justify-center pt-3 pb-5">
                 <div className="w-10 h-[4px] rounded-full" style={{ background: 'rgba(255,255,255,0.25)' }} />
