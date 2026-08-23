@@ -232,7 +232,7 @@ async function generateReplyCard(
       ctx.restore()
     }
     ctx.globalAlpha = 1
-
+//test
     const logo = await loadImage(logoSrc).catch(() => null)
     if (logo) {
       const lw = 200, lh = Math.round(lw * logo.height / logo.width)
