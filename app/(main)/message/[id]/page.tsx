@@ -59,7 +59,6 @@ const MESSAGE_BODY_AREA_BOTTOM = 1650
 const MESSAGE_BODY_FONT_MAX_SIZE = 210
 const MESSAGE_BODY_FONT_MIN_SIZE = 48
 const MESSAGE_BODY_LINE_HEIGHT_RATIO = 1.25
-
 function drawBlurredBackground(
   ctx: CanvasRenderingContext2D,
   image: HTMLImageElement | null,
@@ -67,36 +66,49 @@ function drawBlurredBackground(
   height: number,
   fallbackColor: string,
 ) {
+  // Sauvegarde du contexte et suppression de l'échelle (on travaille en résolution réelle)
+  ctx.save()
+  ctx.setTransform(1, 0, 0, 1, 0, 0) // identité
+
+  const scale = CARD_RENDER_SCALE // 2
+  const actualW = width * scale
+  const actualH = height * scale
+
   if (image) {
-    const expansion = BACKGROUND_DRAW_EXPANSION
-    ctx.save()
+    const expansion = BACKGROUND_DRAW_EXPANSION * scale // agrandir le flou proportionnellement
     ctx.imageSmoothingEnabled = true
     ctx.imageSmoothingQuality = 'high'
-    ctx.filter = `blur(${BACKGROUND_BLUR_RADIUS}px) brightness(${BACKGROUND_IMAGE_BRIGHTNESS}) saturate(${BACKGROUND_IMAGE_SATURATION})`
-    drawImageCover(ctx, image, -expansion, -expansion, width + expansion * 2, height + expansion * 2)
-    ctx.restore()
+    // Le rayon du flou doit aussi être multiplié par scale
+    const blurRadius = BACKGROUND_BLUR_RADIUS * scale
+    ctx.filter = `blur(${blurRadius}px) brightness(${BACKGROUND_IMAGE_BRIGHTNESS}) saturate(${BACKGROUND_IMAGE_SATURATION})`
+    // Dessiner l'image en couverture sur tout le canvas
+    drawImageCover(ctx, image, -expansion, -expansion, actualW + expansion * 2, actualH + expansion * 2)
   } else {
     ctx.fillStyle = fallbackColor
-    ctx.fillRect(0, 0, width, height)
+    ctx.fillRect(0, 0, actualW, actualH)
   }
 
+  // Overlay (assombrissement)
+  ctx.filter = 'none' // ne pas flouter l'overlay
   ctx.fillStyle = BACKGROUND_OVERLAY_COLOR
-  ctx.fillRect(0, 0, width, height)
+  ctx.fillRect(0, 0, actualW, actualH)
 
+  // Vignette
   const vignette = ctx.createRadialGradient(
-    width / 2,
-    height / 2,
-    height * BACKGROUND_VIGNETTE_INNER_RADIUS,
-    width / 2,
-    height / 2,
-    height * BACKGROUND_VIGNETTE_OUTER_RADIUS,
+    actualW / 2,
+    actualH / 2,
+    actualH * BACKGROUND_VIGNETTE_INNER_RADIUS,
+    actualW / 2,
+    actualH / 2,
+    actualH * BACKGROUND_VIGNETTE_OUTER_RADIUS,
   )
   vignette.addColorStop(0, 'transparent')
   vignette.addColorStop(1, BACKGROUND_VIGNETTE_COLOR)
   ctx.fillStyle = vignette
-  ctx.fillRect(0, 0, width, height)
+  ctx.fillRect(0, 0, actualW, actualH)
+
+  ctx.restore() // restaure l'échelle et le filtre précédents
 }
- 
 function FloatingEmojis() {
   return (
     <>
@@ -359,8 +371,7 @@ async function generateReplyCard(
     canvas.toBlob(b => resolve(b!), 'image/png', 1.0)
   })
 }
- 
-async function generateMessageCard(
+ async function generateMessageCard(
   messageText: string,
   imageUrl: string | null,
   logoSrc: string,
@@ -373,12 +384,13 @@ async function generateMessageCard(
     canvas.width = W * CARD_RENDER_SCALE; canvas.height = H * CARD_RENDER_SCALE
     const ctx = canvas.getContext('2d')!
     ctx.scale(CARD_RENDER_SCALE, CARD_RENDER_SCALE)
- 
+
     let pfpImg: HTMLImageElement | null = null
     if (userPfp) pfpImg = await loadImage(userPfp).catch(() => null)
- 
+
     drawBlurredBackground(ctx, pfpImg, W, H, '#0D0D0D')
- 
+
+    // --- Émoticônes flottantes (inchangé) ---
     const emojiPositions = [
       { src: '/assets/poop.svg',    size: 180, x: 60,  y: 120,  rot: -15, opacity: 0.18 },
       { src: '/assets/hot.svg',     size: 220, x: 780, y: 80,   rot: 12,  opacity: 0.18 },
@@ -398,7 +410,8 @@ async function generateMessageCard(
       ctx.restore()
     }
     ctx.globalAlpha = 1
- 
+
+    // --- Logo (inchangé) ---
     const logo = await loadImage(logoSrc).catch(() => null)
     if (logo) {
       const lw = 220, lh = Math.round(lw * logo.height / logo.width)
@@ -413,7 +426,8 @@ async function generateMessageCard(
       ctx.drawImage(offscreen, (W - lw) / 2, 100, lw, lh)
       ctx.globalAlpha = 1
     }
- 
+
+    // --- Pilule "🔒 Anonymous message" (inchangé, mais on peut la garder) ---
     ctx.font = 'bold 44px -apple-system, sans-serif'
     const pillText = '🔒  Anonymous message'
     const pillW = ctx.measureText(pillText).width + 64
@@ -426,74 +440,96 @@ async function generateMessageCard(
     ctx.fillStyle = 'rgba(255,255,255,0.7)'
     ctx.textAlign = 'center'
     ctx.fillText(pillText, W / 2, pillY + 48)
- 
-    if (imageUrl) {
-      const img = await loadImage(imageUrl).catch(() => null)
-      if (img) {
-        const imgS = 860, imgY = 450
-        ctx.save()
-        roundRect(ctx, (W - imgS) / 2, imgY, imgS, imgS, 48)
-        ctx.clip()
-        drawImageCover(ctx, img, (W - imgS) / 2, imgY, imgS, imgS)
-        ctx.restore()
-        ctx.strokeStyle = 'rgba(255,255,255,0.12)'
-        ctx.lineWidth = 3
-        roundRect(ctx, (W - imgS) / 2, imgY, imgS, imgS, 48)
-        ctx.stroke()
-      }
-      if (messageText) {
-        ctx.font = 'bold 72px -apple-system, sans-serif'
-        ctx.fillStyle = '#FFFFFF'
-        ctx.textAlign = 'center'
-        ctx.shadowColor = 'rgba(0,0,0,0.6)'
-        ctx.shadowBlur = 20
-        const lines = wrapText(ctx, messageText, W - 180)
-        lines.forEach((line, i) => ctx.fillText(line, W / 2, 1390 + i * 96))
-        ctx.shadowBlur = 0
-      }
-    } else {
-      let fontSize = MESSAGE_BODY_FONT_MAX_SIZE
-      let lines: string[] = []
-      let bodyHeight = 0
-      const bodyWidth = Math.min(MESSAGE_BODY_MAX_WIDTH, W - MESSAGE_BODY_PADDING * 2)
-      const textWidth = bodyWidth - MESSAGE_BODY_PADDING * 2
-      const availableBodyHeight = MESSAGE_BODY_AREA_BOTTOM - MESSAGE_BODY_AREA_TOP
 
-      while (fontSize > MESSAGE_BODY_FONT_MIN_SIZE) {
-        ctx.font = `bold ${fontSize}px -apple-system, sans-serif`
-        lines = wrapText(ctx, messageText || ' ', textWidth)
-        bodyHeight = lines.length * fontSize * MESSAGE_BODY_LINE_HEIGHT_RATIO + MESSAGE_BODY_PADDING * 2
-        if (bodyHeight <= availableBodyHeight) break
-        fontSize -= 8
-      }
+    // --- NOUVEAU : Boîte avec bandeau noir et fond blanc ---
 
-      const bodyX = (W - bodyWidth) / 2
-      const bodyY = MESSAGE_BODY_AREA_TOP + (availableBodyHeight - bodyHeight) / 2
-      ctx.save()
-      ctx.shadowColor = MESSAGE_BODY_SHADOW_COLOR
-      ctx.shadowBlur = MESSAGE_BODY_SHADOW_BLUR
-      ctx.shadowOffsetY = MESSAGE_BODY_SHADOW_OFFSET_Y
-      ctx.shadowOffsetX = 0
-      ctx.fillStyle = '#FFFFFF'
-      roundRect(ctx, bodyX, bodyY, bodyWidth, bodyHeight, MESSAGE_BODY_RADIUS)
-      ctx.fill()
-      ctx.shadowColor = MESSAGE_BODY_SECONDARY_SHADOW_COLOR
-      ctx.shadowBlur = MESSAGE_BODY_SECONDARY_SHADOW_BLUR
-      ctx.shadowOffsetY = MESSAGE_BODY_SECONDARY_SHADOW_OFFSET_Y
-      roundRect(ctx, bodyX, bodyY, bodyWidth, bodyHeight, MESSAGE_BODY_RADIUS)
-      ctx.fill()
-      ctx.restore()
+    // Dimensions de la boîte (même largeur que l'ancienne)
+    const boxWidth = 860
+    const boxX = (W - boxWidth) / 2
+    const topY = 460 // après la pilule
+    const bandeauHeight = 90  // hauteur du bandeau noir
+    const messagePadding = 50
+    const boxRadius = 40
 
+    // 1. On dessine la boîte complète (fond blanc) avec ombre
+    const totalBoxHeight = bandeauHeight + messagePadding * 2 + 200 // on ajustera dynamiquement
+
+    // --- Calcul de la hauteur nécessaire pour le message ---
+    let fontSize = 72
+    let lines: string[] = []
+    let contentHeight = 0
+    const maxWidth = boxWidth - messagePadding * 2
+
+    while (fontSize > 28) {
       ctx.font = `bold ${fontSize}px -apple-system, sans-serif`
-      ctx.fillStyle = MESSAGE_BODY_TEXT_COLOR
-      ctx.textAlign = 'center'
-      const firstBaseline = bodyY + MESSAGE_BODY_PADDING + fontSize * 0.8
-      lines.forEach((line, i) => {
-        ctx.fillText(line, W / 2, firstBaseline + i * fontSize * MESSAGE_BODY_LINE_HEIGHT_RATIO)
-      })
+      lines = wrapText(ctx, messageText || ' ', maxWidth)
+      contentHeight = lines.length * fontSize * 1.3
+      if (contentHeight + messagePadding * 2 <= 600) break // on fixe une hauteur max pour la partie blanche
+      fontSize -= 4
     }
- 
-    // Last element: CTA inviting the viewer to send an anonymous message
+
+    const whiteHeight = Math.max(contentHeight + messagePadding * 2, 120)
+    const totalHeight = bandeauHeight + whiteHeight
+
+    // Dessiner le fond blanc (avec ombre)
+    const boxY = topY
+    ctx.save()
+    ctx.shadowColor = 'rgba(0,0,0,0.5)'
+    ctx.shadowBlur = 40
+    ctx.shadowOffsetY = 15
+    ctx.fillStyle = '#FFFFFF'
+    roundRect(ctx, boxX, boxY, boxWidth, totalHeight, boxRadius)
+    ctx.fill()
+    ctx.shadowBlur = 0
+    ctx.shadowOffsetY = 0
+    ctx.restore()
+
+    // 2. Bandeau noir en haut (avec coins arrondis uniquement en haut)
+    ctx.save()
+    ctx.beginPath()
+    // On crée un chemin avec les coins supérieurs arrondis
+    const r = boxRadius
+    ctx.moveTo(boxX + r, boxY)
+    ctx.lineTo(boxX + boxWidth - r, boxY)
+    ctx.quadraticCurveTo(boxX + boxWidth, boxY, boxX + boxWidth, boxY + r)
+    ctx.lineTo(boxX + boxWidth, boxY + bandeauHeight)
+    ctx.lineTo(boxX, boxY + bandeauHeight)
+    ctx.lineTo(boxX, boxY + r)
+    ctx.quadraticCurveTo(boxX, boxY, boxX + r, boxY)
+    ctx.closePath()
+    ctx.fillStyle = '#111111' // noir
+    ctx.fill()
+    ctx.restore()
+
+    // Texte du bandeau (centré)
+    ctx.save()
+    ctx.font = 'bold 44px -apple-system, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillStyle = '#FFFFFF'
+    const bandeauText = "Envoie moi un message anonyme et on chat anonymement!!"
+    // On pourrait gérer le wrapping si trop long, mais avec cette police et largeur, ça tient
+    ctx.fillText(bandeauText, W / 2, boxY + bandeauHeight / 2)
+    ctx.restore()
+
+    // 3. Message en blanc avec ombre
+    ctx.save()
+    ctx.shadowColor = 'rgba(0,0,0,0.2)'
+    ctx.shadowBlur = 12
+    ctx.shadowOffsetX = 2
+    ctx.shadowOffsetY = 4
+
+    ctx.font = `bold ${fontSize}px -apple-system, sans-serif`
+    ctx.fillStyle = '#111111'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'top'
+    const textStartY = boxY + bandeauHeight + messagePadding
+    lines.forEach((line, i) => {
+      ctx.fillText(line, W / 2, textStartY + i * fontSize * 1.3)
+    })
+    ctx.restore()
+
+    // --- CTA final (inchangé) ---
     ctx.font = 'bold 46px -apple-system, sans-serif'
     ctx.fillStyle = 'rgba(255,255,255,0.92)'
     ctx.textAlign = 'center'
@@ -504,7 +540,7 @@ async function generateMessageCard(
     const arrowsY = H - bottomMargin - arrowsH
     const ctaStartY = arrowsY - 24 - (ctaLines.length - 1) * ctaLineH
     ctaLines.forEach((line, i) => ctx.fillText(line, W / 2, ctaStartY + i * ctaLineH))
- 
+
     const arrowsImgEl = await loadImage(arrowsSrc).catch(() => null)
     if (arrowsImgEl) {
       const aw = Math.round(arrowsH * arrowsImgEl.width / arrowsImgEl.height)
@@ -519,7 +555,7 @@ async function generateMessageCard(
       ctx.drawImage(offArrows, (W - aw) / 2, arrowsY, aw, arrowsH)
       ctx.globalAlpha = 1
     }
- 
+
     canvas.toBlob(b => resolve(b!), 'image/png', 1.0)
   })
 }
