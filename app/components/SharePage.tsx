@@ -1,153 +1,41 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { createPortal } from 'react-dom'
-import { UserProfile } from '@/types'
-import Link from 'next/link'
+import { useRouter, useParams } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
 
-type Props = { profile: UserProfile | null }
-
-type CardType = {
-  id: string
-  emoji: string
-  title: string
-  subtitle: string
-  description: string
-  promptOverride: string | null
+type Message = {
+  message_id: string
+  content: string
+  media_url: string
+  isOpened: boolean
+  created_at: string
+  contains_media: boolean
+  from_user: string
+  to_user: string
 }
 
-const ALL_CARD_TYPES: CardType[] = [
-  {
-    id: 'blow_me_up', emoji: '💣', title: 'BLOW ME UP',
-    subtitle: "Send me an anonymous photo or message",
-    description: 'Anonymous messages',
-    promptOverride: 'Send me an anonymous Photo/message 🤫'
-  },
-  {
-    id: 'confession', emoji: '🤫', title: 'CONFESS TO ME',
-    subtitle: "Tell me something you've never dared say",
-    description: 'Anonymous confessions',
-    promptOverride: "Tell me something you've never dared say 🤫"
-  },
-  {
-    id: 'qa', emoji: '❓', title: 'ASK ME ANYTHING',
-    subtitle: 'Ask me anything — I will answer honestly',
-    description: 'Q&A',
-    promptOverride: 'Ask me anything, I dare you ❓'
-  },
-  {
-    id: 'make_laugh', emoji: '😂', title: 'MAKE ME LAUGH',
-    subtitle: 'Send memes, jokes or something hilarious',
-    description: 'Make me laugh',
-    promptOverride: 'Make me laugh 😂 send a meme or funny message'
-  },
-  {
-    id: 'confess_chat', emoji: '💬', title: 'CONFESS & CHAT',
-    subtitle: 'Confess something and start a conversation',
-    description: 'Confess and chat',
-    promptOverride: 'Confess something to me 💬'
-  },
-  {
-    id: 'be_honest', emoji: '👀', title: 'BE HONEST',
-    subtitle: 'Be honest with me, even if it hurts',
-    description: 'Be honest with me',
-    promptOverride: "Be honest with me 👀 Tell me what you really think"
-  },
-  {
-    id: 'dare_me', emoji: '🎯', title: 'DARE ME',
-    subtitle: 'Dare me to do something wild',
-    description: 'Dare me',
-    promptOverride: 'Dare me to do something 🎯'
-  },
-  {
-    id: 'birthday', emoji: '🎊', title: "IT'S MY BIRTHDAY",
-    subtitle: 'Wish me or tell me something sincere',
-    description: "It's my birthday!",
-    promptOverride: "It's my birthday 🎊 Send me a message!"
-  },
+const FLOATING_EMOJIS = [
+  { src: '/assets/poop.svg',    size: 90,  x: 5,  y: 8,  rot: -15, dur: 7.2, delay: 0   },
+  { src: '/assets/hot.svg',     size: 110, x: 75, y: 5,  rot: 12,  dur: 8.5, delay: 1.2 },
+  { src: '/assets/nerd.svg',    size: 85,  x: 85, y: 35, rot: -8,  dur: 6.8, delay: 0.5 },
+  { src: '/assets/Deamon.svg',  size: 120, x: 3,  y: 52, rot: 18,  dur: 9.1, delay: 2.1 },
+  { src: '/assets/Excited.svg', size: 95,  x: 78, y: 65, rot: -20, dur: 7.6, delay: 0.8 },
+  { src: '/assets/Skull.svg',   size: 80,  x: 12, y: 78, rot: 10,  dur: 8.0, delay: 1.7 },
+  { src: '/assets/hot.svg',     size: 70,  x: 58, y: 88, rot: -12, dur: 6.5, delay: 3.0 },
+  { src: '/assets/poop.svg',    size: 75,  x: 42, y: 2,  rot: 22,  dur: 7.9, delay: 2.5 },
 ]
 
-const PHRASES = [
-  'Share your link to receive honest reviews on you.',
-  'Check what kind of things people can send you.',
-  'Is there someone who can send you a pic?',
-  'You might discover something in a picture, send your link.',
-  'What kind of things people can show in pictures.',
-  'Ask people to send you a pic of their room',
-  'try to know how people see you',
-  'Dare people to make you laugh with memes'
-]
-
-const CARD_COLORS = [
-  { id: 'magma',    label: 'Magma',   stops: ['#FF512F', '#F09819'], ring: ['#FF512F', '#FFD60A', '#FF8F1D'] },
-  { id: 'sunset',   label: 'Sunset',  stops: ['#FF6B9D', '#FFC371'], ring: ['#FF6B9D', '#FFC371', '#FFE0B2'] },
-  { id: 'azure',    label: 'Azure',   stops: ['#2193B0', '#6DD5ED'], ring: ['#2193B0', '#6DD5ED', '#FFFFFF'] },
-  { id: 'emerald',  label: 'Jungle',  stops: ['#11998E', '#38EF7D'], ring: ['#11998E', '#38EF7D', '#A8FF78'] },
-  { id: 'violet',   label: 'Violet',  stops: ['#834D9B', '#D04ED6'], ring: ['#D04ED6', '#834D9B', '#FBC2EB'] },
-  { id: 'amber',    label: 'Amber',   stops: ['#F7B733', '#FC4A1A'], ring: ['#FC4A1A', '#F7B733', '#FFD60A'] },
-  { id: 'bloom',    label: 'Bloom',   stops: ['#FF9A9E', '#FAD0C4'], ring: ['#FF9A9E', '#FAD0C4', '#FECFEF'] },
-  { id: 'ocean',    label: 'Ocean',   stops: ['#4E54C8', '#8F94FB'], ring: ['#4E54C8', '#8F94FB', '#A8EDEA'] },
-]
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => resolve(img)
-    img.onerror = reject
-    img.src = src
-  })
-}
-
-// Load an SVG from URL and re-color all fills/strokes to white
-async function loadWhiteSvg(url: string): Promise<HTMLImageElement> {
-  const text = await fetch(url).then(r => r.text())
-  const white = text
-    .replace(/fill="#000000"/gi, 'fill="white"')
-    .replace(/fill="#000"/gi, 'fill="white"')
-    .replace(/fill="black"/gi, 'fill="white"')
-    .replace(/stroke="#000000"/gi, 'stroke="white"')
-    .replace(/stroke="#000"/gi, 'stroke="white"')
-    .replace(/stroke="black"/gi, 'stroke="white"')
-  const blob = new Blob([white], { type: 'image/svg+xml' })
-  const blobUrl = URL.createObjectURL(blob)
-  return new Promise((res, rej) => {
-    const img = new Image()
-    img.onload = () => { URL.revokeObjectURL(blobUrl); res(img) }
-    img.onerror = rej
-    img.src = blobUrl
-  })
-}
-
-function wrapCanvasText(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
-  const words = text.split(' ')
-  const lines: string[] = []
-  let current = ''
-  for (const word of words) {
-    const test = current ? `${current} ${word}` : word
-    if (ctx.measureText(test).width <= maxW) { current = test }
-    else { if (current) lines.push(current); current = word }
+const GLOBAL_STYLES = `
+  @keyframes floaty {
+    0%, 100% { transform: translateY(0px);   }
+    50%       { transform: translateY(-16px); }
   }
-  if (current) lines.push(current)
-  return lines
-}
+  textarea::placeholder { color: rgba(255,255,255,0.35); }
+  * { -webkit-tap-highlight-color: transparent; }
+`
 
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  ctx.beginPath()
-  ctx.moveTo(x + r, y)
-  ctx.lineTo(x + w - r, y)
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r)
-  ctx.lineTo(x + w, y + h - r)
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
-  ctx.lineTo(x + r, y + h)
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r)
-  ctx.lineTo(x, y + r)
-  ctx.quadraticCurveTo(x, y, x + r, y)
-  ctx.closePath()
-}
+// ─── Nouveau système de flou (copié depuis SharePage) ───────────────────
 
 // Detect if canvas supports ctx.filter (fails silently on iOS Safari)
 function supportsCanvasFilter(): boolean {
@@ -164,7 +52,6 @@ function supportsCanvasFilter(): boolean {
 }
 
 // Separable box blur on raw pixel data — 3 passes ≈ Gaussian
-// At 1/8 scale with radius=4: effective blur ~32px at full canvas resolution
 function applySoftBlur(data: Uint8ClampedArray, w: number, h: number, radius: number) {
   const tmp = new Uint8ClampedArray(data.length)
   for (let y = 0; y < h; y++) {
@@ -249,13 +136,104 @@ function drawBlurredBg(
   }
 }
 
-// ── Static image generation ───────────────────────────────────────────────────
-async function generateShareCard(
-  profile: UserProfile,
-  promptText: string,
-  cardType: CardType,
-  colorStops: string[] = ['#1a1a2e', '#16213e'],
-  ringColors: string[] = ['#FF6B6B', '#FFE66D', '#4D96FF'],
+// ─── Helpers existants ──────────────────────────────────────────────────────
+
+function FloatingEmojis() {
+  return (
+    <>
+      {FLOATING_EMOJIS.map((e, i) => (
+        <div key={i} style={{
+          position: 'absolute', left: `${e.x}%`, top: `${e.y}%`,
+          transform: `rotate(${e.rot}deg)`,
+          pointerEvents: 'none', zIndex: 1,
+        }}>
+          <div style={{ animation: `floaty ${e.dur}s ease-in-out ${e.delay}s infinite` }}>
+            <img src={e.src} alt="" style={{ width: `${e.size}px`, height: `${e.size}px`, display: 'block', opacity: 0.55 }} />
+          </div>
+        </div>
+      ))}
+    </>
+  )
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = src
+  })
+}
+
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.lineTo(x + w - r, y)
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r)
+  ctx.lineTo(x + w, y + h - r)
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
+  ctx.lineTo(x + r, y + h)
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r)
+  ctx.lineTo(x, y + r)
+  ctx.quadraticCurveTo(x, y, x + r, y)
+  ctx.closePath()
+}
+
+function wrapText(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
+  const words = text.trim().split(/\s+/)
+  const lines: string[] = []
+  let cur = ''
+  for (const w of words) {
+    if (ctx.measureText(w).width > maxW) {
+      if (cur) { lines.push(cur); cur = '' }
+      let chunk = ''
+      for (const char of w) {
+        const candidate = chunk + char
+        if (ctx.measureText(candidate).width <= maxW) chunk = candidate
+        else {
+          if (chunk) lines.push(chunk)
+          chunk = char
+        }
+      }
+      cur = chunk
+      continue
+    }
+    const test = cur ? `${cur} ${w}` : w
+    if (ctx.measureText(test).width <= maxW) { cur = test }
+    else { if (cur) lines.push(cur); cur = w }
+  }
+  if (cur) lines.push(cur)
+  return lines
+}
+
+function drawImageCover(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number, y: number, w: number, h: number,
+) {
+  const imgRatio = img.width / img.height
+  const boxRatio = w / h
+  let sx = 0, sy = 0, sw = img.width, sh = img.height
+  if (imgRatio > boxRatio) {
+    sw = img.height * boxRatio
+    sx = (img.width - sw) / 2
+  } else {
+    sh = img.width / boxRatio
+    sy = (img.height - sh) / 2
+  }
+  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h)
+}
+
+// ─── generateReplyCard (avec nouveau flou) ─────────────────────────────
+
+async function generateReplyCard(
+  messageText: string,
+  replyText: string,
+  imageUrl: string | null,
+  logoSrc: string,
+  userPfp: string | null,
+  arrowsSrc: string,
 ): Promise<Blob> {
   return new Promise(async (resolve) => {
     const W = 1080, H = 1920
@@ -264,927 +242,830 @@ async function generateShareCard(
     const ctx = canvas.getContext('2d')!
 
     const hasFilter = supportsCanvasFilter()
-
-    const [pfpImg, whiteLogo, whiteArrows] = await Promise.all([
-      profile.pfp ? loadImage(profile.pfp).catch(() => null) : Promise.resolve(null),
-      loadWhiteSvg(`${window.location.origin}/assets/TBH_Title_Logo.svg`).catch(() => null),
-      loadWhiteSvg(`${window.location.origin}/assets/arrows.svg`).catch(() => null),
-    ])
+    let pfpImg: HTMLImageElement | null = null
+    if (userPfp) pfpImg = await loadImage(userPfp).catch(() => null)
 
     let blurTmp: HTMLCanvasElement | null = null
-    if (!hasFilter && pfpImg) {
+    if (pfpImg && !hasFilter) {
       blurTmp = buildBlurCanvas(pfpImg, W, H)
     }
 
-    // 1. Background gradient
-    const bgGrad = ctx.createLinearGradient(0, 0, W, H)
-    bgGrad.addColorStop(0, colorStops[0])
-    bgGrad.addColorStop(1, colorStops[colorStops.length - 1])
-    ctx.fillStyle = bgGrad
-    ctx.fillRect(0, 0, W, H)
-
-    // 2. Blurred PFP background
-    if (pfpImg) drawBlurredBg(ctx, pfpImg, W, H, blurTmp, hasFilter)
-
-    // 5. TBH Logo (white)
-    if (whiteLogo) {
-      const lw = 200, lh = lw * whiteLogo.height / whiteLogo.width
-      ctx.drawImage(whiteLogo, (W - lw) / 2, 80, lw, lh)
-    }
-
-    // 6. Card title
-    ctx.fillStyle = '#FFFFFF'
-    ctx.font = 'bold 110px -apple-system, BlinkMacSystemFont, sans-serif'
-    ctx.textAlign = 'center'
-    ctx.shadowColor = 'rgba(0,0,0,0.8)'
-    ctx.shadowBlur = 20
-    const titleLines = cardType.title.split('\n')
-    titleLines.forEach((line, i) => { ctx.fillText(line, W / 2, 340 + i * 130) })
-    ctx.shadowBlur = 0
-
-    // 7. Gradient ring + profile pic
-    const ringY = 340 + titleLines.length * 130 + 60
-    const ringR = 210
-    const cx = W / 2, cy = ringY + ringR
-    const ringGrad = ctx.createLinearGradient(0, 0, W, H)
-    ringColors.forEach((c, i) => ringGrad.addColorStop(i / Math.max(ringColors.length - 1, 1), c))
-    ctx.beginPath()
-    ctx.arc(cx, cy, ringR, 0, Math.PI * 2)
-    ctx.strokeStyle = ringGrad
-    ctx.lineWidth = 22
-    ctx.stroke()
     if (pfpImg) {
-      ctx.save()
-      ctx.beginPath()
-      ctx.arc(cx, cy, ringR - 14, 0, Math.PI * 2)
-      ctx.clip()
-      
-      // Calculate aspect ratio to fit the image without stretching
-      const imgRatio = pfpImg.width / pfpImg.height
-      const targetRatio = 1 // Square
-      let drawWidth, drawHeight, drawX, drawY
-      const pfpS = (ringR - 14) * 2
-      
-      if (imgRatio > targetRatio) {
-        // Image is wider than square - crop left/right
-        drawHeight = pfpS
-        drawWidth = pfpS * imgRatio
-        drawX = cx - drawWidth / 2
-        drawY = cy - pfpS / 2
-      } else {
-        // Image is taller than square - crop top/bottom
-        drawWidth = pfpS
-        drawHeight = pfpS / imgRatio
-        drawX = cx - pfpS / 2
-        drawY = cy - drawHeight / 2
-      }
-      
-      ctx.drawImage(pfpImg, drawX, drawY, drawWidth, drawHeight)
-      ctx.restore()
+      drawBlurredBg(ctx, pfpImg, W, H, blurTmp, hasFilter)
+    } else {
+      ctx.fillStyle = '#0A0A0C'
+      ctx.fillRect(0, 0, W, H)
+      ctx.fillStyle = 'rgba(0,0,0,0.52)'
+      ctx.fillRect(0, 0, W, H)
+      const vignette = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.85)
+      vignette.addColorStop(0, 'transparent')
+      vignette.addColorStop(1, 'rgba(0,0,0,0.4)')
+      ctx.fillStyle = vignette
+      ctx.fillRect(0, 0, W, H)
     }
 
-    // 8. Username
+    const emojiPositions = [
+      { src: '/assets/poop.svg',    size: 180, x: 60,  y: 120,  rot: -15, opacity: 0.18 },
+      { src: '/assets/hot.svg',     size: 220, x: 780, y: 80,   rot: 12,  opacity: 0.18 },
+      { src: '/assets/nerd.svg',    size: 160, x: 860, y: 600,  rot: -8,  opacity: 0.15 },
+      { src: '/assets/Deamon.svg',  size: 240, x: 40,  y: 900,  rot: 18,  opacity: 0.18 },
+      { src: '/assets/Excited.svg', size: 190, x: 800, y: 1200, rot: -20, opacity: 0.15 },
+      { src: '/assets/Skull.svg',   size: 160, x: 100, y: 1500, rot: 10,  opacity: 0.15 },
+    ]
+    for (const e of emojiPositions) {
+      const img = await loadImage(e.src).catch(() => null)
+      if (!img) continue
+      ctx.save()
+      ctx.globalAlpha = e.opacity
+      ctx.translate(e.x + e.size / 2, e.y + e.size / 2)
+      ctx.rotate((e.rot * Math.PI) / 180)
+      ctx.drawImage(img, -e.size / 2, -e.size / 2, e.size, e.size)
+      ctx.restore()
+    }
+    ctx.globalAlpha = 1
+
+    const logo = await loadImage(logoSrc).catch(() => null)
+    if (logo) {
+      const lw = 200, lh = Math.round(lw * logo.height / logo.width)
+      const offscreen = document.createElement('canvas')
+      offscreen.width = lw; offscreen.height = lh
+      const oc = offscreen.getContext('2d')!
+      oc.drawImage(logo, 0, 0, lw, lh)
+      oc.globalCompositeOperation = 'source-in'
+      oc.fillStyle = '#FFFFFF'
+      oc.fillRect(0, 0, lw, lh)
+      ctx.globalAlpha = 0.9
+      ctx.drawImage(offscreen, (W - lw) / 2, 90, lw, lh)
+      ctx.globalAlpha = 1
+    }
+
+    const hPad = 72, boxW = W - hPad * 2, innerPad = 48
+    let y = 320
+
+    let msgImg: HTMLImageElement | null = null
+    if (imageUrl) msgImg = await loadImage(imageUrl).catch(() => null)
+
+    ctx.font = '52px -apple-system, sans-serif'
+    const msgLines = wrapText(ctx, messageText || '', boxW - innerPad * 2)
+    const msgLineH = 68
+    const imgSize = boxW - innerPad * 2
+    const imgH = msgImg ? imgSize : 0
+    const senderBoxH = innerPad + 60 + 20 + imgH + (imgH && messageText ? 28 : 0) + msgLines.length * msgLineH + innerPad
+
+    ctx.fillStyle = 'rgba(255,255,255,0.10)'
+    roundRect(ctx, hPad, y, boxW, senderBoxH, 40)
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)'
+    ctx.lineWidth = 2
+    roundRect(ctx, hPad, y, boxW, senderBoxH, 40)
+    ctx.stroke()
+
+    ctx.font = 'bold 40px -apple-system, sans-serif'
+    const anonText = '🔒  ANONYMOUS'
+    const anonW = ctx.measureText(anonText).width + 48
+    ctx.fillStyle = 'rgba(255,255,255,0.08)'
+    roundRect(ctx, hPad + innerPad, y + innerPad, anonW, 56, 28)
+    ctx.fill()
+    ctx.fillStyle = 'rgba(255,255,255,0.65)'
+    ctx.textAlign = 'left'
+    ctx.fillText(anonText, hPad + innerPad + 24, y + innerPad + 40)
+
+    let contentY = y + innerPad + 56 + 24
+
+    if (msgImg) {
+      ctx.save()
+      roundRect(ctx, hPad + innerPad, contentY, imgSize, imgSize, 24)
+      ctx.clip()
+      drawImageCover(ctx, msgImg, hPad + innerPad, contentY, imgSize, imgSize)
+      ctx.restore()
+      contentY += imgSize + (messageText ? 28 : 0)
+    }
+
+    if (messageText) {
+      ctx.font = '52px -apple-system, sans-serif'
+      ctx.fillStyle = '#FFFFFF'
+      ctx.textAlign = 'left'
+      msgLines.forEach((line, i) => {
+        ctx.fillText(line, hPad + innerPad, contentY + msgLineH * i + 48)
+      })
+    }
+
+    y += senderBoxH + 52
+
+    ctx.font = 'bold 68px -apple-system, sans-serif'
+    const replyLines = wrapText(ctx, replyText, boxW - innerPad * 2)
+    const replyLineH = 86
+    const replyBoxH = innerPad + 60 + 28 + replyLines.length * replyLineH + innerPad
+
+    ctx.save()
+    ctx.shadowColor = 'rgba(255,107,107,0.4)'
+    ctx.shadowBlur = 60
+    ctx.fillStyle = 'rgba(255,107,107,0.01)'
+    roundRect(ctx, hPad, y, boxW, replyBoxH, 40)
+    ctx.fill()
+    ctx.restore()
+
+    ctx.fillStyle = 'rgba(255,255,255,0.13)'
+    roundRect(ctx, hPad, y, boxW, replyBoxH, 40)
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(255,107,107,0.35)'
+    ctx.lineWidth = 2
+    roundRect(ctx, hPad, y, boxW, replyBoxH, 40)
+    ctx.stroke()
+
+    ctx.font = 'bold 40px -apple-system, sans-serif'
+    ctx.fillStyle = 'rgba(255,107,107,0.9)'
+    ctx.textAlign = 'left'
+    ctx.fillText('ME', hPad + innerPad, y + innerPad + 42)
+
+    ctx.font = 'bold 68px -apple-system, sans-serif'
     ctx.fillStyle = '#FFFFFF'
-    ctx.font = 'bold 72px -apple-system, BlinkMacSystemFont, sans-serif'
-    ctx.textAlign = 'center'
-    ctx.shadowColor = 'rgba(0,0,0,0.6)'
-    ctx.shadowBlur = 12
-    ctx.fillText(`@${profile.username ?? ''}`, W / 2, cy + ringR + 90)
+    ctx.shadowColor = 'rgba(0,0,0,0.3)'
+    ctx.shadowBlur = 8
+    replyLines.forEach((line, i) => {
+      ctx.fillText(line, hPad + innerPad, y + innerPad + 60 + 28 + replyLineH * i + 60)
+    })
     ctx.shadowBlur = 0
 
-    // 9. Prompt pill
-    ctx.font = '52px -apple-system, BlinkMacSystemFont, sans-serif'
-    const pillPadX = 48, pillPadY = 28
-    const maxPillW = W * 0.78
-    const wrappedPrompt = wrapCanvasText(ctx, promptText, maxPillW - pillPadX * 2)
-    const lineH = 64
-    const pillH = wrappedPrompt.length * lineH + pillPadY * 2
-    const pillW = maxPillW
-    const pillX = (W - pillW) / 2
-    const pillY = cy + ringR + 120
-    ctx.fillStyle = 'rgba(255,255,255,0.15)'
-    roundRect(ctx, pillX, pillY, pillW, pillH, 28)
-    ctx.fill()
-    ctx.fillStyle = '#FFFFFF'
+    ctx.font = 'bold 46px -apple-system, sans-serif'
+    ctx.fillStyle = 'rgba(255,255,255,0.92)'
     ctx.textAlign = 'center'
-    wrappedPrompt.forEach((line, i) => { ctx.fillText(line, W / 2, pillY + pillPadY + lineH * i + 44) })
+    const ctaLines = wrapText(ctx, 'Send me something anonymously', W - 160)
+    const ctaLineH = 56
+    const arrowsH = 64
+    const bottomMargin = 90
+    const arrowsY = H - bottomMargin - arrowsH
+    const ctaStartY = arrowsY - 24 - (ctaLines.length - 1) * ctaLineH
+    ctaLines.forEach((line, i) => ctx.fillText(line, W / 2, ctaStartY + i * ctaLineH))
 
-    // 10. Link text
-    const linkY = pillY + pillH + 60
-    ctx.fillStyle = 'rgba(255,255,255,0.6)'
-    ctx.font = '40px -apple-system, BlinkMacSystemFont, sans-serif'
-    ctx.textAlign = 'center'
-    ctx.fillText(`tbhonest.net/send/${profile.slug}`, W / 2, linkY + 40)
-
-    // 11. Arrows below link text
-    if (whiteArrows) {
-      const aw = 120, ah = aw * whiteArrows.height / whiteArrows.width
-      ctx.save()
-      ctx.globalAlpha = 0.6
-      ctx.drawImage(whiteArrows, (W - aw) / 2, linkY + 90, aw, ah)
+    const arrowsImgEl = await loadImage(arrowsSrc).catch(() => null)
+    if (arrowsImgEl) {
+      const aw = Math.round(arrowsH * arrowsImgEl.width / arrowsImgEl.height)
+      const offArrows = document.createElement('canvas')
+      offArrows.width = aw; offArrows.height = arrowsH
+      const ocArrows = offArrows.getContext('2d')!
+      ocArrows.drawImage(arrowsImgEl, 0, 0, aw, arrowsH)
+      ocArrows.globalCompositeOperation = 'source-in'
+      ocArrows.fillStyle = '#FFFFFF'
+      ocArrows.fillRect(0, 0, aw, arrowsH)
+      ctx.globalAlpha = 0.92
+      ctx.drawImage(offArrows, (W - aw) / 2, arrowsY, aw, arrowsH)
       ctx.globalAlpha = 1
-      ctx.restore()
     }
 
     canvas.toBlob(b => resolve(b!), 'image/png', 1.0)
   })
 }
 
-// ── Animated GIF generation ───────────────────────────────────────────────────
-async function generateShareGif(
-  profile: UserProfile,
-  promptText: string,
-  cardType: CardType,
-  colorStops: string[] = ['#1a1a2e', '#16213e'],
-  ringColors: string[] = ['#FF6B6B', '#FFE66D', '#4D96FF'],
-  onProgress?: (pct: number) => void,
+// ─── generateMessageCard (nouveau flou + boîte multiligne) ────────────
+
+async function generateMessageCard(
+  messageText: string,
+  imageUrl: string | null,
+  logoSrc: string,
+  userPfp: string | null,
+  arrowsSrc: string,
 ): Promise<Blob> {
-  const { GIFEncoder, quantize, applyPalette } = await import('gifenc')
+  return new Promise(async (resolve) => {
+    const W = 1080, H = 1920
+    const canvas = document.createElement('canvas')
+    canvas.width = W; canvas.height = H
+    const ctx = canvas.getContext('2d')!
 
-  const W = 540, H = 960
-  const canvas = document.createElement('canvas')
-  canvas.width = W; canvas.height = H
-  const ctx = canvas.getContext('2d')!
+    const hasFilter = supportsCanvasFilter()
+    let pfpImg: HTMLImageElement | null = null
+    if (userPfp) pfpImg = await loadImage(userPfp).catch(() => null)
 
-  const hasFilter = supportsCanvasFilter()
-
-  const [pfpImg, whiteLogo, whiteArrows] = await Promise.all([
-    profile.pfp ? loadImage(profile.pfp).catch(() => null) : Promise.resolve(null),
-    loadWhiteSvg(`${window.location.origin}/assets/TBH_Title_Logo.svg`).catch(() => null),
-    loadWhiteSvg(`${window.location.origin}/assets/arrows.svg`).catch(() => null),
-  ])
-
-  let blurTmp: HTMLCanvasElement | null = null
-  if (!hasFilter && pfpImg) {
-    blurTmp = buildBlurCanvas(pfpImg, W, H)
-  }
-
-  const encoder = GIFEncoder()
-  const FRAMES = 40
-  const DELAY  = 100 // 10fps → 4s total
-
-  for (let f = 0; f < FRAMES; f++) {
-    const t = f / FRAMES
-
-    // Sinusoidal animation offsets (slow, gentle)
-    const bgExtra  = Math.round(W * 0.03 * Math.sin(t * Math.PI))      // background breathe
-    const logoOff  = Math.sin(t * Math.PI * 3.0) * 5                    // logo drift
-    const ringOffX = Math.sin(t * Math.PI * 3.7 + 0.5) * 6             // ring/pfp horizontal drift
-    const ringOffY = Math.cos(t * Math.PI * 2.9 + 1.2) * 5             // ring/pfp vertical drift
-    const pillOff  = Math.sin(t * Math.PI * 2.0 + 0.8) * 4             // pill sway
-    const linkOff  = Math.cos(t * Math.PI * 2.4) * 3                   // link drift
-    const arrowOff = Math.sin(t * Math.PI * 1.6 + 1.2) * 6             // arrows bounce
-
-    ctx.clearRect(0, 0, W, H)
-
-    // Background gradient
-    const bgGrad = ctx.createLinearGradient(0, 0, W, H)
-    bgGrad.addColorStop(0, colorStops[0])
-    bgGrad.addColorStop(1, colorStops[colorStops.length - 1])
-    ctx.fillStyle = bgGrad
-    ctx.fillRect(0, 0, W, H)
-
-    // Blurred PFP (with breathing expansion)
-    if (pfpImg) drawBlurredBg(ctx, pfpImg, W, H, blurTmp, hasFilter, bgExtra)
-
-    // Logo
-    if (whiteLogo) {
-      const lw = 100, lh = lw * whiteLogo.height / whiteLogo.width
-      ctx.drawImage(whiteLogo, (W - lw) / 2, 40 + logoOff, lw, lh)
+    let blurTmp: HTMLCanvasElement | null = null
+    if (pfpImg && !hasFilter) {
+      blurTmp = buildBlurCanvas(pfpImg, W, H)
     }
 
-    // Title
-    ctx.fillStyle = '#FFFFFF'
-    ctx.font = 'bold 55px -apple-system, BlinkMacSystemFont, sans-serif'
-    ctx.textAlign = 'center'
-    ctx.shadowColor = 'rgba(0,0,0,0.8)'
-    ctx.shadowBlur = 10
-    const titleLines = cardType.title.split('\n')
-    titleLines.forEach((line, i) => { ctx.fillText(line, W / 2, 170 + i * 65) })
-    ctx.shadowBlur = 0
-
-    // Ring + PFP (ring drifts with ringOffX / ringOffY)
-    const ringY = 170 + titleLines.length * 65 + 30
-    const ringR = 105
-    const cx = W / 2 + ringOffX, cy = ringY + ringR + ringOffY
-    const ringGrad = ctx.createLinearGradient(0, 0, W, H)
-    ringColors.forEach((c, i) => ringGrad.addColorStop(i / Math.max(ringColors.length - 1, 1), c))
-    ctx.beginPath()
-    ctx.arc(cx, cy, ringR, 0, Math.PI * 2)
-    ctx.strokeStyle = ringGrad
-    ctx.lineWidth = 11
-    ctx.stroke()
+    // 1. Background
     if (pfpImg) {
-      ctx.save()
-      ctx.beginPath()
-      ctx.arc(cx, cy, ringR - 7, 0, Math.PI * 2)
-      ctx.clip()
-      
-      // Calculate aspect ratio to fit the image without stretching
-      const imgRatio = pfpImg.width / pfpImg.height
-      const targetRatio = 1 // Square
-      let drawWidth, drawHeight, drawX, drawY
-      const pfpS = (ringR - 7) * 2
-      
-      if (imgRatio > targetRatio) {
-        // Image is wider than square - crop left/right
-        drawHeight = pfpS
-        drawWidth = pfpS * imgRatio
-        drawX = cx - drawWidth / 2
-        drawY = cy - pfpS / 2
-      } else {
-        // Image is taller than square - crop top/bottom
-        drawWidth = pfpS
-        drawHeight = pfpS / imgRatio
-        drawX = cx - pfpS / 2
-        drawY = cy - drawHeight / 2
-      }
-      
-      ctx.drawImage(pfpImg, drawX, drawY, drawWidth, drawHeight)
-      ctx.restore()
+      drawBlurredBg(ctx, pfpImg, W, H, blurTmp, hasFilter)
+    } else {
+      ctx.fillStyle = '#0D0D0D'
+      ctx.fillRect(0, 0, W, H)
+      ctx.fillStyle = 'rgba(0,0,0,0.52)'
+      ctx.fillRect(0, 0, W, H)
+      const vignette = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.85)
+      vignette.addColorStop(0, 'transparent')
+      vignette.addColorStop(1, 'rgba(0,0,0,0.4)')
+      ctx.fillStyle = vignette
+      ctx.fillRect(0, 0, W, H)
     }
 
-    // Username
-    ctx.fillStyle = '#FFFFFF'
-    ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, sans-serif'
-    ctx.textAlign = 'center'
-    ctx.shadowColor = 'rgba(0,0,0,0.6)'
-    ctx.shadowBlur = 8
-    ctx.fillText(`@${profile.username ?? ''}`, cx, cy + ringR + 45)
-    ctx.shadowBlur = 0
-
-    // Prompt pill
-    ctx.font = '26px -apple-system, BlinkMacSystemFont, sans-serif'
-    const pillPadX = 24, pillPadY = 14
-    const maxPillW = W * 0.78
-    const wrapped = wrapCanvasText(ctx, promptText, maxPillW - pillPadX * 2)
-    const lineH = 32
-    const pillH = wrapped.length * lineH + pillPadY * 2
-    const pillW = maxPillW
-    const pillX = (W - pillW) / 2
-    const pillYPos = cy + ringR + 60 + pillOff
-    ctx.fillStyle = 'rgba(255,255,255,0.15)'
-    roundRect(ctx, pillX, pillYPos, pillW, pillH, 14)
-    ctx.fill()
-    ctx.fillStyle = '#FFFFFF'
-    ctx.textAlign = 'center'
-    wrapped.forEach((line, i) => { ctx.fillText(line, W / 2, pillYPos + pillPadY + lineH * i + 22) })
-
-    // Link text
-    const linkY = pillYPos + pillH + 30 + linkOff
-    ctx.fillStyle = 'rgba(255,255,255,0.6)'
-    ctx.font = '20px -apple-system, BlinkMacSystemFont, sans-serif'
-    ctx.textAlign = 'center'
-    ctx.fillText(`tbhonest.net/send/${profile.slug}`, W / 2, linkY + 20)
-
-    // Arrows
-    if (whiteArrows) {
-      const aw = 60, ah = aw * whiteArrows.height / whiteArrows.width
+    // 2. Emojis
+    const emojiPositions = [
+      { src: '/assets/poop.svg',    size: 180, x: 60,  y: 120,  rot: -15, opacity: 0.18 },
+      { src: '/assets/hot.svg',     size: 220, x: 780, y: 80,   rot: 12,  opacity: 0.18 },
+      { src: '/assets/nerd.svg',    size: 160, x: 860, y: 600,  rot: -8,  opacity: 0.15 },
+      { src: '/assets/Deamon.svg',  size: 240, x: 40,  y: 900,  rot: 18,  opacity: 0.18 },
+      { src: '/assets/Excited.svg', size: 190, x: 800, y: 1200, rot: -20, opacity: 0.15 },
+      { src: '/assets/Skull.svg',   size: 160, x: 100, y: 1500, rot: 10,  opacity: 0.15 },
+    ]
+    for (const e of emojiPositions) {
+      const img = await loadImage(e.src).catch(() => null)
+      if (!img) continue
       ctx.save()
-      ctx.globalAlpha = 0.6
-      ctx.drawImage(whiteArrows, (W - aw) / 2, linkY + 45 + arrowOff, aw, ah)
+      ctx.globalAlpha = e.opacity
+      ctx.translate(e.x + e.size / 2, e.y + e.size / 2)
+      ctx.rotate((e.rot * Math.PI) / 180)
+      ctx.drawImage(img, -e.size / 2, -e.size / 2, e.size, e.size)
+      ctx.restore()
+    }
+    ctx.globalAlpha = 1
+
+    // 3. Logo
+    const logo = await loadImage(logoSrc).catch(() => null)
+    if (logo) {
+      const lw = 220, lh = Math.round(lw * logo.height / logo.width)
+      const offscreen = document.createElement('canvas')
+      offscreen.width = lw; offscreen.height = lh
+      const oc = offscreen.getContext('2d')!
+      oc.drawImage(logo, 0, 0, lw, lh)
+      oc.globalCompositeOperation = 'source-in'
+      oc.fillStyle = '#FFFFFF'
+      oc.fillRect(0, 0, lw, lh)
+      ctx.globalAlpha = 0.9
+      ctx.drawImage(offscreen, (W - lw) / 2, 100, lw, lh)
       ctx.globalAlpha = 1
-      ctx.restore()
     }
 
-    // Encode frame
-    const imageData = ctx.getImageData(0, 0, W, H)
-    const palette = quantize(imageData.data, 256)
-    const index   = applyPalette(imageData.data, palette)
-    encoder.writeFrame(index, W, H, { palette, delay: DELAY })
+    // 4. "🔒 Anonymous message" pill
+    ctx.font = 'bold 44px -apple-system, sans-serif'
+    const pillText = '🔒  Anonymous message'
+    const pillW = ctx.measureText(pillText).width + 64
+    const pillH = 72
+    const pillX = (W - pillW) / 2
+    const pillY = 320
+    ctx.fillStyle = 'rgba(255,255,255,0.12)'
+    roundRect(ctx, pillX, pillY, pillW, pillH, pillH / 2)
+    ctx.fill()
+    ctx.fillStyle = 'rgba(255,255,255,0.7)'
+    ctx.textAlign = 'center'
+    ctx.fillText(pillText, W / 2, pillY + 48)
 
-    onProgress?.((f + 1) / FRAMES)
+    // 5. Image (si présente)
+    let imageBoxY = 0
+    if (imageUrl) {
+      const img = await loadImage(imageUrl).catch(() => null)
+      if (img) {
+        const imgS = 860, imgY = 450
+        ctx.save()
+        roundRect(ctx, (W - imgS) / 2, imgY, imgS, imgS, 48)
+        ctx.clip()
+        drawImageCover(ctx, img, (W - imgS) / 2, imgY, imgS, imgS)
+        ctx.restore()
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)'
+        ctx.lineWidth = 3
+        roundRect(ctx, (W - imgS) / 2, imgY, imgS, imgS, 48)
+        ctx.stroke()
+        imageBoxY = imgY + imgS + 40
+      }
+    }
 
-    // Yield to browser to avoid blocking UI on heavy encoding
-    if (f % 8 === 7) await new Promise(r => setTimeout(r, 0))
-  }
+    // ─── BOÎTE AVEC BANDEAU NOIR MULTILIGNE ──────────────────────────────
 
-  encoder.finish()
-  const bytes = encoder.bytes()
-  // Copy into a plain ArrayBuffer to satisfy Blob constructor types
-  const ab = new ArrayBuffer(bytes.length)
-  new Uint8Array(ab).set(bytes)
-  return new Blob([ab], { type: 'image/gif' })
+    const boxWidth = 860
+    const boxX = (W - boxWidth) / 2
+    const boxRadius = 40
+    const messagePadding = 50
+
+    // Bandeau noir (CTA)
+    const bandeauText = "Envoie moi un message anonyme et on chat anonymement!!"
+    ctx.font = 'bold 44px -apple-system, sans-serif'
+    const maxBandeauWidth = boxWidth - 60
+    const bandeauLines = wrapText(ctx, bandeauText, maxBandeauWidth)
+    const bandeauLineHeight = 56
+    const bandeauPaddingY = 24
+    const bandeauHeight = bandeauLines.length * bandeauLineHeight + bandeauPaddingY * 2
+
+    // Message (partie blanche)
+    let fontSize = 72
+    let lines: string[] = []
+    let contentHeight = 0
+    const maxTextWidth = boxWidth - messagePadding * 2
+    while (fontSize > 28) {
+      ctx.font = `bold ${fontSize}px -apple-system, sans-serif`
+      lines = wrapText(ctx, messageText || ' ', maxTextWidth)
+      contentHeight = lines.length * fontSize * 1.3
+      if (contentHeight + messagePadding * 2 <= 600) break
+      fontSize -= 4
+    }
+    const whiteHeight = Math.max(contentHeight + messagePadding * 2, 120)
+    const totalHeight = bandeauHeight + whiteHeight
+
+    // Position Y de la boîte
+    let boxY = imageBoxY > 0 ? imageBoxY : (H - totalHeight) / 2 + 20
+
+    // Dessiner le fond blanc (avec ombre)
+    ctx.save()
+    ctx.shadowColor = 'rgba(0,0,0,0.5)'
+    ctx.shadowBlur = 40
+    ctx.shadowOffsetY = 15
+    ctx.fillStyle = '#FFFFFF'
+    roundRect(ctx, boxX, boxY, boxWidth, totalHeight, boxRadius)
+    ctx.fill()
+    ctx.shadowBlur = 0
+    ctx.shadowOffsetY = 0
+    ctx.restore()
+
+    // Bandeau noir (coins supérieurs arrondis)
+    ctx.save()
+    ctx.beginPath()
+    const r = boxRadius
+    ctx.moveTo(boxX + r, boxY)
+    ctx.lineTo(boxX + boxWidth - r, boxY)
+    ctx.quadraticCurveTo(boxX + boxWidth, boxY, boxX + boxWidth, boxY + r)
+    ctx.lineTo(boxX + boxWidth, boxY + bandeauHeight)
+    ctx.lineTo(boxX, boxY + bandeauHeight)
+    ctx.lineTo(boxX, boxY + r)
+    ctx.quadraticCurveTo(boxX, boxY, boxX + r, boxY)
+    ctx.closePath()
+    ctx.fillStyle = '#111111'
+    ctx.fill()
+    ctx.restore()
+
+    // Texte du bandeau (centré verticalement)
+    ctx.save()
+    ctx.font = 'bold 44px -apple-system, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillStyle = '#FFFFFF'
+    const bandeauStartY = boxY + bandeauPaddingY + bandeauLineHeight / 2
+    bandeauLines.forEach((line, i) => {
+      ctx.fillText(line, W / 2, bandeauStartY + i * bandeauLineHeight)
+    })
+    ctx.restore()
+
+    // Message (partie blanche)
+    ctx.save()
+    ctx.shadowColor = 'rgba(0,0,0,0.2)'
+    ctx.shadowBlur = 12
+    ctx.shadowOffsetX = 2
+    ctx.shadowOffsetY = 4
+    ctx.font = `bold ${fontSize}px -apple-system, sans-serif`
+    ctx.fillStyle = '#111111'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'top'
+    const textStartY = boxY + bandeauHeight + messagePadding
+    lines.forEach((line, i) => {
+      ctx.fillText(line, W / 2, textStartY + i * fontSize * 1.3)
+    })
+    ctx.restore()
+
+    // ─── CTA final ──────────────────────────────────────────────────────────
+
+    ctx.font = 'bold 46px -apple-system, sans-serif'
+    ctx.fillStyle = 'rgba(255,255,255,0.92)'
+    ctx.textAlign = 'center'
+    const ctaLines = wrapText(ctx, 'Send me something anonymously', W - 160)
+    const ctaLineH = 56
+    const arrowsH = 64
+    const bottomMargin = 90
+    const arrowsY = H - bottomMargin - arrowsH
+    const ctaStartY = arrowsY - 24 - (ctaLines.length - 1) * ctaLineH
+    ctaLines.forEach((line, i) => ctx.fillText(line, W / 2, ctaStartY + i * ctaLineH))
+
+    const arrowsImgEl = await loadImage(arrowsSrc).catch(() => null)
+    if (arrowsImgEl) {
+      const aw = Math.round(arrowsH * arrowsImgEl.width / arrowsImgEl.height)
+      const offArrows = document.createElement('canvas')
+      offArrows.width = aw; offArrows.height = arrowsH
+      const ocArrows = offArrows.getContext('2d')!
+      ocArrows.drawImage(arrowsImgEl, 0, 0, aw, arrowsH)
+      ocArrows.globalCompositeOperation = 'source-in'
+      ocArrows.fillStyle = '#FFFFFF'
+      ocArrows.fillRect(0, 0, aw, arrowsH)
+      ctx.globalAlpha = 0.92
+      ctx.drawImage(offArrows, (W - aw) / 2, arrowsY, aw, arrowsH)
+      ctx.globalAlpha = 1
+    }
+
+    canvas.toBlob(b => resolve(b!), 'image/png', 1.0)
+  })
 }
 
-// ── Main Component ────────────────────────────────────────────────────────────
-export default function SharePage({ profile }: Props) {
-  const [copied, setCopied]               = useState(false)
-  const [promptText, setPromptText]       = useState('Send me an anonymous photo/message')
-  const [editingPrompt, setEditingPrompt] = useState(false)
-  const [tempPrompt, setTempPrompt]       = useState(promptText)
-  const [showCardPicker, setShowCardPicker] = useState(false)
-  const [selectedCard, setSelectedCard]   = useState<CardType>(ALL_CARD_TYPES[0])
-  const [generating, setGenerating]       = useState(false)
-  const [gifProgress, setGifProgress]     = useState(0)
-  const [sharedPlatforms, setSharedPlatforms] = useState<string[]>([])
-  const shareProgress = sharedPlatforms.length / 3
-  const hasMarkedSharing = useRef(false)
-  const [showSheet, setShowSheet]         = useState(false)
-  // 'format' → pick Image/GIF, 'color' → pick color (after format chosen)
-  const [sheetStep, setSheetStep]         = useState<'format' | 'color'>('format')
-  const [shareMode, setShareMode]         = useState<'image' | 'gif'>('image')
-  const [selectedColor, setSelectedColor] = useState(CARD_COLORS[1])
-  const [phraseIndex, setPhraseIndex]     = useState(0)
-  const [phraseVisible, setPhraseVisible] = useState(true)
-  const [showHelpModal, setShowHelpModal] = useState(false)
-  const [showGamePicker, setShowGamePicker] = useState(false)
-  const [sheetClosing, setSheetClosing]         = useState(false)
-  const [gamePickerClosing, setGamePickerClosing] = useState(false)
-  const [shareReady, setShareReady] = useState<{ blob: Blob; filename: string; isGif: boolean } | null>(null)
-  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
+// ─── ReadMessageScreen (inchangé, sauf les appels de génération) ─────
 
-  useEffect(() => { setPortalTarget(document.getElementById('app-shell')) }, [])
+export default function ReadMessageScreen() {
+  const router = useRouter()
+  const params = useParams()
+  const messageId = params?.id as string
 
-  const shareLink = profile?.slug
-    ? `${typeof window !== 'undefined' ? window.location.origin : 'https://tbhonest.net'}/send/${profile.slug}`
-    : ''
+  const [message, setMessage] = useState<Message | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [userLink, setUserLink] = useState('')
+  const [userPfp, setUserPfp] = useState<string | null>(null)
 
-  // Mark user as sharing on first successful share (fixed: awaited)
+  const [imageBlurred, setImageBlurred] = useState(true)
+  const [showFullscreen, setShowFullscreen] = useState(false)
+  const [showReply, setShowReply] = useState(false)
+  const [replyText, setReplyText] = useState('')
+  const [replySending, setReplySending] = useState(false)
+  const [sharing, setSharing] = useState(false)
+
+  const [messageCardBlob, setMessageCardBlob] = useState<Blob | null>(null)
+  const [cardGenerating, setCardGenerating] = useState(false)
+  const [replyCardBlob, setReplyCardBlob] = useState<Blob | null>(null)
+
+  const replyDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const replyGenPromiseRef = useRef<Promise<Blob> | null>(null)
+
+  const font = "'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif"
+  const logoSrc = typeof window !== 'undefined'
+    ? `${window.location.origin}/assets/TBH_Title_Logo.svg`
+    : '/assets/TBH_Title_Logo.svg'
+  const arrowsSrc = typeof window !== 'undefined'
+    ? `${window.location.origin}/assets/arrows.svg`
+    : '/assets/arrows.svg'
+
   useEffect(() => {
-    if (sharedPlatforms.length === 0 || hasMarkedSharing.current || !profile) return
-    hasMarkedSharing.current = true
-    ;(async () => {
-      await supabaseClient
-        .from('users_table')
-        .update({ is_sharing: true })
-        .eq('user_id', profile.user_id)
-    })()
-  }, [sharedPlatforms.length, profile])
+    const load = async () => {
+      const { data: { session } } = await supabaseClient.auth.getSession()
+      if (!session) { router.push('/'); return }
 
-  // Phrase rotation
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setPhraseVisible(false)
-      setTimeout(() => { setPhraseIndex(i => (i + 1) % PHRASES.length); setPhraseVisible(true) }, 600)
-    }, 5000)
-    return () => clearInterval(interval)
-  }, [])
+      const { data: msg } = await supabaseClient
+        .from('messages').select('*').eq('message_id', messageId).single()
+      if (msg) setMessage(msg)
 
-  const closeSheet = () => {
-    setSheetClosing(true)
-    setTimeout(() => { setShowSheet(false); setSheetClosing(false) }, 300)
-  }
+      const { data: profile } = await supabaseClient
+        .from('users_table').select('slug, pfp').eq('user_id', session.user.id).single()
+      if (profile?.slug) setUserLink(`${window.location.origin}/send/${profile.slug}`)
+      if (profile?.pfp) setUserPfp(profile.pfp)
 
-  const closeGamePicker = () => {
-    setGamePickerClosing(true)
-    setTimeout(() => { setShowGamePicker(false); setGamePickerClosing(false) }, 300)
-  }
-
-  const handleGameSelect = (game: CardType) => {
-    setSelectedCard(game)
-    if (game.promptOverride) setPromptText(game.promptOverride)
-    closeGamePicker()
-  }
-
-  // Called from a fresh button tap → fresh gesture context → navigator.share works on iOS
-  const handleShareReady = async () => {
-    if (!shareReady) return
-    const { blob, filename, isGif } = shareReady
-    const mime = isGif ? 'image/gif' : 'image/png'
-    const file = new File([blob], filename, { type: mime })
-    const shareData = { files: [file], title: 'TBH', text: shareLink }
-    if (navigator.share && navigator.canShare?.(shareData)) {
-      try {
-        await navigator.share(shareData)
-        setShareReady(null)
-        setSharedPlatforms(prev => prev.includes('share') ? prev : [...prev, 'share'])
-        return
-      }
-      catch (e: any) { if (e?.name === 'AbortError') { setShareReady(null); return } }
+      setLoading(false)
     }
-    // fallback: trigger download
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url; a.download = filename
-    document.body.appendChild(a); a.click(); document.body.removeChild(a)
-    setTimeout(() => URL.revokeObjectURL(url), 30000)
-    setShareReady(null)
-    setSharedPlatforms(prev => prev.includes('share') ? prev : [...prev, 'share'])
-  }
+    load()
+  }, [messageId, router])
 
-  const handleCopy = async () => {
-    if (!shareLink) return
-    try {
-      if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(shareLink)
-      } else {
-        const el = document.createElement('textarea')
-        el.value = shareLink
-        document.body.appendChild(el)
-        el.select()
-        document.execCommand('copy')
-        document.body.removeChild(el)
-      }
-      setCopied(true)
-      setTimeout(() => setCopied(false), 500)
-    } catch (e) { console.error('Copy failed', e) }
-  }
+  const isImageMessage = !!(message?.contains_media || message?.media_url)
+  const imageUrl = message?.media_url || null
+  const textContent = message?.content ?? ''
 
-  const handleShareCard = async (cardType: CardType) => {
-    if (!profile) return
-    closeSheet()
-    await new Promise(r => setTimeout(r, 300))
-    setGenerating(true)
-    try {
-      const blob = await generateShareCard(profile, promptText, cardType, selectedColor.stops, selectedColor.ring)
-      setShareReady({ blob, filename: 'tbh-share.png', isGif: false })
-    } catch (e) { console.error('Share card failed', e) }
-    finally { setGenerating(false) }
-  }
+  useEffect(() => {
+    if (!message) return
+    let cancelled = false
+    setCardGenerating(true)
+    setMessageCardBlob(null)
+    generateMessageCard(textContent, imageUrl, logoSrc, userPfp, arrowsSrc)
+      .then(blob => {
+        if (!cancelled) setMessageCardBlob(blob)
+      })
+      .catch(console.error)
+      .finally(() => {
+        if (!cancelled) setCardGenerating(false)
+      })
+    return () => { cancelled = true }
+  }, [message, textContent, imageUrl, logoSrc, userPfp, arrowsSrc])
 
-  const handleShareGif = async () => {
-    if (!profile) return
-    closeSheet()
-    await new Promise(r => setTimeout(r, 300))
-    setGenerating(true)
-    setGifProgress(0)
-    try {
-      const blob = await generateShareGif(
-        profile, promptText, selectedCard, selectedColor.stops, selectedColor.ring,
-        pct => setGifProgress(pct),
-      )
-      setShareReady({ blob, filename: 'tbh-share.gif', isGif: true })
-    } catch (e) { console.error('GIF generation failed', e) }
-    finally { setGenerating(false); setGifProgress(0) }
-  }
-
-  const handlePlatformShare = async (platformId: string) => {
-    if (!profile || generating) return
-
-    // Snapchat: copy link + open Snapchat camera with link as swipe-up attachment
-    if (platformId === 'snapchat') {
-      try { await navigator.clipboard.writeText(shareLink) } catch {}
-      const snapDeep = `snapchat://creativekit/preview?attachmentUrl=${encodeURIComponent(shareLink)}`
-      window.location.href = snapDeep
-      // Fallback after 1.5s (Snapchat not installed) → generic share sheet
-      setTimeout(async () => {
-        if (navigator.share) {
-          try { await navigator.share({ url: shareLink, text: 'tbhonest.net' }) } catch {}
-        }
-      }, 1500)
-      setSharedPlatforms(prev => prev.includes(platformId) ? prev : [...prev, platformId])
+  useEffect(() => {
+    if (!showReply || !replyText.trim()) {
+      setReplyCardBlob(null)
+      replyGenPromiseRef.current = null
+      if (replyDebounceRef.current) clearTimeout(replyDebounceRef.current)
       return
     }
+    if (replyDebounceRef.current) clearTimeout(replyDebounceRef.current)
+    replyDebounceRef.current = setTimeout(() => {
+      const promise = generateReplyCard(textContent, replyText, imageUrl, logoSrc, userPfp, arrowsSrc)
+      replyGenPromiseRef.current = promise
+      promise
+        .then(blob => {
+          if (replyGenPromiseRef.current === promise) setReplyCardBlob(blob)
+        })
+        .catch(console.error)
+    }, 600)
+    return () => {
+      if (replyDebounceRef.current) clearTimeout(replyDebounceRef.current)
+    }
+  }, [replyText, showReply])
 
-    // Instagram / WhatsApp: pre-generate the share card, then surface a fresh-gesture "Share" button
-    // (navigator.share with files requires a fresh user gesture — async generation breaks the chain)
-    setGenerating(true)
+  const handleShareMessage = async () => {
+    if (!message || sharing || !messageCardBlob) return
+    setSharing(true)
     try {
-      const blob = await generateShareCard(profile, promptText, selectedCard, selectedColor.stops, selectedColor.ring)
-      setShareReady({ blob, filename: 'tbh-share.png', isGif: false })
-      setSharedPlatforms(prev => prev.includes(platformId) ? prev : [...prev, platformId])
-    } catch (e) { console.error('Platform share card failed', e) }
-    finally { setGenerating(false) }
+      const file = new File([messageCardBlob], 'tbh.png', { type: 'image/png' })
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], text: userLink })
+        return
+      }
+      if (navigator.share) {
+        await navigator.share({ url: userLink })
+        return
+      }
+      const url = URL.createObjectURL(messageCardBlob)
+      const a = document.createElement('a')
+      a.href = url; a.download = 'tbh.png'
+      document.body.appendChild(a); a.click(); document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 10000)
+    } catch (e: any) {
+      if (e?.name !== 'AbortError') console.error('Share failed', e)
+    } finally {
+      setSharing(false)
+    }
+  }
+
+  const handleSendReply = async () => {
+    const text = replyText.trim()
+    if (!text || replySending) return
+
+    setReplySending(true)
+    try {
+      if (replyDebounceRef.current) {
+        clearTimeout(replyDebounceRef.current)
+        replyDebounceRef.current = null
+      }
+
+      let blob = replyCardBlob
+      if (!blob) {
+        blob = replyGenPromiseRef.current
+          ? await replyGenPromiseRef.current
+          : await generateReplyCard(textContent, text, imageUrl, logoSrc, userPfp, arrowsSrc)
+      }
+
+      const file = new File([blob], 'tbh.png', { type: 'image/png' })
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], text: userLink })
+      } else if (navigator.share) {
+        await navigator.share({ url: userLink })
+      } else {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url; a.download = 'tbh.png'
+        document.body.appendChild(a); a.click(); document.body.removeChild(a)
+        setTimeout(() => URL.revokeObjectURL(url), 10000)
+      }
+
+      setShowReply(false)
+      setReplyText('')
+      setReplyCardBlob(null)
+      replyGenPromiseRef.current = null
+    } catch (e: any) {
+      if (e?.name !== 'AbortError') console.error('Reply share failed', e)
+    } finally {
+      setReplySending(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-black flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+      </main>
+    )
+  }
+
+  if (!message) {
+    return (
+      <main className="min-h-screen bg-black flex flex-col items-center justify-center gap-3">
+        <p className="text-[18px] font-bold text-[#888]">Message not found</p>
+        <button onClick={() => router.back()} className="text-sm underline text-[#666]">Go back</button>
+      </main>
+    )
   }
 
   return (
-    <div className="flex flex-col px-5 pt-3 pb-6 gap-3 relative">
+    <main className="min-h-screen flex flex-col relative overflow-hidden" style={{ fontFamily: font }}>
+      <style>{GLOBAL_STYLES}</style>
 
-      {/* ── Profile Card ── */}
-      {!profile ? (
-        <div className="w-full rounded-[28px] overflow-hidden relative" style={{ height: '148px' }}>
-          <div className="absolute inset-0 bg-[#E8E8E8] rounded-[28px]" style={{ animation: 'shimmer 1.5s infinite linear', background: 'linear-gradient(90deg, #E8E8E8 25%, #F5F5F5 50%, #E8E8E8 75%)', backgroundSize: '200% 100%' }} />
-        </div>
-      ) : (
-        <div className="w-full rounded-[28px] overflow-hidden relative" style={{ height: '148px' }}>
-          {profile?.pfp && (
-            <div className="absolute inset-0 w-full h-full" style={{ backgroundImage: `url(${profile.pfp})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(20px)', transform: 'scale(1.15)' }} />
-          )}
-          {!profile?.pfp && <div className="absolute inset-0 bg-gray-800" />}
-          <div className="absolute inset-0 bg-black/40" />
-          <a href="/settings" className="absolute top-3 right-3 z-20 w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform" style={{ background: 'rgba(255,255,255,0.16)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="2.6" stroke="white" strokeWidth="1.8"/>
-              <path d="M19.14 12.94a7.97 7.97 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.93 7.93 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.43h-3.84a.5.5 0 0 0-.5.43l-.36 2.54a8.06 8.06 0 0 0-1.63.95l-2.39-.96a.5.5 0 0 0-.6.22L2.66 8.84a.5.5 0 0 0 .12.64l2.03 1.58a8.13 8.13 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.38 1.05.7 1.62.94l.36 2.54a.5.5 0 0 0 .5.43h3.84a.5.5 0 0 0 .5-.43l.36-2.54a8.06 8.06 0 0 0 1.63-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58z" stroke="white" strokeWidth="1.8" strokeLinejoin="round"/>
-            </svg>
-          </a>
-          <div className="relative z-10 flex flex-col justify-center h-full px-5 gap-2">
-            <div className="flex items-center gap-3">
-              <div className="relative w-[52px] h-[52px] flex-shrink-0">
-                <div className="absolute inset-0 rounded-full" style={{ padding: '2.5px', background: 'linear-gradient(135deg, #FF6B6B, #ff4b15, #e654ae, #ff4d4d)', borderRadius: '50%' }}>
-                  <div className="w-full h-full rounded-full overflow-hidden bg-gray-700">
-                    {profile?.pfp
-                      ? <img src={profile.pfp} alt="pfp" className="w-full h-full object-cover" />
-                      : <div className="w-full h-full bg-gray-600 flex items-center justify-center text-white text-xl font-bold">{profile?.username?.[0]?.toUpperCase() ?? '?'}</div>
-                    }
-                  </div>
-                </div>
-              </div>
-              {profile?.username && <span className="text-white font-bold text-[19px] tracking-tight">@{profile.username}</span>}
-            </div>
-            <button
-              onClick={() => { setTempPrompt(promptText); setEditingPrompt(true) }}
-              className="self-start px-3 py-1.5 rounded-[10px] text-white text-[13px] font-medium text-left"
-              style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', maxWidth: '85%' }}
-            >
-              {promptText}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Game selector ── */}
-      <button
-        onClick={() => setShowGamePicker(true)}
-        className="w-full flex items-center gap-3 px-4 py-3 rounded-[20px] active:scale-95 transition-all"
-        style={{ background: '#F5F5F7' }}
-      >
-        <span className="text-[22px]">{selectedCard.emoji}</span>
-        <div className="flex-1 text-left">
-          <p className="text-[13px] font-extrabold text-[#0D0D0D] tracking-tight">{selectedCard.title}</p>
-          <p className="text-[11px] text-[#888] mt-0.5">{selectedCard.subtitle}</p>
-        </div>
-        <span className="text-[11px] font-semibold text-[#AAA]">Change</span>
-        <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
-          <path d="M9 18l6-6-6-6" stroke="#ADADAD" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      </button>
-
-      {/* ── Flat progress bar ── */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-3">
-          <span className="text-[13px] font-bold text-[#0D0D0D] w-[38px]">
-            {Math.round(shareProgress * 100)}%
-          </span>
-          <div className="flex-1 h-[6px] rounded-full bg-[#EBEBEB] overflow-hidden">
-            <div
-              className="h-full rounded-full bg-[#0D0D0D] transition-all duration-700"
-              style={{ width: `${Math.round(shareProgress * 100)}%` }}
-            />
-          </div>
-        </div>
-        <p className="text-[11px] font-semibold text-[#555]">
-          The more you share, the more messages you receive from your friends
-        </p>
-      </div>
-
-      {/* ── Copy button — color flash on click ── */}
-      <button
-        onClick={handleCopy}
-        className={`w-full py-[13px] rounded-[32px] flex items-center justify-center gap-2 font-bold text-[16px] text-white active:scale-95 transition-transform${copied ? ' copy-flash' : ''}`}
-        style={{ background: copied ? undefined : '#0D0D0D' }}
-      >
-        <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
-          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-        </svg>
-        {copied ? 'Copied!' : 'Copy my link'}
-      </button>
-
-      {/* ── Share button → opens format + color sheet ── */}
-      <button
-        onClick={() => { setSheetStep('format'); setShowSheet(true) }}
-        disabled={generating}
-        className="w-full py-[13px] rounded-[32px] flex items-center justify-center gap-2 font-bold text-[16px] text-white disabled:opacity-60 active:scale-95 transition-all"
-        style={{ background: `linear-gradient(135deg, ${selectedColor.stops[0]}, ${selectedColor.stops[selectedColor.stops.length - 1]})` }}
-      >
-        {generating ? (
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            {gifProgress > 0 && <span className="text-[13px] opacity-80">GIF {Math.round(gifProgress * 100)}%</span>}
-          </div>
+      <div className="absolute inset-0 z-0">
+        {userPfp ? (
+          <div style={{
+            position: 'absolute', inset: 0,
+            backgroundImage: `url(${userPfp})`,
+            backgroundSize: 'cover', backgroundPosition: 'center',
+            filter: 'blur(32px) brightness(0.35)',
+            transform: 'scale(1.1)',
+          }} />
         ) : (
-          <>
-            <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
-              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            Share my link
-          </>
+          <div className="absolute inset-0 bg-[#0D0D0D]" />
         )}
-      </button>
-
-      {/* ── Platform quick-share row ── */}
-      <div className="w-full flex gap-2.5">
-        {[
-          { id: 'instagram', label: 'Instagram', icon: '/assets/social_media_icons/IG_icon.svg' },
-          { id: 'snapchat',  label: 'Snapchat',  icon: '/assets/social_media_icons/snapshat_icon.svg' },
-          { id: 'whatsapp',  label: 'WhatsApp',  icon: '/assets/social_media_icons/Platform=WhatsApp, Color=Original.svg' },
-        ].map(platform => {
-          const shared = sharedPlatforms.includes(platform.id)
-          return (
-            <button
-              key={platform.id}
-              onClick={() => handlePlatformShare(platform.id)}
-              disabled={generating}
-              className="flex-1 flex flex-col items-center justify-center gap-2 py-4 rounded-[20px] active:scale-95 transition-all relative disabled:opacity-50"
-              style={{ background: shared ? '#0D0D0D' : '#F5F5F7', border: 'none' }}
-            >
-              <img src={platform.icon} alt={platform.label} className="w-6 h-6 object-contain" />
-              <span className="text-[11px] font-semibold" style={{ color: shared ? '#FFF' : '#0D0D0D' }}>{platform.label}</span>
-              {shared && (
-                <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-[#34C759] flex items-center justify-center">
-                  <svg width="8" height="8" fill="none" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                </div>
-              )}
-            </button>
-          )
-        })}
+        <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.45)' }} />
       </div>
 
-      {/* ── Animated phrase ── */}
-      <p className="text-center text-[13px] font-semibold text-[#0D0D0D] px-2" style={{ opacity: phraseVisible ? 1 : 0, transition: 'opacity 0.6s ease' }}>
-        {PHRASES[phraseIndex]}
-      </p>
+      <div className="absolute inset-0 z-[1] overflow-hidden">
+        <FloatingEmojis />
+      </div>
 
-      {/* ── How to share link ── */}
-      <Link href="/guide" className="self-center">
-        <button className="flex items-center gap-1.5 py-1 text-[13px] font-bold text-gray-400 hover:text-black active:scale-95 transition-all">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-          </svg>
-          How to post my link?
-        </button>
-      </Link>
+      <div className="relative z-10 flex flex-col min-h-screen">
+        <div className="flex items-center px-4 pt-12 pb-4">
+          <button
+            onClick={() => router.back()}
+            className="w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+            style={{ background: 'rgba(255,255,255,0.12)' }}
+          >
+            <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+              <path d="M19 12H5M12 5l-7 7 7 7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        </div>
 
-      {/* ── Share sheet (format → color) ── */}
-      {showSheet && portalTarget && createPortal(
-        <div
-          className="fixed inset-0 z-50 flex flex-col justify-end"
-          onTouchStart={e => e.stopPropagation()}
-          onTouchEnd={e => e.stopPropagation()}
-        >
-          <div
-            className={`absolute inset-0 ${sheetClosing ? 'backdrop-exit' : 'backdrop-enter'}`}
-            style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
-            onClick={() => { if (!sheetClosing) closeSheet() }}
-          />
-          <div className={`relative ${sheetClosing ? 'sheet-exit' : 'sheet-enter'} rounded-t-[32px] z-10 pb-10 overflow-hidden border-t border-white/[0.06]`} style={{ background: '#181818' }}>
-            <div className="absolute top-0 left-0 right-0 h-[90px] pointer-events-none" style={{ background: `linear-gradient(to bottom, ${selectedColor.stops[0]}18, transparent)` }} />
+        <div className="flex-1" />
 
-            <div className="relative z-10">
-              {/* Handle */}
-              <div className="flex justify-center pt-3 pb-1">
-                <div className="w-10 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.15)' }} />
+        {/* Message card preview (UI inchangée) */}
+        <div className="px-5 mb-6">
+          <div className="rounded-[28px] overflow-hidden bg-white shadow-[0_24px_60px_rgba(0,0,0,0.45),0_8px_20px_rgba(0,0,0,0.25)]">
+            <div className="bg-[#111111] px-5 py-4 text-center">
+              <span className="inline-flex items-center rounded-full bg-white/10 px-4 py-2 text-[12px] font-bold text-white/75">
+                🔒&nbsp; Anonymous message
+              </span>
+            </div>
+
+            <div className="bg-white px-6 py-6 min-h-[120px]">
+              <div className="mb-5 rounded-[14px] bg-[#111111] px-4 py-3 text-center">
+                <span className="text-[13px] font-bold leading-tight text-white">
+                  Envoie moi un message anonyme et on chat anonymement!!
+                </span>
               </div>
 
-              {/* Sliding step container */}
-              <div className="overflow-hidden">
-                {/* ── Step 1: Format picker ── */}
-                {sheetStep === 'format' && (
-                  <div className="slide-from-left pb-2">
-                    <p className="text-white text-center text-[20px] font-extrabold px-6 pt-3">Share Format</p>
-                    <p className="text-[#777] text-center text-[12px] mt-1 mb-5 px-6">Choose how to share your card</p>
-                    <div className="flex gap-3 px-5 mb-5">
-                      <button
-                        onClick={() => { setShareMode('image'); setSheetStep('color') }}
-                        className="flex-1 rounded-[24px] flex flex-col items-center justify-center gap-2 py-6 active:scale-95 transition-all"
-                        style={{
-                          background: 'rgba(255,255,255,0.06)',
-                          border: shareMode === 'image' ? `1.5px solid ${selectedColor.stops[0]}80` : '1.5px solid rgba(255,255,255,0.08)',
-                        }}
-                      >
-                        <svg width="30" height="30" fill="none" viewBox="0 0 24 24">
-                          <rect x="3" y="3" width="18" height="18" rx="3" stroke="white" strokeWidth="1.6"/>
-                          <circle cx="8.5" cy="8.5" r="1.5" fill="white"/>
-                          <path d="M21 15l-5-5L5 21" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                        <span className="text-white font-bold text-[14px]">Image</span>
-                        <span className="text-[#555] text-[11px]">Static PNG</span>
-                      </button>
-                      <button
-                        onClick={() => { setShareMode('gif'); setSheetStep('color') }}
-                        className="flex-1 rounded-[24px] flex flex-col items-center justify-center gap-2 py-6 active:scale-95 transition-all"
-                        style={{
-                          background: 'rgba(255,255,255,0.06)',
-                          border: shareMode === 'gif' ? `1.5px solid ${selectedColor.stops[0]}80` : '1.5px solid rgba(255,255,255,0.08)',
-                        }}
-                      >
-                        <svg width="30" height="30" fill="none" viewBox="0 0 24 24">
-                          <rect x="2" y="6" width="20" height="12" rx="2" stroke="white" strokeWidth="1.6"/>
-                          <path d="M12 10v4M10 12h4" stroke="white" strokeWidth="1.6" strokeLinecap="round"/>
-                          <path d="M7 10v1.5a.5.5 0 0 0 .5.5H9M17 10v4h-2" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                        <span className="text-white font-bold text-[14px]">GIF</span>
-                        <span className="text-[#555] text-[11px]">4s animated</span>
-                      </button>
+              {isImageMessage && imageUrl && (
+                <div className="w-full mb-4">
+                  <div
+                    onClick={() => setShowFullscreen(true)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === ' ') setShowFullscreen(true)
+                    }}
+                    className="w-full flex items-center gap-3 p-3 rounded-[16px] active:scale-[0.98] transition-transform cursor-pointer"
+                    style={{ background: 'rgba(0,0,0,0.05)' }}
+                  >
+                    <div className="w-14 h-14 rounded-[12px] overflow-hidden bg-black/10 flex-shrink-0">
+                      <img
+                        src={imageUrl}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        style={{ filter: imageBlurred ? 'blur(10px)' : 'none', transition: 'filter 0.3s' }}
+                      />
                     </div>
-                  </div>
-                )}
-
-                {/* ── Step 2: Color picker ── */}
-                {sheetStep === 'color' && (
-                  <div className="slide-from-right pb-2">
-                    <div className="flex items-center px-5 pt-3 mb-4">
-                      <button
-                        onClick={() => setSheetStep('format')}
-                        className="w-8 h-8 rounded-full flex items-center justify-center mr-3 active:scale-90 transition-transform"
-                        style={{ background: 'rgba(255,255,255,0.08)' }}
-                      >
-                        <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
-                          <path d="M15 18l-6-6 6-6" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      </button>
-                      <p className="text-white text-[20px] font-extrabold flex-1">
-                        {shareMode === 'gif' ? 'GIF Color' : 'Card Color'}
-                      </p>
-                      <span className="text-[11px] px-2.5 py-0.5 rounded-full font-bold" style={{ background: 'rgba(255,255,255,0.08)', color: shareMode === 'gif' ? '#FFD60A' : 'rgba(255,255,255,0.5)' }}>
-                        {shareMode === 'gif' ? 'GIF' : 'PNG'}
-                      </span>
+                    <div className="flex-1 text-left">
+                      <p className="font-semibold text-[15px] text-black">Photo</p>
+                      <p className="text-[11px] text-black/45">Tap to view fullscreen</p>
                     </div>
-
-                    {/* Card preview */}
-                    <div className="flex justify-center mb-4 px-5">
-                      <div className="rounded-[20px] overflow-hidden relative" style={{ width: '130px', height: '231px', boxShadow: `0 16px 48px ${selectedColor.stops[0]}40` }}>
-                        {profile?.pfp && (
-                          <div className="absolute inset-0" style={{ backgroundImage: `url(${profile.pfp})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(12px) brightness(0.4)', transform: 'scale(1.1)' }} />
-                        )}
-                        <div className="absolute inset-0" style={{ background: `linear-gradient(160deg, ${selectedColor.stops[0]}99, ${selectedColor.stops[selectedColor.stops.length - 1]}bb)` }} />
-                        <div className="absolute inset-0" style={{ background: 'rgba(255,255,255,0.04)' }} />
-                        <div className="absolute top-3 left-0 right-0 flex justify-center">
-                          <div className="h-[3px] w-[30px] rounded-full bg-white/40" />
-                        </div>
-                        <div className="absolute left-0 right-0 flex justify-center" style={{ top: '38px' }}>
-                          <div className="w-[48px] h-[48px] rounded-full overflow-hidden" style={{ boxShadow: `0 0 0 2px ${selectedColor.ring[0]}, 0 0 0 3.5px ${selectedColor.ring[1] ?? selectedColor.ring[0]}60` }}>
-                            {profile?.pfp
-                              ? <img src={profile.pfp} alt="" className="w-full h-full object-cover" />
-                              : <div className="w-full h-full bg-gray-600 flex items-center justify-center text-white font-bold text-base">{profile?.username?.[0]?.toUpperCase() ?? '?'}</div>
-                            }
-                          </div>
-                        </div>
-                        <div className="absolute left-0 right-0 text-center" style={{ top: '96px' }}>
-                          <p className="text-white font-bold text-[9px]">@{profile?.username ?? 'you'}</p>
-                        </div>
-                        <div className="absolute left-2 right-2" style={{ top: '112px' }}>
-                          <div className="rounded-[5px] px-2 py-1" style={{ background: 'rgba(255,255,255,0.10)' }}>
-                            <p className="text-white/70 text-center" style={{ fontSize: '5.5px', lineHeight: '8px' }}>{selectedCard.title}</p>
-                          </div>
-                        </div>
-                        <div className="absolute left-0 right-0 flex justify-center" style={{ bottom: '22px' }}>
-                          <img src="/assets/arrows.svg" alt="" className="w-9 h-3 object-contain" style={{ filter: 'brightness(0) invert(1) opacity(0.6)' }} />
-                        </div>
-                        <div className="absolute bottom-3 left-0 right-0 text-center">
-                          <p className="text-white/40" style={{ fontSize: '4.5px' }}>tbhonest.net/send/{profile?.slug}</p>
-                        </div>
-                        {shareMode === 'gif' && (
-                          <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded-md" style={{ background: '#FFD60A' }}>
-                            <span className="text-black font-extrabold" style={{ fontSize: '7px' }}>GIF</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Color swatches */}
-                    <div className="flex gap-4 px-5 mb-5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
-                      {CARD_COLORS.map(color => (
-                        <button
-                          key={color.id}
-                          onClick={() => setSelectedColor(color)}
-                          className="flex flex-col items-center gap-1.5 flex-shrink-0 active:scale-90 transition-transform"
-                        >
-                          <div
-                            className="w-10 h-10 rounded-full"
-                            style={{
-                              background: `linear-gradient(135deg, ${color.stops[0]}, ${color.stops[color.stops.length - 1]})`,
-                              boxShadow: selectedColor.id === color.id ? `0 0 0 2px #181818, 0 0 0 3.5px ${color.stops[0]}` : 'none',
-                              transform: selectedColor.id === color.id ? 'scale(1.1)' : 'scale(1)',
-                              transition: 'all 0.2s ease',
-                            }}
-                          />
-                          <span className="text-[10px] font-semibold" style={{ color: selectedColor.id === color.id ? '#FFF' : 'rgba(255,255,255,0.35)' }}>
-                            {color.label}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Share button */}
-                    <div className="px-5">
-                      <button
-                        onClick={() => {
-                          if (shareMode === 'gif') handleShareGif()
-                          else handleShareCard(selectedCard)
-                        }}
-                        className="w-full py-[17px] rounded-full text-white font-bold text-[16px] active:scale-95 transition-all flex items-center justify-center gap-2"
-                        style={{
-                          background: `linear-gradient(135deg, ${selectedColor.stops[0]}e0, ${selectedColor.stops[selectedColor.stops.length - 1]}e0)`,
-                          boxShadow: `0 8px 24px ${selectedColor.stops[0]}40`,
-                        }}
-                      >
-                        <svg width="17" height="17" fill="none" viewBox="0 0 24 24">
-                          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                        {shareMode === 'gif' ? 'Generate & Share GIF' : 'Share this card'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>,
-        portalTarget
-      )}
-
-      {/* ── Edit prompt dialog ── */}
-      {editingPrompt && portalTarget && createPortal(
-        <div className="fixed inset-0 z-50 flex items-start justify-center px-6 pt-32">
-          <div className="absolute inset-0 backdrop-enter" style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }} onClick={() => setEditingPrompt(false)} />
-          <div className="dialog-enter relative w-[320px] bg-white rounded-[24px] p-6 flex flex-col gap-4 shadow-2xl">
-            <div className="flex flex-col gap-1">
-              <p className="text-center text-[17px] font-bold text-[#0D0D0D]">Edit your message</p>
-              <p className="text-center text-[12px] text-[#888]">This shows on your share card</p>
-            </div>
-            <textarea
-              autoFocus
-              value={tempPrompt}
-              onChange={e => setTempPrompt(e.target.value)}
-              rows={3}
-              maxLength={120}
-              className="w-full bg-[#F5F5F7] rounded-[14px] px-4 py-3 text-[15px] font-medium text-[#0D0D0D] text-center outline-none resize-none border border-transparent focus:border-[#0D0D0D] transition-colors"
-            />
-            <p className="text-right text-[11px] text-[#AAA] -mt-2">{tempPrompt.length}/120</p>
-            <div className="flex gap-2">
-              <button onClick={() => setEditingPrompt(false)} className="flex-1 h-[44px] rounded-[14px] bg-[#F2F2F7] text-[#666] text-[14px] font-semibold active:scale-95 transition-transform">Cancel</button>
-              <button onClick={() => { setPromptText(tempPrompt); setEditingPrompt(false) }} className="flex-1 h-[44px] rounded-[14px] bg-[#0D0D0D] text-white text-[14px] font-bold active:scale-95 transition-transform">Save</button>
-            </div>
-          </div>
-        </div>,
-        portalTarget
-      )}
-
-      {/* ── Game picker sheet ── */}
-      {showGamePicker && portalTarget && createPortal(
-        <div className="fixed inset-0 z-50 flex flex-col justify-end" onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
-          <div className={`absolute inset-0 ${gamePickerClosing ? 'backdrop-exit' : 'backdrop-enter'}`} style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }} onClick={() => { if (!gamePickerClosing) closeGamePicker() }} />
-          <div className={`relative ${gamePickerClosing ? 'sheet-exit' : 'sheet-enter'} rounded-t-[32px] z-10 border-t border-white/[0.06]`} style={{ background: '#181818', maxHeight: '80vh' }}>
-            <div className="relative z-10 overflow-y-auto" style={{ maxHeight: '80vh' }}>
-              <div className="flex justify-center pt-3 pb-2"><div className="w-10 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.15)' }} /></div>
-              <div className="px-5 pb-2">
-                <p className="text-white text-[21px] font-extrabold tracking-tight">Choose your game</p>
-                <p className="text-[#555] text-[12px] mt-0.5">Each game changes what appears on your share card</p>
-              </div>
-              <div className="flex flex-col gap-2 px-5 pb-10 pt-2">
-                {ALL_CARD_TYPES.map(game => {
-                  const isSelected = selectedCard.id === game.id
-                  return (
                     <button
-                      key={game.id}
-                      onClick={() => handleGameSelect(game)}
-                      className="w-full flex items-center gap-4 px-4 py-3.5 rounded-[18px] active:scale-[0.98] transition-all text-left"
-                      style={{
-                        background: isSelected ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.04)',
-                        border: isSelected ? '1.5px solid rgba(255,255,255,0.18)' : '1.5px solid transparent',
-                      }}
+                      onClick={e => { e.stopPropagation(); setImageBlurred(!imageBlurred) }}
+                      className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
+                      style={{ background: imageBlurred ? '#111111' : 'rgba(0,0,0,0.08)' }}
                     >
-                      <span className="text-[26px] flex-shrink-0">{game.emoji}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white font-extrabold text-[14px] tracking-tight">{game.title}</p>
-                        <p className="text-[#555] text-[11px] mt-0.5 truncate">{game.subtitle}</p>
-                      </div>
-                      {isSelected && (
-                        <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center flex-shrink-0">
-                          <svg width="10" height="10" fill="none" viewBox="0 0 24 24">
-                            <path d="M5 13l4 4L19 7" stroke="#0D0D0D" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        </div>
+                      {imageBlurred ? (
+                        <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="#fff" strokeWidth="2"/>
+                          <circle cx="12" cy="12" r="3" stroke="#fff" strokeWidth="2"/>
+                        </svg>
+                      ) : (
+                        <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" stroke="#111" strokeWidth="2" strokeLinecap="round"/>
+                          <line x1="1" y1="1" x2="23" y2="23" stroke="#111" strokeWidth="2" strokeLinecap="round"/>
+                        </svg>
                       )}
                     </button>
-                  )
-                })}
+                  </div>
+                  <div className="w-full h-[1px] mb-4" style={{ background: 'rgba(0,0,0,0.08)' }} />
+                </div>
+              )}
+
+              {textContent ? (
+                <p
+                  className="w-full text-center font-semibold text-black"
+                  style={{
+                    fontSize: textContent.length > 100 ? '18px' : textContent.length > 50 ? '24px' : '32px',
+                    lineHeight: '1.3',
+                  }}
+                >
+                  {textContent}
+                </p>
+              ) : (
+                <p className="text-black/40 text-center italic">No message content</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1" />
+
+        <div className="px-5 pb-10 flex flex-col gap-3">
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowReply(true)}
+              className="flex-1 py-4 rounded-[32px] font-bold text-[15px] text-white active:scale-95 transition-transform"
+              style={{ background: 'rgba(255,255,255,0.12)' }}
+            >
+              Reply
+            </button>
+            <button
+              onClick={handleShareMessage}
+              disabled={sharing || cardGenerating || !messageCardBlob}
+              className="flex-1 py-4 rounded-[32px] font-bold text-[15px] text-white active:scale-95 transition-transform disabled:opacity-60 flex items-center justify-center"
+              style={{ background: 'linear-gradient(135deg, #FF6B6B, #FF431D)' }}
+            >
+              {(sharing || cardGenerating)
+                ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                : 'Share'
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {showFullscreen && imageUrl && (
+        <div className="fixed inset-0 z-50 bg-black flex flex-col">
+          <div className="flex items-center justify-between px-4 pt-12 pb-4">
+            <button
+              onClick={() => setShowFullscreen(false)}
+              className="w-10 h-10 rounded-full flex items-center justify-center"
+              style={{ background: 'rgba(255,255,255,0.12)' }}
+            >
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+                <path d="M18 6L6 18M6 6l12 12" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </button>
+            <img src="/assets/TBH_Title_Logo.svg" alt="TBH" className="h-6 invert" />
+            <div className="w-10" />
+          </div>
+          <div className="flex-1 flex items-center justify-center overflow-hidden">
+            <img src={imageUrl} alt="" className="max-w-full max-h-full object-contain" style={{ touchAction: 'pinch-zoom' }} />
+          </div>
+          {textContent && (
+            <div className="px-5 pb-10">
+              <div className="rounded-[20px] px-5 py-4" style={{ background: 'rgba(0,0,0,0.55)' }}>
+                <p className="text-white text-center text-[16px] font-medium">{textContent}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {showReply && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end">
+          <div className="absolute inset-0 bg-black/60" onClick={() => !replySending && setShowReply(false)} />
+          <div className="relative z-10 rounded-t-[32px] overflow-hidden" style={{ maxHeight: '85vh' }}>
+            {userPfp && (
+              <div style={{
+                position: 'absolute', inset: 0,
+                backgroundImage: `url(${userPfp})`,
+                backgroundSize: 'cover', backgroundPosition: 'center',
+                filter: 'blur(28px) brightness(0.3)',
+                transform: 'scale(1.15)',
+              }} />
+            )}
+            <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.55)' }} />
+            <div className="absolute inset-0 overflow-hidden">
+              <FloatingEmojis />
+            </div>
+
+            <div className="relative z-10 pb-10">
+              <div className="flex justify-center pt-3 pb-5">
+                <div className="w-10 h-[4px] rounded-full" style={{ background: 'rgba(255,255,255,0.25)' }} />
+              </div>
+              <div className="px-5">
+                <p className="text-center font-bold text-[16px] text-white mb-1">Reply publicly</p>
+                <p className="text-center text-[12px] mb-5" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                  Your reply will be shared as a story card
+                </p>
+                <div className="rounded-[14px] p-3 mb-4" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                  <p className="text-[13px] line-clamp-2" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                    {(imageUrl ? '📷 ' : '') + (textContent || '')}
+                  </p>
+                </div>
+                <div className="flex items-end gap-3">
+                  <textarea
+                    value={replyText}
+                    onChange={e => setReplyText(e.target.value)}
+                    placeholder="Your reply..."
+                    rows={3}
+                    disabled={replySending}
+                    className="flex-1 rounded-[16px] px-4 py-3 text-[16px] text-white outline-none resize-none disabled:opacity-60"
+                    style={{
+                      background: 'rgba(255,255,255,0.1)',
+                      minHeight: '52px', maxHeight: '140px',
+                      fontFamily: font,
+                    }}
+                  />
+                  <button
+                    onClick={handleSendReply}
+                    disabled={!replyText.trim() || replySending}
+                    className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 active:scale-90 transition-transform"
+                    style={{ background: replyText.trim() ? 'linear-gradient(135deg, #FF6B6B, #FF431D)' : 'rgba(255,255,255,0.15)' }}
+                  >
+                    {replySending
+                      ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      : <span style={{ fontSize: '13px', fontWeight: '800', color: 'white' }}>Go</span>
+                    }
+                  </button>
+                </div>
+                {replySending && (
+                  <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', marginTop: '8px', textAlign: 'center' }}>
+                    Preparing and sharing...
+                  </p>
+                )}
               </div>
             </div>
           </div>
-        </div>,
-        portalTarget
+        </div>
       )}
-
-      {/* ── Share-ready overlay ── shown after generation completes ── */}
-      {shareReady && portalTarget && createPortal(
-        <div className="fixed inset-0 z-[60] flex flex-col justify-end" onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
-          <div className="absolute inset-0 backdrop-enter" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }} onClick={() => setShareReady(null)} />
-          <div className="relative sheet-enter rounded-t-[32px] z-10 px-5 pt-5 pb-10 border-t border-white/[0.06]" style={{ background: '#181818' }}>
-            <div className="flex justify-center mb-4">
-              <div className="w-10 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.15)' }} />
-            </div>
-            <div className="mb-5">
-              <p className="text-white font-extrabold text-[18px]">{shareReady.isGif ? 'GIF ready!' : 'Image ready!'}</p>
-              <p className="text-[#555] text-[12px] mt-0.5">Tap below — then pick your app from the share menu</p>
-            </div>
-            <button
-              onClick={handleShareReady}
-              className="w-full py-[17px] rounded-full font-extrabold text-[17px] active:scale-95 transition-transform mb-3"
-              style={{ background: '#ffffff', color: '#0D0D0D' }}
-            >
-              Share image + link
-            </button>
-            <button
-              onClick={() => setShareReady(null)}
-              className="w-full py-3 text-[#555] text-[14px] font-semibold active:opacity-70 transition-opacity"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>,
-        portalTarget
-      )}
-
-      <style jsx global>{`
-        @keyframes shimmer {
-          0% { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
-        }
-      `}</style>
-    </div>
+    </main>
   )
 }
