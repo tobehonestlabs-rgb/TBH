@@ -382,9 +382,9 @@ async function generateMessageCard(
     canvas.width = W; canvas.height = H
     const ctx = canvas.getContext('2d')!
 
+    // 1. Background (blurred pfp or dark fallback)
     let pfpImg: HTMLImageElement | null = null
     if (userPfp) pfpImg = await loadImage(userPfp).catch(() => null)
-
     if (pfpImg) {
       drawBlurredPfpBackground(ctx, pfpImg, W, H)
     } else {
@@ -392,15 +392,16 @@ async function generateMessageCard(
       ctx.fillRect(0, 0, W, H)
     }
 
+    // Overlay
     ctx.fillStyle = 'rgba(0,0,0,0.5)'
     ctx.fillRect(0, 0, W, H)
-
     const vignette = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.85)
     vignette.addColorStop(0, 'transparent')
     vignette.addColorStop(1, 'rgba(0,0,0,0.4)')
     ctx.fillStyle = vignette
     ctx.fillRect(0, 0, W, H)
 
+    // 2. Emojis (decorative)
     const emojiPositions = [
       { src: '/assets/poop.svg',    size: 180, x: 60,  y: 120,  rot: -15, opacity: 0.18 },
       { src: '/assets/hot.svg',     size: 220, x: 780, y: 80,   rot: 12,  opacity: 0.18 },
@@ -421,6 +422,7 @@ async function generateMessageCard(
     }
     ctx.globalAlpha = 1
 
+    // 3. Logo
     const logo = await loadImage(logoSrc).catch(() => null)
     if (logo) {
       const lw = 220, lh = Math.round(lw * logo.height / logo.width)
@@ -436,6 +438,7 @@ async function generateMessageCard(
       ctx.globalAlpha = 1
     }
 
+    // 4. "🔒 Anonymous message" pill (optional, but adds brand)
     ctx.font = 'bold 44px -apple-system, sans-serif'
     const pillText = '🔒  Anonymous message'
     const pillW = ctx.measureText(pillText).width + 64
@@ -449,6 +452,7 @@ async function generateMessageCard(
     ctx.textAlign = 'center'
     ctx.fillText(pillText, W / 2, pillY + 48)
 
+    // 5. If there is an image, draw it (centered, rounded, with optional blur)
     if (imageUrl) {
       const img = await loadImage(imageUrl).catch(() => null)
       if (img) {
@@ -463,36 +467,104 @@ async function generateMessageCard(
         roundRect(ctx, (W - imgS) / 2, imgY, imgS, imgS, 48)
         ctx.stroke()
       }
-      if (messageText) {
-        ctx.font = 'bold 72px -apple-system, sans-serif'
-        ctx.fillStyle = '#FFFFFF'
-        ctx.textAlign = 'center'
-        ctx.shadowColor = 'rgba(0,0,0,0.6)'
-        ctx.shadowBlur = 20
-        const lines = wrapText(ctx, messageText, W - 180)
-        lines.forEach((line, i) => ctx.fillText(line, W / 2, 1390 + i * 96))
-        ctx.shadowBlur = 0
-      }
-    } else {
-      ctx.textAlign = 'center'
-      ctx.fillStyle = '#FFFFFF'
-      ctx.shadowColor = 'rgba(0,0,0,0.5)'
-      ctx.shadowBlur = 28
-      let fontSize = 210
-      while (fontSize > 48) {
-        ctx.font = `bold ${fontSize}px -apple-system, sans-serif`
-        const lines = wrapText(ctx, messageText, W - 180)
-        const totalH = lines.length * fontSize * 1.25
-        if (totalH < H - 600) {
-          const startY = H / 2 - totalH / 2 + fontSize * 0.8
-          lines.forEach((line, i) => ctx.fillText(line, W / 2, startY + i * fontSize * 1.25))
-          break
-        }
-        fontSize -= 8
-      }
-      ctx.shadowBlur = 0
     }
 
+    // 6. Box with black band and white body for the message text
+    //    This box is placed either below the image (if image exists) or in the center.
+    const boxWidth = 860
+    const boxX = (W - boxWidth) / 2
+    const bandeauHeight = 90
+    const messagePadding = 50
+    const boxRadius = 40
+
+    // Determine the Y position for the box
+    let boxY = 0
+    if (imageUrl) {
+      // Place it below the image (image ends at imgY + imgS = 450 + 860 = 1310)
+      // We want some margin: boxY = 1310 + 40
+      boxY = 450 + 860 + 40
+    } else {
+      // Center vertically: we'll compute later by measuring text height
+      boxY = 460 // start from after the pill
+    }
+
+    // Compute the required height for the message text
+    let fontSize = 72
+    let lines: string[] = []
+    let contentHeight = 0
+    const maxWidth = boxWidth - messagePadding * 2
+    while (fontSize > 28) {
+      ctx.font = `bold ${fontSize}px -apple-system, sans-serif`
+      lines = wrapText(ctx, messageText || ' ', maxWidth)
+      contentHeight = lines.length * fontSize * 1.3
+      if (contentHeight + messagePadding * 2 <= 600) break
+      fontSize -= 4
+    }
+
+    const whiteHeight = Math.max(contentHeight + messagePadding * 2, 120)
+    const totalHeight = bandeauHeight + whiteHeight
+
+    // If no image, center the box vertically
+    if (!imageUrl) {
+      boxY = (H - totalHeight) / 2 + 20 // slight offset for the pill
+    }
+
+    // Draw the white box with shadow
+    ctx.save()
+    ctx.shadowColor = 'rgba(0,0,0,0.5)'
+    ctx.shadowBlur = 40
+    ctx.shadowOffsetY = 15
+    ctx.fillStyle = '#FFFFFF'
+    roundRect(ctx, boxX, boxY, boxWidth, totalHeight, boxRadius)
+    ctx.fill()
+    ctx.shadowBlur = 0
+    ctx.shadowOffsetY = 0
+    ctx.restore()
+
+    // Draw the black band (top part, with rounded top corners only)
+    ctx.save()
+    ctx.beginPath()
+    const r = boxRadius
+    ctx.moveTo(boxX + r, boxY)
+    ctx.lineTo(boxX + boxWidth - r, boxY)
+    ctx.quadraticCurveTo(boxX + boxWidth, boxY, boxX + boxWidth, boxY + r)
+    ctx.lineTo(boxX + boxWidth, boxY + bandeauHeight)
+    ctx.lineTo(boxX, boxY + bandeauHeight)
+    ctx.lineTo(boxX, boxY + r)
+    ctx.quadraticCurveTo(boxX, boxY, boxX + r, boxY)
+    ctx.closePath()
+    ctx.fillStyle = '#111111'
+    ctx.fill()
+    ctx.restore()
+
+    // Text in the black band (French call-to-action)
+    ctx.save()
+    ctx.font = 'bold 44px -apple-system, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillStyle = '#FFFFFF'
+    const bandeauText = "Envoie moi un message anonyme et on chat anonymement!!"
+    // Wrap if too long (but 44px on 860px width with that text is ~600px, fits fine)
+    ctx.fillText(bandeauText, W / 2, boxY + bandeauHeight / 2)
+    ctx.restore()
+
+    // Message text in white area (black text with shadow)
+    ctx.save()
+    ctx.shadowColor = 'rgba(0,0,0,0.2)'
+    ctx.shadowBlur = 12
+    ctx.shadowOffsetX = 2
+    ctx.shadowOffsetY = 4
+    ctx.font = `bold ${fontSize}px -apple-system, sans-serif`
+    ctx.fillStyle = '#111111'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'top'
+    const textStartY = boxY + bandeauHeight + messagePadding
+    lines.forEach((line, i) => {
+      ctx.fillText(line, W / 2, textStartY + i * fontSize * 1.3)
+    })
+    ctx.restore()
+
+    // 7. Bottom CTA (Send me something anonymously)
     await drawSendMeCta(ctx, W, H, arrowsSrc)
 
     canvas.toBlob(b => resolve(b!), 'image/png', 1.0)
@@ -1228,62 +1300,75 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                 <div className="px-5 pt-3 pb-4 slide-from-left">
                   {!showReply ? (
                     <>
-                      {/* Image row */}
-                      {isImageMessage && imageUrl && (
-                        <>
-                          <button onClick={() => setShowFullscreen(true)} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[22px] active:scale-[0.98] transition-transform mb-4" style={{ background: '#F7F7F9' }}>
-                            <div className="w-14 h-14 rounded-[14px] overflow-hidden bg-[#E8E8E8] flex-shrink-0">
-                              <img src={imageUrl} alt="" className="w-full h-full object-cover" style={{ filter: imageBlurred ? 'blur(10px)' : 'none', transition: 'filter 0.3s' }} />
-                            </div>
-                            <div className="flex-1 text-left">
-                              <p className="font-semibold text-[15px] text-[#0D0D0D]">Photo</p>
-                              <p className="text-[12px] text-[#ADADAD]">Tap to view fullscreen</p>
-                            </div>
-                            <button
-                              onClick={e => { e.stopPropagation(); setImageBlurred(b => !b) }}
-                              className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
-                              style={{ background: imageBlurred ? '#0D0D0D' : '#EBEBEB' }}
-                            >
-                              {imageBlurred ? (
-                                <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="white" strokeWidth="2"/><circle cx="12" cy="12" r="3" stroke="white" strokeWidth="2"/></svg>
-                              ) : (
-                                <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" stroke="#0D0D0D" strokeWidth="2" strokeLinecap="round"/><line x1="1" y1="1" x2="23" y2="23" stroke="#0D0D0D" strokeWidth="2" strokeLinecap="round"/></svg>
-                              )}
-                            </button>
-                          </button>
-
-                          {/* Blur photo in shared/reply cards — separate from the in-app preview toggle above */}
-                          <div className="w-full flex items-center justify-between px-4 py-3.5 rounded-[22px] mb-4" style={{ background: '#F7F7F9' }}>
-                            <div>
-                              <p className="text-[14px] font-semibold text-[#0D0D0D]">Blur photo when sharing</p>
-                              <p className="text-[11px] text-[#ADADAD]">Hides it in the exported card</p>
-                            </div>
-                            <BlurPhotoSwitch
-                              checked={blurSharedPhoto}
-                              onChange={v => { setBlurSharedPhoto(v); saveBlurSharedPhotoPref(v) }}
-                            />
+                      {/* Message card preview */}
+                      <div className="overflow-hidden rounded-[28px] bg-white shadow-[0_24px_60px_rgba(0,0,0,0.18),0_8px_20px_rgba(0,0,0,0.12)] mb-3">
+                        <div className="bg-[#111111] px-5 py-4 text-center">
+                          <span className="inline-flex items-center rounded-full bg-white/10 px-4 py-2 text-[12px] font-bold text-white/75">
+                            🔒&nbsp; Anonymous message
+                          </span>
+                        </div>
+                        <div className="bg-white px-6 py-6">
+                          <div className="mb-5 rounded-[14px] bg-[#111111] px-4 py-3 text-center">
+                            <span className="text-[13px] font-bold leading-tight text-white">
+                              Envoie moi un message anonyme et on chat anonymement!!
+                            </span>
                           </div>
 
-                          {textContent && <div className="h-px bg-[#F0F0F0] mb-4" />}
-                        </>
-                      )}
+                          {isImageMessage && imageUrl && (
+                            <>
+                              <div
+                                onClick={() => setShowFullscreen(true)}
+                                role="button"
+                                tabIndex={0}
+                                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setShowFullscreen(true) }}
+                                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[22px] active:scale-[0.98] transition-transform mb-4 cursor-pointer"
+                                style={{ background: '#F7F7F9' }}
+                              >
+                                <div className="w-14 h-14 rounded-[14px] overflow-hidden bg-[#E8E8E8] flex-shrink-0">
+                                  <img src={imageUrl} alt="" className="w-full h-full object-cover" style={{ filter: imageBlurred ? 'blur(10px)' : 'none', transition: 'filter 0.3s' }} />
+                                </div>
+                                <div className="flex-1 text-left">
+                                  <p className="font-semibold text-[15px] text-[#0D0D0D]">Photo</p>
+                                  <p className="text-[12px] text-[#ADADAD]">Tap to view fullscreen</p>
+                                </div>
+                                <button
+                                  onClick={e => { e.stopPropagation(); setImageBlurred(b => !b) }}
+                                  className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
+                                  style={{ background: imageBlurred ? '#0D0D0D' : '#EBEBEB' }}
+                                >
+                                  {imageBlurred ? (
+                                    <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="white" strokeWidth="2"/><circle cx="12" cy="12" r="3" stroke="white" strokeWidth="2"/></svg>
+                                  ) : (
+                                    <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" stroke="#0D0D0D" strokeWidth="2" strokeLinecap="round"/><line x1="1" y1="1" x2="23" y2="23" stroke="#0D0D0D" strokeWidth="2" strokeLinecap="round"/></svg>
+                                  )}
+                                </button>
+                              </div>
 
-                      {/* Message bubble — white with elevation */}
-                      {textContent && (
-                        <div
-                          className="w-full rounded-[28px] px-6 py-7 mb-3 flex items-center justify-center"
-                          style={{
-                            background: '#FFFFFF',
-                            minHeight: 120,
-                            boxShadow: '0 20px 45px rgba(0,0,0,0.14), 0 6px 16px rgba(0,0,0,0.08)',
-                          }}
-                        >
-                          <p className="font-semibold text-center leading-snug text-[#0D0D0D]"
-                            style={{ fontSize: textContent.length > 100 ? '18px' : textContent.length > 50 ? '22px' : '28px' }}>
-                            {textContent}
-                          </p>
+                              {/* Blur photo in shared/reply cards — separate from the in-app preview toggle above */}
+                              <div className="w-full flex items-center justify-between px-4 py-3.5 rounded-[22px] mb-4" style={{ background: '#F7F7F9' }}>
+                                <div>
+                                  <p className="text-[14px] font-semibold text-[#0D0D0D]">Blur photo when sharing</p>
+                                  <p className="text-[11px] text-[#ADADAD]">Hides it in the exported card</p>
+                                </div>
+                                <BlurPhotoSwitch
+                                  checked={blurSharedPhoto}
+                                  onChange={v => { setBlurSharedPhoto(v); saveBlurSharedPhotoPref(v) }}
+                                />
+                              </div>
+
+                              {textContent && <div className="h-px bg-[#F0F0F0] mb-4" />}
+                            </>
+                          )}
+
+                          {textContent ? (
+                            <p className="font-semibold text-center leading-snug text-[#111111]" style={{ fontSize: textContent.length > 100 ? '18px' : textContent.length > 50 ? '22px' : '28px' }}>
+                              {textContent}
+                            </p>
+                          ) : (
+                            <p className="text-center italic text-black/40">No message content</p>
+                          )}
                         </div>
-                      )}
+                      </div>
 
                       <p className="text-[11px] text-[#C8C8C8] text-center mb-5">{timeAgo(selectedMsg.created_at)}</p>
 
