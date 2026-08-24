@@ -596,12 +596,19 @@ export default function ReadMessageScreen() {
 
   useEffect(() => {
     if (!message) return
+    let cancelled = false
     setCardGenerating(true)
+    setMessageCardBlob(null)
     generateMessageCard(textContent, imageUrl, logoSrc, userPfp, arrowsSrc)
-      .then(blob => setMessageCardBlob(blob))
+      .then(blob => {
+        if (!cancelled) setMessageCardBlob(blob)
+      })
       .catch(console.error)
-      .finally(() => setCardGenerating(false))
-  }, [message, userPfp])
+      .finally(() => {
+        if (!cancelled) setCardGenerating(false)
+      })
+    return () => { cancelled = true }
+  }, [message, textContent, imageUrl, logoSrc, userPfp, arrowsSrc])
 
   useEffect(() => {
     if (!showReply || !replyText.trim()) {
@@ -747,25 +754,32 @@ export default function ReadMessageScreen() {
 
         <div className="flex-1" />
 
-        {/* ─── MESSAGE CARD AFFICHÉ À L'ÉCRAN ─── */}
+        {/* Message card preview */}
         <div className="px-5 mb-6">
-          <div
-            className="rounded-[28px] overflow-hidden shadow-[0_24px_60px_rgba(0,0,0,0.45),0_8px_20px_rgba(0,0,0,0.25)]"
-          >
-            {/* Bandeau noir (haut) */}
-            <div className="bg-[#111111] px-6 py-4 text-center">
-              <span className="text-white font-bold text-[17px] tracking-tight">
-                Envoie moi un message anonyme et on chat anonymement!!
+          <div className="rounded-[28px] overflow-hidden bg-white shadow-[0_24px_60px_rgba(0,0,0,0.45),0_8px_20px_rgba(0,0,0,0.25)]">
+            <div className="bg-[#111111] px-5 py-4 text-center">
+              <span className="inline-flex items-center rounded-full bg-white/10 px-4 py-2 text-[12px] font-bold text-white/75">
+                🔒&nbsp; Anonymous message
               </span>
             </div>
 
-            {/* Corps blanc avec le message */}
-            <div className="bg-white px-6 py-6 min-h-[120px] flex items-center justify-center">
+            <div className="bg-white px-6 py-6 min-h-[120px]">
+              <div className="mb-5 rounded-[14px] bg-[#111111] px-4 py-3 text-center">
+                <span className="text-[13px] font-bold leading-tight text-white">
+                  Envoie moi un message anonyme et on chat anonymement!!
+                </span>
+              </div>
+
               {isImageMessage && imageUrl && (
                 <div className="w-full mb-4">
-                  <button
+                  <div
                     onClick={() => setShowFullscreen(true)}
-                    className="w-full flex items-center gap-3 p-3 rounded-[16px] active:scale-[0.98] transition-transform"
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === ' ') setShowFullscreen(true)
+                    }}
+                    className="w-full flex items-center gap-3 p-3 rounded-[16px] active:scale-[0.98] transition-transform cursor-pointer"
                     style={{ background: 'rgba(0,0,0,0.05)' }}
                   >
                     <div className="w-14 h-14 rounded-[12px] overflow-hidden bg-black/10 flex-shrink-0">
@@ -797,7 +811,7 @@ export default function ReadMessageScreen() {
                         </svg>
                       )}
                     </button>
-                  </button>
+                  </div>
                   <div className="w-full h-[1px] mb-4" style={{ background: 'rgba(0,0,0,0.08)' }} />
                 </div>
               )}
