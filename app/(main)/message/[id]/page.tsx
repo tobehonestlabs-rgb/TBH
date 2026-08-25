@@ -35,76 +35,102 @@ const GLOBAL_STYLES = `
   * { -webkit-tap-highlight-color: transparent; }
 `
 
-const BACKGROUND_BLUR_RADIUS = 48
-const BACKGROUND_DRAW_EXPANSION = BACKGROUND_BLUR_RADIUS * 2
-const BACKGROUND_IMAGE_BRIGHTNESS = 0.3
-const BACKGROUND_IMAGE_SATURATION = 1.4
-const BACKGROUND_OVERLAY_COLOR = 'rgba(0,0,0,0.52)'
-const BACKGROUND_VIGNETTE_INNER_RADIUS = 0.2
-const BACKGROUND_VIGNETTE_OUTER_RADIUS = 0.85
-const BACKGROUND_VIGNETTE_COLOR = 'rgba(0,0,0,0.4)'
-const CARD_RENDER_SCALE = 2
-const MESSAGE_BODY_MAX_WIDTH = 860
-const MESSAGE_BODY_PADDING = 72
-const MESSAGE_BODY_RADIUS = 40
-const MESSAGE_BODY_SHADOW_COLOR = 'rgba(0,0,0,0.22)'
-const MESSAGE_BODY_SHADOW_BLUR = 44
-const MESSAGE_BODY_SHADOW_OFFSET_Y = 18
-const MESSAGE_BODY_SECONDARY_SHADOW_COLOR = 'rgba(0,0,0,0.12)'
-const MESSAGE_BODY_SECONDARY_SHADOW_BLUR = 18
-const MESSAGE_BODY_SECONDARY_SHADOW_OFFSET_Y = 6
-const MESSAGE_BODY_TEXT_COLOR = '#111111'
-const MESSAGE_BODY_AREA_TOP = 430
-const MESSAGE_BODY_AREA_BOTTOM = 1650
-const MESSAGE_BODY_FONT_MAX_SIZE = 210
-const MESSAGE_BODY_FONT_MIN_SIZE = 48
-const MESSAGE_BODY_LINE_HEIGHT_RATIO = 1.25
+// ─── Helpers de flou ──────────────────────────────────────────────────
 
-function drawBlurredBackground(
-  ctx: CanvasRenderingContext2D,
-  image: HTMLImageElement | null,
-  width: number,
-  height: number,
-  fallbackColor: string,
-) {
-  ctx.save()
-  ctx.setTransform(1, 0, 0, 1, 0, 0)
-
-  const scale = CARD_RENDER_SCALE
-  const actualW = width * scale
-  const actualH = height * scale
-
-  if (image) {
-    const expansion = BACKGROUND_DRAW_EXPANSION * scale
-    ctx.imageSmoothingEnabled = true
-    ctx.imageSmoothingQuality = 'high'
-    const blurRadius = BACKGROUND_BLUR_RADIUS * scale
-    ctx.filter = `blur(${blurRadius}px) brightness(${BACKGROUND_IMAGE_BRIGHTNESS}) saturate(${BACKGROUND_IMAGE_SATURATION})`
-    drawImageCover(ctx, image, -expansion, -expansion, actualW + expansion * 2, actualH + expansion * 2)
-  } else {
-    ctx.fillStyle = fallbackColor
-    ctx.fillRect(0, 0, actualW, actualH)
-  }
-
-  ctx.filter = 'none'
-  ctx.fillStyle = BACKGROUND_OVERLAY_COLOR
-  ctx.fillRect(0, 0, actualW, actualH)
-
-  const vignette = ctx.createRadialGradient(
-    actualW / 2,
-    actualH / 2,
-    actualH * BACKGROUND_VIGNETTE_INNER_RADIUS,
-    actualW / 2,
-    actualH / 2,
-    actualH * BACKGROUND_VIGNETTE_OUTER_RADIUS,
-  )
-  vignette.addColorStop(0, 'transparent')
-  vignette.addColorStop(1, BACKGROUND_VIGNETTE_COLOR)
-  ctx.fillStyle = vignette
-  ctx.fillRect(0, 0, actualW, actualH)
-
-  ctx.restore()
+function supportsCanvasFilter(): boolean {
+  try {
+    const c = document.createElement('canvas')
+    c.width = 1; c.height = 1
+    const ctx = c.getContext('2d')!
+    ctx.filter = 'brightness(0)'
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, 1, 1)
+    const r = ctx.getImageData(0, 0, 1, 1).data[0]
+    return r === 0
+  } catch { return false }
 }
+
+function applySoftBlur(data: Uint8ClampedArray, w: number, h: number, radius: number) {
+  const tmp = new Uint8ClampedArray(data.length)
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let rv = 0, gv = 0, bv = 0, n = 0
+      for (let dx = -radius; dx <= radius; dx++) {
+        const nx = Math.min(w - 1, Math.max(0, x + dx))
+        const p = (y * w + nx) * 4
+        rv += data[p]; gv += data[p + 1]; bv += data[p + 2]; n++
+      }
+      const p = (y * w + x) * 4
+      tmp[p] = rv / n; tmp[p + 1] = gv / n; tmp[p + 2] = bv / n; tmp[p + 3] = data[p + 3]
+    }
+  }
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let rv = 0, gv = 0, bv = 0, n = 0
+      for (let dy = -radius; dy <= radius; dy++) {
+        const ny = Math.min(h - 1, Math.max(0, y + dy))
+        const p = (ny * w + x) * 4
+        rv += tmp[p]; gv += tmp[p + 1]; bv += tmp[p + 2]; n++
+      }
+      const p = (y * w + x) * 4
+      data[p] = rv / n; data[p + 1] = gv / n; data[p + 2] = bv / n
+    }
+  }
+}
+
+function buildBlurCanvas(img: HTMLImageElement, W: number, H: number): HTMLCanvasElement {
+  const sw = Math.max(4, W >> 3)
+  const sh = Math.max(4, H >> 3)
+  const small = document.createElement('canvas')
+  small.width = sw; small.height = sh
+  const sctx = small.getContext('2d')!
+  sctx.drawImage(img, 0, 0, sw, sh)
+
+  const imgData = sctx.getImageData(0, 0, sw, sh)
+  applySoftBlur(imgData.data, sw, sh, 4)
+  applySoftBlur(imgData.data, sw, sh, 4)
+  applySoftBlur(imgData.data, sw, sh, 4)
+  sctx.putImageData(imgData, 0, 0)
+
+  const m1 = document.createElement('canvas')
+  m1.width = Math.max(2, W >> 2); m1.height = Math.max(2, H >> 2)
+  m1.getContext('2d')!.drawImage(small, 0, 0, m1.width, m1.height)
+
+  const m2 = document.createElement('canvas')
+  m2.width = Math.max(2, W >> 1); m2.height = Math.max(2, H >> 1)
+  m2.getContext('2d')!.drawImage(m1, 0, 0, m2.width, m2.height)
+
+  const out = document.createElement('canvas')
+  out.width = W + 120; out.height = H + 120
+  out.getContext('2d')!.drawImage(m2, 0, 0, out.width, out.height)
+  return out
+}
+
+function drawBlurredBg(
+  ctx: CanvasRenderingContext2D,
+  pfpImg: HTMLImageElement,
+  W: number, H: number,
+  blurTmp: HTMLCanvasElement | null,
+  hasFilter: boolean,
+  extra = 0,
+) {
+  if (hasFilter) {
+    ctx.save()
+    ctx.filter = 'blur(40px) brightness(0.35)'
+    ctx.drawImage(pfpImg, -60 - extra, -60 - extra, W + 120 + extra * 2, H + 120 + extra * 2)
+    ctx.filter = 'none'
+    ctx.restore()
+  } else if (blurTmp) {
+    ctx.save()
+    ctx.globalAlpha = 1
+    ctx.drawImage(blurTmp, -60 - extra, -60 - extra, W + 120 + extra * 2, H + 120 + extra * 2)
+    ctx.fillStyle = 'rgba(0,0,0,0.50)'
+    ctx.fillRect(-60 - extra, -60 - extra, W + 120 + extra * 2, H + 120 + extra * 2)
+    ctx.restore()
+  }
+}
+
+// ─── Helpers généraux ──────────────────────────────────────────────────
 
 function FloatingEmojis() {
   return (
@@ -193,6 +219,8 @@ function drawImageCover(
   ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h)
 }
 
+// ─── generateReplyCard ─────────────────────────────────────────────────
+
 async function generateReplyCard(
   messageText: string,
   replyText: string,
@@ -204,14 +232,31 @@ async function generateReplyCard(
   return new Promise(async (resolve) => {
     const W = 1080, H = 1920
     const canvas = document.createElement('canvas')
-    canvas.width = W * CARD_RENDER_SCALE; canvas.height = H * CARD_RENDER_SCALE
+    canvas.width = W; canvas.height = H
     const ctx = canvas.getContext('2d')!
-    ctx.scale(CARD_RENDER_SCALE, CARD_RENDER_SCALE)
 
+    const hasFilter = supportsCanvasFilter()
     let pfpImg: HTMLImageElement | null = null
     if (userPfp) pfpImg = await loadImage(userPfp).catch(() => null)
 
-    drawBlurredBackground(ctx, pfpImg, W, H, '#0A0A0C')
+    let blurTmp: HTMLCanvasElement | null = null
+    if (pfpImg && !hasFilter) {
+      blurTmp = buildBlurCanvas(pfpImg, W, H)
+    }
+
+    if (pfpImg) {
+      drawBlurredBg(ctx, pfpImg, W, H, blurTmp, hasFilter)
+    } else {
+      ctx.fillStyle = '#0A0A0C'
+      ctx.fillRect(0, 0, W, H)
+      ctx.fillStyle = 'rgba(0,0,0,0.52)'
+      ctx.fillRect(0, 0, W, H)
+      const vignette = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.85)
+      vignette.addColorStop(0, 'transparent')
+      vignette.addColorStop(1, 'rgba(0,0,0,0.4)')
+      ctx.fillStyle = vignette
+      ctx.fillRect(0, 0, W, H)
+    }
 
     const emojiPositions = [
       { src: '/assets/poop.svg',    size: 180, x: 60,  y: 120,  rot: -15, opacity: 0.18 },
@@ -366,6 +411,8 @@ async function generateReplyCard(
   })
 }
 
+// ─── generateMessageCard ───────────────────────────────────────────────
+
 async function generateMessageCard(
   messageText: string,
   imageUrl: string | null,
@@ -376,15 +423,34 @@ async function generateMessageCard(
   return new Promise(async (resolve) => {
     const W = 1080, H = 1920
     const canvas = document.createElement('canvas')
-    canvas.width = W * CARD_RENDER_SCALE; canvas.height = H * CARD_RENDER_SCALE
+    canvas.width = W; canvas.height = H
     const ctx = canvas.getContext('2d')!
-    ctx.scale(CARD_RENDER_SCALE, CARD_RENDER_SCALE)
 
+    const hasFilter = supportsCanvasFilter()
     let pfpImg: HTMLImageElement | null = null
     if (userPfp) pfpImg = await loadImage(userPfp).catch(() => null)
 
-    drawBlurredBackground(ctx, pfpImg, W, H, '#0D0D0D')
+    let blurTmp: HTMLCanvasElement | null = null
+    if (pfpImg && !hasFilter) {
+      blurTmp = buildBlurCanvas(pfpImg, W, H)
+    }
 
+    // 1. Background
+    if (pfpImg) {
+      drawBlurredBg(ctx, pfpImg, W, H, blurTmp, hasFilter)
+    } else {
+      ctx.fillStyle = '#0D0D0D'
+      ctx.fillRect(0, 0, W, H)
+      ctx.fillStyle = 'rgba(0,0,0,0.52)'
+      ctx.fillRect(0, 0, W, H)
+      const vignette = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.85)
+      vignette.addColorStop(0, 'transparent')
+      vignette.addColorStop(1, 'rgba(0,0,0,0.4)')
+      ctx.fillStyle = vignette
+      ctx.fillRect(0, 0, W, H)
+    }
+
+    // 2. Emojis
     const emojiPositions = [
       { src: '/assets/poop.svg',    size: 180, x: 60,  y: 120,  rot: -15, opacity: 0.18 },
       { src: '/assets/hot.svg',     size: 220, x: 780, y: 80,   rot: 12,  opacity: 0.18 },
@@ -405,6 +471,7 @@ async function generateMessageCard(
     }
     ctx.globalAlpha = 1
 
+    // 3. Logo
     const logo = await loadImage(logoSrc).catch(() => null)
     if (logo) {
       const lw = 220, lh = Math.round(lw * logo.height / logo.width)
@@ -420,6 +487,7 @@ async function generateMessageCard(
       ctx.globalAlpha = 1
     }
 
+    // 4. "🔒 Anonymous message" pill
     ctx.font = 'bold 44px -apple-system, sans-serif'
     const pillText = '🔒  Anonymous message'
     const pillW = ctx.measureText(pillText).width + 64
@@ -433,31 +501,60 @@ async function generateMessageCard(
     ctx.textAlign = 'center'
     ctx.fillText(pillText, W / 2, pillY + 48)
 
-    // --- Nouveau design : boîte avec bandeau noir ---
+    // 5. Image (si présente)
+    let imageBoxY = 0
+    if (imageUrl) {
+      const img = await loadImage(imageUrl).catch(() => null)
+      if (img) {
+        const imgS = 860, imgY = 450
+        ctx.save()
+        roundRect(ctx, (W - imgS) / 2, imgY, imgS, imgS, 48)
+        ctx.clip()
+        drawImageCover(ctx, img, (W - imgS) / 2, imgY, imgS, imgS)
+        ctx.restore()
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)'
+        ctx.lineWidth = 3
+        roundRect(ctx, (W - imgS) / 2, imgY, imgS, imgS, 48)
+        ctx.stroke()
+        imageBoxY = imgY + imgS + 40
+      }
+    }
+
+    // ─── BOÎTE AVEC BANDEAU NOIR MULTILIGNE ──────────────────────────────
+
     const boxWidth = 860
     const boxX = (W - boxWidth) / 2
-    const topY = 460
-    const bandeauHeight = 90
-    const messagePadding = 50
     const boxRadius = 40
+    const messagePadding = 50
 
+    // Bandeau noir (CTA) — multiligne
+    const bandeauText = "Envoie moi un message anonyme et on chat anonymement!!"
+    ctx.font = 'bold 44px -apple-system, sans-serif'
+    const maxBandeauWidth = boxWidth - 60
+    const bandeauLines = wrapText(ctx, bandeauText, maxBandeauWidth)
+    const bandeauLineHeight = 56
+    const bandeauPaddingY = 24
+    const bandeauHeight = bandeauLines.length * bandeauLineHeight + bandeauPaddingY * 2
+
+    // Message (partie blanche)
     let fontSize = 72
     let lines: string[] = []
     let contentHeight = 0
-    const maxWidth = boxWidth - messagePadding * 2
-
+    const maxTextWidth = boxWidth - messagePadding * 2
     while (fontSize > 28) {
       ctx.font = `bold ${fontSize}px -apple-system, sans-serif`
-      lines = wrapText(ctx, messageText || ' ', maxWidth)
+      lines = wrapText(ctx, messageText || ' ', maxTextWidth)
       contentHeight = lines.length * fontSize * 1.3
       if (contentHeight + messagePadding * 2 <= 600) break
       fontSize -= 4
     }
-
     const whiteHeight = Math.max(contentHeight + messagePadding * 2, 120)
     const totalHeight = bandeauHeight + whiteHeight
 
-    const boxY = topY
+    // Position Y de la boîte
+    let boxY = imageBoxY > 0 ? imageBoxY : (H - totalHeight) / 2 + 20
+
+    // Dessiner le fond blanc (avec ombre)
     ctx.save()
     ctx.shadowColor = 'rgba(0,0,0,0.5)'
     ctx.shadowBlur = 40
@@ -469,6 +566,7 @@ async function generateMessageCard(
     ctx.shadowOffsetY = 0
     ctx.restore()
 
+    // Bandeau noir (coins supérieurs arrondis)
     ctx.save()
     ctx.beginPath()
     const r = boxRadius
@@ -484,21 +582,24 @@ async function generateMessageCard(
     ctx.fill()
     ctx.restore()
 
+    // Texte du bandeau (centré verticalement) — MULTILIGNE
     ctx.save()
     ctx.font = 'bold 44px -apple-system, sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillStyle = '#FFFFFF'
-    const bandeauText = "Envoie moi un message anonyme et on chat anonymement!!"
-    ctx.fillText(bandeauText, W / 2, boxY + bandeauHeight / 2)
+    const bandeauStartY = boxY + bandeauPaddingY + bandeauLineHeight / 2
+    bandeauLines.forEach((line, i) => {
+      ctx.fillText(line, W / 2, bandeauStartY + i * bandeauLineHeight)
+    })
     ctx.restore()
 
+    // Message (partie blanche)
     ctx.save()
     ctx.shadowColor = 'rgba(0,0,0,0.2)'
     ctx.shadowBlur = 12
     ctx.shadowOffsetX = 2
     ctx.shadowOffsetY = 4
-
     ctx.font = `bold ${fontSize}px -apple-system, sans-serif`
     ctx.fillStyle = '#111111'
     ctx.textAlign = 'center'
@@ -508,6 +609,8 @@ async function generateMessageCard(
       ctx.fillText(line, W / 2, textStartY + i * fontSize * 1.3)
     })
     ctx.restore()
+
+    // ─── CTA final ──────────────────────────────────────────────────────────
 
     ctx.font = 'bold 46px -apple-system, sans-serif'
     ctx.fillStyle = 'rgba(255,255,255,0.92)'
@@ -538,6 +641,8 @@ async function generateMessageCard(
     canvas.toBlob(b => resolve(b!), 'image/png', 1.0)
   })
 }
+
+// ─── ReadMessageScreen ─────────────────────────────────────────────────
 
 export default function ReadMessageScreen() {
   const router = useRouter()
@@ -630,7 +735,7 @@ export default function ReadMessageScreen() {
     return () => {
       if (replyDebounceRef.current) clearTimeout(replyDebounceRef.current)
     }
-  }, [replyText, showReply])
+  }, [replyText, showReply, textContent, imageUrl, logoSrc, userPfp, arrowsSrc])
 
   const handleShareMessage = async () => {
     if (!message || sharing || !messageCardBlob) return
@@ -754,7 +859,7 @@ export default function ReadMessageScreen() {
 
         <div className="flex-1" />
 
-        {/* Message card preview */}
+        {/* UI : card preview avec bandeau noir */}
         <div className="px-5 mb-6">
           <div className="rounded-[28px] overflow-hidden bg-white shadow-[0_24px_60px_rgba(0,0,0,0.45),0_8px_20px_rgba(0,0,0,0.25)]">
             <div className="bg-[#111111] px-5 py-4 text-center">
