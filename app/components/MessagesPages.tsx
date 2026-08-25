@@ -77,7 +77,77 @@ function BlurPhotoSwitch({ checked, onChange }: { checked: boolean; onChange: (v
   )
 }
 
-// ── Canvas helpers for share card generation ──
+// ── Named Constants for Story Cards (1080 × 1920) ───────────────────────────
+const STORY_CANVAS_WIDTH = 1080
+const STORY_CANVAS_HEIGHT = 1920
+
+// Arrière-plan & voile
+const BG_FALLBACK_COLOR = '#0D0D0D'
+const BG_OVERLAY_COLOR = 'rgba(0, 0, 0, 0.52)'
+const BG_VIGNETTE_COLOR = 'rgba(0, 0, 0, 0.40)'
+const BG_VIGNETTE_INNER_RATIO = 0.20
+const BG_VIGNETTE_OUTER_RATIO = 0.85
+const BG_EXPANSION_PADDING = 60
+const BLUR_PASS_COUNT = 3
+const BLUR_PASS_RADIUS = 4
+
+// Logo & Emojis décoratifs
+const LOGO_WIDTH = 220
+const LOGO_TOP_Y = 100
+const EMOJI_DECORATIONS = [
+  { src: '/assets/poop.svg',    size: 180, x: 60,  y: 120,  rot: -15, opacity: 0.18 },
+  { src: '/assets/hot.svg',     size: 220, x: 780, y: 80,   rot: 12,  opacity: 0.18 },
+  { src: '/assets/nerd.svg',    size: 160, x: 860, y: 600,  rot: -8,  opacity: 0.15 },
+  { src: '/assets/Deamon.svg',  size: 240, x: 40,  y: 900,  rot: 18,  opacity: 0.18 },
+  { src: '/assets/Excited.svg', size: 190, x: 800, y: 1200, rot: -20, opacity: 0.15 },
+  { src: '/assets/Skull.svg',   size: 160, x: 100, y: 1500, rot: 10,  opacity: 0.15 },
+]
+
+// Pilule Anonymous Message
+const ANONYMOUS_PILL_TEXT = '🔒  Anonymous message'
+const ANONYMOUS_PILL_FONT = 'bold 44px -apple-system, BlinkMacSystemFont, sans-serif'
+const ANONYMOUS_PILL_PADDING_X = 32
+const ANONYMOUS_PILL_HEIGHT = 72
+const ANONYMOUS_PILL_TOP_Y = 320
+const ANONYMOUS_PILL_BG = 'rgba(255, 255, 255, 0.12)'
+const ANONYMOUS_PILL_TEXT_COLOR = 'rgba(255, 255, 255, 0.70)'
+
+// Boîte de message globale
+const CARD_BOX_WIDTH = 860
+const CARD_BOX_RADIUS = 40
+const CARD_BOX_SHADOW_COLOR = 'rgba(0, 0, 0, 0.50)'
+const CARD_BOX_SHADOW_BLUR = 40
+const CARD_BOX_SHADOW_OFFSET_Y = 15
+
+// Bandeau noir supérieur
+const BANDEAU_TEXT = 'Envoie moi un message anonyme et on chat anonymement!!'
+const BANDEAU_FONT = 'bold 44px -apple-system, BlinkMacSystemFont, sans-serif'
+const BANDEAU_BG_COLOR = '#111111'
+const BANDEAU_TEXT_COLOR = '#FFFFFF'
+const BANDEAU_PADDING_X = 30
+const BANDEAU_PADDING_Y = 24
+const BANDEAU_LINE_HEIGHT = 56
+
+// Zone blanche du message
+const WHITE_BOX_BG_COLOR = '#FFFFFF'
+const WHITE_BOX_TEXT_COLOR = '#111111'
+const WHITE_BOX_PADDING_X = 50
+const WHITE_BOX_PADDING_Y = 50
+const WHITE_BOX_MIN_HEIGHT = 140
+const WHITE_BOX_FONT_MAX = 72
+const WHITE_BOX_FONT_MIN = 36
+const WHITE_BOX_LINE_HEIGHT_RATIO = 1.3
+const WHITE_BOX_TEXT_SHADOW_COLOR = 'rgba(0, 0, 0, 0.20)'
+const WHITE_BOX_TEXT_SHADOW_BLUR = 12
+
+// CTA bas de page
+const CTA_TEXT = 'Send me something anonymously'
+const CTA_FONT = 'bold 46px -apple-system, BlinkMacSystemFont, sans-serif'
+const CTA_LINE_HEIGHT = 56
+const CTA_ARROWS_HEIGHT = 64
+const CTA_BOTTOM_MARGIN = 90
+
+// ── Helpers Canvas ───────────────────────────────────────────────────────────
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -87,6 +157,120 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     img.onerror = reject
     img.src = src
   })
+}
+
+function supportsCanvasFilter(): boolean {
+  try {
+    const c = document.createElement('canvas')
+    c.width = 1; c.height = 1
+    const ctx = c.getContext('2d')!
+    ctx.filter = 'brightness(0)'
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, 1, 1)
+    const r = ctx.getImageData(0, 0, 1, 1).data[0]
+    return r === 0
+  } catch { return false }
+}
+
+function applySoftBlur(data: Uint8ClampedArray, w: number, h: number, radius: number) {
+  const tmp = new Uint8ClampedArray(data.length)
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let rv = 0, gv = 0, bv = 0, n = 0
+      for (let dx = -radius; dx <= radius; dx++) {
+        const nx = Math.min(w - 1, Math.max(0, x + dx))
+        const p = (y * w + nx) * 4
+        rv += data[p]; gv += data[p + 1]; bv += data[p + 2]; n++
+      }
+      const p = (y * w + x) * 4
+      tmp[p] = rv / n; tmp[p + 1] = gv / n; tmp[p + 2] = bv / n; tmp[p + 3] = data[p + 3]
+    }
+  }
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let rv = 0, gv = 0, bv = 0, n = 0
+      for (let dy = -radius; dy <= radius; dy++) {
+        const ny = Math.min(h - 1, Math.max(0, y + dy))
+        const p = (ny * w + x) * 4
+        rv += tmp[p]; gv += tmp[p + 1]; bv += tmp[p + 2]; n++
+      }
+      const p = (y * w + x) * 4
+      data[p] = rv / n; data[p + 1] = gv / n; data[p + 2] = bv / n
+    }
+  }
+}
+
+function buildBlurCanvas(img: HTMLImageElement, W: number, H: number): HTMLCanvasElement {
+  const sw = Math.max(4, W >> 3)
+  const sh = Math.max(4, H >> 3)
+  const small = document.createElement('canvas')
+  small.width = sw; small.height = sh
+  const sctx = small.getContext('2d')!
+  sctx.drawImage(img, 0, 0, sw, sh)
+
+  const imgData = sctx.getImageData(0, 0, sw, sh)
+  for (let pass = 0; pass < BLUR_PASS_COUNT; pass++) {
+    applySoftBlur(imgData.data, sw, sh, BLUR_PASS_RADIUS)
+  }
+  sctx.putImageData(imgData, 0, 0)
+
+  const m1 = document.createElement('canvas')
+  m1.width = Math.max(2, W >> 2); m1.height = Math.max(2, H >> 2)
+  m1.getContext('2d')!.drawImage(small, 0, 0, m1.width, m1.height)
+
+  const m2 = document.createElement('canvas')
+  m2.width = Math.max(2, W >> 1); m2.height = Math.max(2, H >> 1)
+  m2.getContext('2d')!.drawImage(m1, 0, 0, m2.width, m2.height)
+
+  const out = document.createElement('canvas')
+  out.width = W + BG_EXPANSION_PADDING * 2; out.height = H + BG_EXPANSION_PADDING * 2
+  out.getContext('2d')!.drawImage(m2, 0, 0, out.width, out.height)
+  return out
+}
+
+function drawBlurredBackground(
+  ctx: CanvasRenderingContext2D,
+  pfpImg: HTMLImageElement | null,
+  W: number,
+  H: number,
+  blurTmp: HTMLCanvasElement | null,
+  hasFilter: boolean,
+  extra = 0,
+) {
+  const pad = BG_EXPANSION_PADDING + extra
+  if (pfpImg) {
+    if (hasFilter) {
+      ctx.save()
+      ctx.filter = 'blur(40px) brightness(0.35)'
+      ctx.drawImage(pfpImg, -pad, -pad, W + pad * 2, H + pad * 2)
+      ctx.filter = 'none'
+      ctx.restore()
+    } else if (blurTmp) {
+      ctx.save()
+      ctx.globalAlpha = 1
+      ctx.drawImage(blurTmp, -pad, -pad, W + pad * 2, H + pad * 2)
+      ctx.fillStyle = 'rgba(0,0,0,0.50)'
+      ctx.fillRect(-pad, -pad, W + pad * 2, H + pad * 2)
+      ctx.restore()
+    }
+  } else {
+    ctx.fillStyle = BG_FALLBACK_COLOR
+    ctx.fillRect(0, 0, W, H)
+  }
+
+  // Voile sombre uniforme
+  ctx.fillStyle = BG_OVERLAY_COLOR
+  ctx.fillRect(0, 0, W, H)
+
+  // Vignette radiale
+  const vignette = ctx.createRadialGradient(
+    W / 2, H / 2, H * BG_VIGNETTE_INNER_RATIO,
+    W / 2, H / 2, H * BG_VIGNETTE_OUTER_RATIO,
+  )
+  vignette.addColorStop(0, 'transparent')
+  vignette.addColorStop(1, BG_VIGNETTE_COLOR)
+  ctx.fillStyle = vignette
+  ctx.fillRect(0, 0, W, H)
 }
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -103,21 +287,51 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath()
 }
 
-function wrapText(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
-  const words = text.split(' ')
+function roundTopCornersRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.lineTo(x + w - r, y)
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r)
+  ctx.lineTo(x + w, y + h)
+  ctx.lineTo(x, y + h)
+  ctx.lineTo(x, y + r)
+  ctx.quadraticCurveTo(x, y, x + r, y)
+  ctx.closePath()
+}
+
+function wrapTextWithWordBreak(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
+  const words = text.trim().split(/\s+/)
   const lines: string[] = []
   let cur = ''
+
   for (const w of words) {
+    if (ctx.measureText(w).width > maxW) {
+      if (cur) { lines.push(cur); cur = '' }
+      let chunk = ''
+      for (const char of w) {
+        const candidate = chunk + char
+        if (ctx.measureText(candidate).width <= maxW) {
+          chunk = candidate
+        } else {
+          if (chunk) lines.push(chunk)
+          chunk = char
+        }
+      }
+      cur = chunk
+      continue
+    }
     const test = cur ? `${cur} ${w}` : w
-    if (ctx.measureText(test).width <= maxW) { cur = test }
-    else { if (cur) lines.push(cur); cur = w }
+    if (ctx.measureText(test).width <= maxW) {
+      cur = test
+    } else {
+      if (cur) lines.push(cur)
+      cur = w
+    }
   }
   if (cur) lines.push(cur)
   return lines
 }
 
-// Draws an image into a w x h box like CSS `object-fit: cover` — scales to
-// fill the box and crops the overflow instead of stretching the aspect ratio.
 function drawImageCover(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -136,28 +350,6 @@ function drawImageCover(
   ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h)
 }
 
-// Draws the pfp as a full-bleed background, blurred. Downsampling to a tiny
-// canvas and scaling back up guarantees a strong blur even in environments
-// where ctx.filter isn't honored — then a ctx.filter pass on top smooths it
-// further wherever that *is* supported.
-function drawBlurredPfpBackground(ctx: CanvasRenderingContext2D, img: HTMLImageElement, W: number, H: number) {
-  const dw = Math.max(1, Math.round(W / 24))
-  const dh = Math.max(1, Math.round(H / 24))
-  const small = document.createElement('canvas')
-  small.width = dw; small.height = dh
-  const sctx = small.getContext('2d')!
-  sctx.drawImage(img, 0, 0, dw, dh)
-
-  ctx.save()
-  ctx.filter = 'blur(10px) brightness(0.3) saturate(1.4)'
-  ctx.imageSmoothingEnabled = true
-  ctx.drawImage(small, -60, -60, W + 120, H + 120)
-  ctx.filter = 'none'
-  ctx.restore()
-}
-
-// Same cover-fit draw as drawImageCover, but optionally blurs the received
-// photo first — used when the user has the "blur photo when sharing" switch on.
 function drawImageCoverOptionallyBlurred(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -175,16 +367,14 @@ function drawImageCoverOptionallyBlurred(
   ctx.drawImage(off, x, y, w, h)
 }
 
-// Draws the "Send me something anonymously" CTA + arrows.svg as the very
-// last element of a generated share card.
 async function drawSendMeCta(ctx: CanvasRenderingContext2D, W: number, H: number, arrowsSrc: string) {
-  ctx.font = 'bold 46px -apple-system, sans-serif'
+  ctx.font = CTA_FONT
   ctx.fillStyle = 'rgba(255,255,255,0.92)'
   ctx.textAlign = 'center'
-  const ctaLines = wrapText(ctx, 'Send me something anonymously', W - 160)
-  const ctaLineH = 56
-  const arrowsH = 64
-  const bottomMargin = 90
+  const ctaLines = wrapTextWithWordBreak(ctx, CTA_TEXT, W - 160)
+  const ctaLineH = CTA_LINE_HEIGHT
+  const arrowsH = CTA_ARROWS_HEIGHT
+  const bottomMargin = CTA_BOTTOM_MARGIN
   const arrowsY = H - bottomMargin - arrowsH
   const ctaStartY = arrowsY - 24 - (ctaLines.length - 1) * ctaLineH
   ctaLines.forEach((line, i) => ctx.fillText(line, W / 2, ctaStartY + i * ctaLineH))
@@ -199,11 +389,13 @@ async function drawSendMeCta(ctx: CanvasRenderingContext2D, W: number, H: number
     ocArrows.globalCompositeOperation = 'source-in'
     ocArrows.fillStyle = '#FFFFFF'
     ocArrows.fillRect(0, 0, aw, arrowsH)
-    ctx.globalAlpha = 0.92
+    ctx.globalAlpha = 0.9
     ctx.drawImage(offArrows, (W - aw) / 2, arrowsY, aw, arrowsH)
     ctx.globalAlpha = 1
   }
 }
+
+// ─── generateReplyCard ─────────────────────────────────────────────────
 
 async function generateReplyCard(
   messageText: string,
@@ -212,42 +404,28 @@ async function generateReplyCard(
   logoSrc: string,
   userPfp: string | null,
   arrowsSrc: string,
-  blurImage: boolean,
+  blurImage = false,
 ): Promise<Blob> {
   return new Promise(async (resolve) => {
-    const W = 1080, H = 1920
+    const W = STORY_CANVAS_WIDTH, H = STORY_CANVAS_HEIGHT
     const canvas = document.createElement('canvas')
     canvas.width = W; canvas.height = H
     const ctx = canvas.getContext('2d')!
 
+    const hasFilter = supportsCanvasFilter()
     let pfpImg: HTMLImageElement | null = null
     if (userPfp) pfpImg = await loadImage(userPfp).catch(() => null)
 
-    if (pfpImg) {
-      drawBlurredPfpBackground(ctx, pfpImg, W, H)
-    } else {
-      ctx.fillStyle = '#0A0A0C'
-      ctx.fillRect(0, 0, W, H)
+    let blurTmp: HTMLCanvasElement | null = null
+    if (pfpImg && !hasFilter) {
+      blurTmp = buildBlurCanvas(pfpImg, W, H)
     }
 
-    ctx.fillStyle = 'rgba(0,0,0,0.52)'
-    ctx.fillRect(0, 0, W, H)
+    // 1. Arrière-plan flouté avec voile sombre et vignette
+    drawBlurredBackground(ctx, pfpImg, W, H, blurTmp, hasFilter)
 
-    const vignette = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.85)
-    vignette.addColorStop(0, 'transparent')
-    vignette.addColorStop(1, 'rgba(0,0,0,0.4)')
-    ctx.fillStyle = vignette
-    ctx.fillRect(0, 0, W, H)
-
-    const emojiPositions = [
-      { src: '/assets/poop.svg',    size: 180, x: 60,  y: 120,  rot: -15, opacity: 0.18 },
-      { src: '/assets/hot.svg',     size: 220, x: 780, y: 80,   rot: 12,  opacity: 0.18 },
-      { src: '/assets/nerd.svg',    size: 160, x: 860, y: 600,  rot: -8,  opacity: 0.15 },
-      { src: '/assets/Deamon.svg',  size: 240, x: 40,  y: 900,  rot: 18,  opacity: 0.18 },
-      { src: '/assets/Excited.svg', size: 190, x: 800, y: 1200, rot: -20, opacity: 0.15 },
-      { src: '/assets/Skull.svg',   size: 160, x: 100, y: 1500, rot: 10,  opacity: 0.15 },
-    ]
-    for (const e of emojiPositions) {
+    // 2. Emojis décoratifs
+    for (const e of EMOJI_DECORATIONS) {
       const img = await loadImage(e.src).catch(() => null)
       if (!img) continue
       ctx.save()
@@ -259,9 +437,10 @@ async function generateReplyCard(
     }
     ctx.globalAlpha = 1
 
+    // 3. Logo TBH
     const logo = await loadImage(logoSrc).catch(() => null)
     if (logo) {
-      const lw = 200, lh = Math.round(lw * logo.height / logo.width)
+      const lw = LOGO_WIDTH, lh = Math.round(lw * logo.height / logo.width)
       const offscreen = document.createElement('canvas')
       offscreen.width = lw; offscreen.height = lh
       const oc = offscreen.getContext('2d')!
@@ -270,7 +449,7 @@ async function generateReplyCard(
       oc.fillStyle = '#FFFFFF'
       oc.fillRect(0, 0, lw, lh)
       ctx.globalAlpha = 0.9
-      ctx.drawImage(offscreen, (W - lw) / 2, 90, lw, lh)
+      ctx.drawImage(offscreen, (W - lw) / 2, LOGO_TOP_Y, lw, lh)
       ctx.globalAlpha = 1
     }
 
@@ -280,10 +459,10 @@ async function generateReplyCard(
     let msgImg: HTMLImageElement | null = null
     if (imageUrl) msgImg = await loadImage(imageUrl).catch(() => null)
 
-    ctx.font = '52px -apple-system, sans-serif'
-    const msgLines = wrapText(ctx, messageText || '', boxW - innerPad * 2)
+    ctx.font = '52px -apple-system, BlinkMacSystemFont, sans-serif'
+    const msgLines = wrapTextWithWordBreak(ctx, messageText || '', boxW - innerPad * 2)
     const msgLineH = 68
-    const imgSize = boxW - innerPad * 2 // square (1:1) image box — no stretch
+    const imgSize = boxW - innerPad * 2
     const imgH = msgImg ? imgSize : 0
     const senderBoxH = innerPad + 60 + 20 + imgH + (imgH && messageText ? 28 : 0) + msgLines.length * msgLineH + innerPad
 
@@ -295,7 +474,7 @@ async function generateReplyCard(
     roundRect(ctx, hPad, y, boxW, senderBoxH, 40)
     ctx.stroke()
 
-    ctx.font = 'bold 40px -apple-system, sans-serif'
+    ctx.font = 'bold 40px -apple-system, BlinkMacSystemFont, sans-serif'
     const anonText = '🔒  ANONYMOUS'
     const anonW = ctx.measureText(anonText).width + 48
     ctx.fillStyle = 'rgba(255,255,255,0.08)'
@@ -317,7 +496,7 @@ async function generateReplyCard(
     }
 
     if (messageText) {
-      ctx.font = '52px -apple-system, sans-serif'
+      ctx.font = '52px -apple-system, BlinkMacSystemFont, sans-serif'
       ctx.fillStyle = '#FFFFFF'
       ctx.textAlign = 'left'
       msgLines.forEach((line, i) => {
@@ -327,8 +506,8 @@ async function generateReplyCard(
 
     y += senderBoxH + 52
 
-    ctx.font = 'bold 68px -apple-system, sans-serif'
-    const replyLines = wrapText(ctx, replyText, boxW - innerPad * 2)
+    ctx.font = 'bold 68px -apple-system, BlinkMacSystemFont, sans-serif'
+    const replyLines = wrapTextWithWordBreak(ctx, replyText, boxW - innerPad * 2)
     const replyLineH = 86
     const replyBoxH = innerPad + 60 + 28 + replyLines.length * replyLineH + innerPad
 
@@ -348,12 +527,12 @@ async function generateReplyCard(
     roundRect(ctx, hPad, y, boxW, replyBoxH, 40)
     ctx.stroke()
 
-    ctx.font = 'bold 40px -apple-system, sans-serif'
+    ctx.font = 'bold 40px -apple-system, BlinkMacSystemFont, sans-serif'
     ctx.fillStyle = 'rgba(255,107,107,0.9)'
     ctx.textAlign = 'left'
     ctx.fillText('ME', hPad + innerPad, y + innerPad + 42)
 
-    ctx.font = 'bold 68px -apple-system, sans-serif'
+    ctx.font = 'bold 68px -apple-system, BlinkMacSystemFont, sans-serif'
     ctx.fillStyle = '#FFFFFF'
     ctx.shadowColor = 'rgba(0,0,0,0.3)'
     ctx.shadowBlur = 8
@@ -368,49 +547,36 @@ async function generateReplyCard(
   })
 }
 
+// ─── generateMessageCard ───────────────────────────────────────────────
+
 async function generateMessageCard(
   messageText: string,
   imageUrl: string | null,
   logoSrc: string,
   userPfp: string | null,
   arrowsSrc: string,
-  blurImage: boolean,
+  blurImage = false,
 ): Promise<Blob> {
   return new Promise(async (resolve) => {
-    const W = 1080, H = 1920
+    const W = STORY_CANVAS_WIDTH, H = STORY_CANVAS_HEIGHT
     const canvas = document.createElement('canvas')
     canvas.width = W; canvas.height = H
     const ctx = canvas.getContext('2d')!
 
-    // 1. Background (blurred pfp or dark fallback)
+    const hasFilter = supportsCanvasFilter()
     let pfpImg: HTMLImageElement | null = null
     if (userPfp) pfpImg = await loadImage(userPfp).catch(() => null)
-    if (pfpImg) {
-      drawBlurredPfpBackground(ctx, pfpImg, W, H)
-    } else {
-      ctx.fillStyle = '#0D0D0D'
-      ctx.fillRect(0, 0, W, H)
+
+    let blurTmp: HTMLCanvasElement | null = null
+    if (pfpImg && !hasFilter) {
+      blurTmp = buildBlurCanvas(pfpImg, W, H)
     }
 
-    // Overlay
-    ctx.fillStyle = 'rgba(0,0,0,0.5)'
-    ctx.fillRect(0, 0, W, H)
-    const vignette = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.85)
-    vignette.addColorStop(0, 'transparent')
-    vignette.addColorStop(1, 'rgba(0,0,0,0.4)')
-    ctx.fillStyle = vignette
-    ctx.fillRect(0, 0, W, H)
+    // 1. Arrière-plan flouté avec voile sombre et vignette
+    drawBlurredBackground(ctx, pfpImg, W, H, blurTmp, hasFilter)
 
-    // 2. Emojis (decorative)
-    const emojiPositions = [
-      { src: '/assets/poop.svg',    size: 180, x: 60,  y: 120,  rot: -15, opacity: 0.18 },
-      { src: '/assets/hot.svg',     size: 220, x: 780, y: 80,   rot: 12,  opacity: 0.18 },
-      { src: '/assets/nerd.svg',    size: 160, x: 860, y: 600,  rot: -8,  opacity: 0.15 },
-      { src: '/assets/Deamon.svg',  size: 240, x: 40,  y: 900,  rot: 18,  opacity: 0.18 },
-      { src: '/assets/Excited.svg', size: 190, x: 800, y: 1200, rot: -20, opacity: 0.15 },
-      { src: '/assets/Skull.svg',   size: 160, x: 100, y: 1500, rot: 10,  opacity: 0.15 },
-    ]
-    for (const e of emojiPositions) {
+    // 2. Emojis décoratifs
+    for (const e of EMOJI_DECORATIONS) {
       const img = await loadImage(e.src).catch(() => null)
       if (!img) continue
       ctx.save()
@@ -422,10 +588,10 @@ async function generateMessageCard(
     }
     ctx.globalAlpha = 1
 
-    // 3. Logo
+    // 3. Logo TBH
     const logo = await loadImage(logoSrc).catch(() => null)
     if (logo) {
-      const lw = 220, lh = Math.round(lw * logo.height / logo.width)
+      const lw = LOGO_WIDTH, lh = Math.round(lw * logo.height / logo.width)
       const offscreen = document.createElement('canvas')
       offscreen.width = lw; offscreen.height = lh
       const oc = offscreen.getContext('2d')!
@@ -434,29 +600,29 @@ async function generateMessageCard(
       oc.fillStyle = '#FFFFFF'
       oc.fillRect(0, 0, lw, lh)
       ctx.globalAlpha = 0.9
-      ctx.drawImage(offscreen, (W - lw) / 2, 100, lw, lh)
+      ctx.drawImage(offscreen, (W - lw) / 2, LOGO_TOP_Y, lw, lh)
       ctx.globalAlpha = 1
     }
 
-    // 4. "🔒 Anonymous message" pill (optional, but adds brand)
-    ctx.font = 'bold 44px -apple-system, sans-serif'
-    const pillText = '🔒  Anonymous message'
-    const pillW = ctx.measureText(pillText).width + 64
-    const pillH = 72
+    // 4. Pilule "🔒 Anonymous message"
+    ctx.font = ANONYMOUS_PILL_FONT
+    const pillW = ctx.measureText(ANONYMOUS_PILL_TEXT).width + ANONYMOUS_PILL_PADDING_X * 2
+    const pillH = ANONYMOUS_PILL_HEIGHT
     const pillX = (W - pillW) / 2
-    const pillY = 320
-    ctx.fillStyle = 'rgba(255,255,255,0.12)'
+    const pillY = ANONYMOUS_PILL_TOP_Y
+    ctx.fillStyle = ANONYMOUS_PILL_BG
     roundRect(ctx, pillX, pillY, pillW, pillH, pillH / 2)
     ctx.fill()
-    ctx.fillStyle = 'rgba(255,255,255,0.7)'
+    ctx.fillStyle = ANONYMOUS_PILL_TEXT_COLOR
     ctx.textAlign = 'center'
-    ctx.fillText(pillText, W / 2, pillY + 48)
+    ctx.fillText(ANONYMOUS_PILL_TEXT, W / 2, pillY + 48)
 
-    // 5. If there is an image, draw it (centered, rounded, with optional blur)
+    // 5. Image attachée si présente
+    let imageBoxY = 0
     if (imageUrl) {
       const img = await loadImage(imageUrl).catch(() => null)
       if (img) {
-        const imgS = 860, imgY = 450
+        const imgS = 860, imgY = 440
         ctx.save()
         roundRect(ctx, (W - imgS) / 2, imgY, imgS, imgS, 48)
         ctx.clip()
@@ -466,110 +632,105 @@ async function generateMessageCard(
         ctx.lineWidth = 3
         roundRect(ctx, (W - imgS) / 2, imgY, imgS, imgS, 48)
         ctx.stroke()
+        imageBoxY = imgY + imgS + 40
       }
     }
 
-    // 6. Box with black band and white body for the message text
-    //    This box is placed either below the image (if image exists) or in the center.
-    const boxWidth = 860
+    // 6. Boîte avec bandeau noir multiligne et zone blanche dynamique
+    const boxWidth = CARD_BOX_WIDTH
     const boxX = (W - boxWidth) / 2
-    const bandeauHeight = 90
-    const messagePadding = 50
-    const boxRadius = 40
+    const boxRadius = CARD_BOX_RADIUS
 
-    // Determine the Y position for the box
-    let boxY = 0
-    if (imageUrl) {
-      // Place it below the image (image ends at imgY + imgS = 450 + 860 = 1310)
-      // We want some margin: boxY = 1310 + 40
-      boxY = 450 + 860 + 40
-    } else {
-      // Center vertically: we'll compute later by measuring text height
-      boxY = 460 // start from after the pill
-    }
+    // ── BANDEAU NOIR MULTILIGNE ──
+    ctx.font = BANDEAU_FONT
+    const maxBandeauWidth = boxWidth - BANDEAU_PADDING_X * 2
+    const bandeauLines = wrapTextWithWordBreak(ctx, BANDEAU_TEXT, maxBandeauWidth)
+    const bandeauHeight = bandeauLines.length * BANDEAU_LINE_HEIGHT + BANDEAU_PADDING_Y * 2
 
-    // Compute the required height for the message text
-    let fontSize = 72
-    let lines: string[] = []
+    // ── ZONE BLANCHE DYNAMIQUE (AUCUN DÉBORDEMENT) ──
+    const maxTextWidth = boxWidth - WHITE_BOX_PADDING_X * 2
+    let fontSize = WHITE_BOX_FONT_MAX
+    let messageLines: string[] = []
     let contentHeight = 0
-    const maxWidth = boxWidth - messagePadding * 2
-    while (fontSize > 28) {
-      ctx.font = `bold ${fontSize}px -apple-system, sans-serif`
-      lines = wrapText(ctx, messageText || ' ', maxWidth)
-      contentHeight = lines.length * fontSize * 1.3
-      if (contentHeight + messagePadding * 2 <= 600) break
+
+    while (fontSize > WHITE_BOX_FONT_MIN) {
+      ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`
+      messageLines = wrapTextWithWordBreak(ctx, messageText || ' ', maxTextWidth)
+      contentHeight = messageLines.length * fontSize * WHITE_BOX_LINE_HEIGHT_RATIO
+      if (contentHeight + WHITE_BOX_PADDING_Y * 2 <= 550) break
       fontSize -= 4
     }
+    ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`
+    messageLines = wrapTextWithWordBreak(ctx, messageText || ' ', maxTextWidth)
+    contentHeight = messageLines.length * fontSize * WHITE_BOX_LINE_HEIGHT_RATIO
 
-    const whiteHeight = Math.max(contentHeight + messagePadding * 2, 120)
-    const totalHeight = bandeauHeight + whiteHeight
+    const whiteHeight = Math.max(contentHeight + WHITE_BOX_PADDING_Y * 2, WHITE_BOX_MIN_HEIGHT)
+    const totalBoxHeight = bandeauHeight + whiteHeight
 
-    // If no image, center the box vertically
-    if (!imageUrl) {
-      boxY = (H - totalHeight) / 2 + 20 // slight offset for the pill
+    // Position Y de la boîte
+    let boxY = 0
+    if (imageUrl) {
+      boxY = imageBoxY > 0 ? imageBoxY : 440 + 860 + 40
+    } else {
+      const availableTop = pillY + pillH + 40
+      boxY = Math.max(availableTop, (H - totalBoxHeight) / 2 + 10)
     }
 
-    // Draw the white box with shadow
+    // 6a. Ombre + fond blanc
     ctx.save()
-    ctx.shadowColor = 'rgba(0,0,0,0.5)'
-    ctx.shadowBlur = 40
-    ctx.shadowOffsetY = 15
-    ctx.fillStyle = '#FFFFFF'
-    roundRect(ctx, boxX, boxY, boxWidth, totalHeight, boxRadius)
+    ctx.shadowColor = CARD_BOX_SHADOW_COLOR
+    ctx.shadowBlur = CARD_BOX_SHADOW_BLUR
+    ctx.shadowOffsetY = CARD_BOX_SHADOW_OFFSET_Y
+    ctx.fillStyle = WHITE_BOX_BG_COLOR
+    roundRect(ctx, boxX, boxY, boxWidth, totalBoxHeight, boxRadius)
     ctx.fill()
     ctx.shadowBlur = 0
     ctx.shadowOffsetY = 0
     ctx.restore()
 
-    // Draw the black band (top part, with rounded top corners only)
+    // 6b. Bandeau noir supérieur (coins arrondis en haut)
     ctx.save()
-    ctx.beginPath()
-    const r = boxRadius
-    ctx.moveTo(boxX + r, boxY)
-    ctx.lineTo(boxX + boxWidth - r, boxY)
-    ctx.quadraticCurveTo(boxX + boxWidth, boxY, boxX + boxWidth, boxY + r)
-    ctx.lineTo(boxX + boxWidth, boxY + bandeauHeight)
-    ctx.lineTo(boxX, boxY + bandeauHeight)
-    ctx.lineTo(boxX, boxY + r)
-    ctx.quadraticCurveTo(boxX, boxY, boxX + r, boxY)
-    ctx.closePath()
-    ctx.fillStyle = '#111111'
+    roundTopCornersRect(ctx, boxX, boxY, boxWidth, bandeauHeight, boxRadius)
+    ctx.fillStyle = BANDEAU_BG_COLOR
     ctx.fill()
     ctx.restore()
 
-    // Text in the black band (French call-to-action)
+    // 6c. Texte du bandeau noir
     ctx.save()
-    ctx.font = 'bold 44px -apple-system, sans-serif'
+    ctx.font = BANDEAU_FONT
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillStyle = '#FFFFFF'
-    const bandeauText = "Envoie moi un message anonyme et on chat anonymement!!"
-    // Wrap if too long (but 44px on 860px width with that text is ~600px, fits fine)
-    ctx.fillText(bandeauText, W / 2, boxY + bandeauHeight / 2)
-    ctx.restore()
-
-    // Message text in white area (black text with shadow)
-    ctx.save()
-    ctx.shadowColor = 'rgba(0,0,0,0.2)'
-    ctx.shadowBlur = 12
-    ctx.shadowOffsetX = 2
-    ctx.shadowOffsetY = 4
-    ctx.font = `bold ${fontSize}px -apple-system, sans-serif`
-    ctx.fillStyle = '#111111'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'top'
-    const textStartY = boxY + bandeauHeight + messagePadding
-    lines.forEach((line, i) => {
-      ctx.fillText(line, W / 2, textStartY + i * fontSize * 1.3)
+    ctx.fillStyle = BANDEAU_TEXT_COLOR
+    const bandeauStartY = boxY + BANDEAU_PADDING_Y + BANDEAU_LINE_HEIGHT / 2
+    bandeauLines.forEach((line, i) => {
+      ctx.fillText(line, W / 2, bandeauStartY + i * BANDEAU_LINE_HEIGHT)
     })
     ctx.restore()
 
-    // 7. Bottom CTA (Send me something anonymously)
+    // 6d. Texte du message dans la zone blanche
+    ctx.save()
+    ctx.shadowColor = WHITE_BOX_TEXT_SHADOW_COLOR
+    ctx.shadowBlur = WHITE_BOX_TEXT_SHADOW_BLUR
+    ctx.shadowOffsetX = 2
+    ctx.shadowOffsetY = 4
+    ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`
+    ctx.fillStyle = WHITE_BOX_TEXT_COLOR
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'top'
+    const textStartY = boxY + bandeauHeight + WHITE_BOX_PADDING_Y
+    messageLines.forEach((line, i) => {
+      ctx.fillText(line, W / 2, textStartY + i * fontSize * WHITE_BOX_LINE_HEIGHT_RATIO)
+    })
+    ctx.restore()
+
+    // 7. Call-to-action final (Send me something anonymously + flèches)
     await drawSendMeCta(ctx, W, H, arrowsSrc)
 
     canvas.toBlob(b => resolve(b!), 'image/png', 1.0)
   })
 }
+
+// ─── generateGifReplyCard ──────────────────────────────────────────────
 
 async function generateGifReplyCard(
   messageText: string,
@@ -580,25 +741,25 @@ async function generateGifReplyCard(
 ): Promise<Blob> {
   const proxiedGifUrl = `/api/gif-proxy?url=${encodeURIComponent(gifUrl)}`
   return new Promise(async (resolve) => {
-    const W = 1080, H = 1920
+    const W = STORY_CANVAS_WIDTH, H = STORY_CANVAS_HEIGHT
     const canvas = document.createElement('canvas')
     canvas.width = W; canvas.height = H
     const ctx = canvas.getContext('2d')!
 
+    const hasFilter = supportsCanvasFilter()
     let pfpImg: HTMLImageElement | null = null
     if (userPfp) pfpImg = await loadImage(userPfp).catch(() => null)
-    if (pfpImg) {
-      drawBlurredPfpBackground(ctx, pfpImg, W, H)
-    } else {
-      ctx.fillStyle = '#0A0A0C'
-      ctx.fillRect(0, 0, W, H)
+
+    let blurTmp: HTMLCanvasElement | null = null
+    if (pfpImg && !hasFilter) {
+      blurTmp = buildBlurCanvas(pfpImg, W, H)
     }
-    ctx.fillStyle = 'rgba(0,0,0,0.52)'
-    ctx.fillRect(0, 0, W, H)
+
+    drawBlurredBackground(ctx, pfpImg, W, H, blurTmp, hasFilter)
 
     const logo = await loadImage(logoSrc).catch(() => null)
     if (logo) {
-      const lw = 200, lh = Math.round(lw * logo.height / logo.width)
+      const lw = LOGO_WIDTH, lh = Math.round(lw * logo.height / logo.width)
       const offscreen = document.createElement('canvas')
       offscreen.width = lw; offscreen.height = lh
       const oc = offscreen.getContext('2d')!
@@ -607,7 +768,7 @@ async function generateGifReplyCard(
       oc.fillStyle = '#FFFFFF'
       oc.fillRect(0, 0, lw, lh)
       ctx.globalAlpha = 0.9
-      ctx.drawImage(offscreen, (W - lw) / 2, 90, lw, lh)
+      ctx.drawImage(offscreen, (W - lw) / 2, LOGO_TOP_Y, lw, lh)
       ctx.globalAlpha = 1
     }
 
@@ -615,8 +776,8 @@ async function generateGifReplyCard(
     let y = 320
 
     if (messageText) {
-      ctx.font = '52px -apple-system, sans-serif'
-      const msgLines = wrapText(ctx, messageText, boxW - innerPad * 2)
+      ctx.font = '52px -apple-system, BlinkMacSystemFont, sans-serif'
+      const msgLines = wrapTextWithWordBreak(ctx, messageText, boxW - innerPad * 2)
       const msgLineH = 68
       const senderBoxH = innerPad + 60 + 20 + msgLines.length * msgLineH + innerPad
 
@@ -628,7 +789,7 @@ async function generateGifReplyCard(
       roundRect(ctx, hPad, y, boxW, senderBoxH, 40)
       ctx.stroke()
 
-      ctx.font = 'bold 40px -apple-system, sans-serif'
+      ctx.font = 'bold 40px -apple-system, BlinkMacSystemFont, sans-serif'
       const anonText = '🔒  ANONYMOUS'
       const anonW = ctx.measureText(anonText).width + 48
       ctx.fillStyle = 'rgba(255,255,255,0.08)'
@@ -638,7 +799,7 @@ async function generateGifReplyCard(
       ctx.textAlign = 'left'
       ctx.fillText(anonText, hPad + innerPad + 24, y + innerPad + 40)
 
-      ctx.font = '52px -apple-system, sans-serif'
+      ctx.font = '52px -apple-system, BlinkMacSystemFont, sans-serif'
       ctx.fillStyle = '#FFFFFF'
       ctx.textAlign = 'left'
       msgLines.forEach((line, i) => {
@@ -663,7 +824,7 @@ async function generateGifReplyCard(
       y += gifDisplayH + 48
     }
 
-    ctx.font = 'bold 44px -apple-system, sans-serif'
+    ctx.font = 'bold 44px -apple-system, BlinkMacSystemFont, sans-serif'
     ctx.fillStyle = 'rgba(255,107,107,0.9)'
     ctx.textAlign = 'center'
     ctx.fillText('🎬 MY REPLY', W / 2, y + 48)
@@ -674,6 +835,8 @@ async function generateGifReplyCard(
   })
 }
 
+// ─── generatePhotoReplyCard ────────────────────────────────────────────
+
 async function generatePhotoReplyCard(
   messageText: string,
   photoUrl: string,
@@ -682,25 +845,25 @@ async function generatePhotoReplyCard(
   arrowsSrc: string,
 ): Promise<Blob> {
   return new Promise(async (resolve) => {
-    const W = 1080, H = 1920
+    const W = STORY_CANVAS_WIDTH, H = STORY_CANVAS_HEIGHT
     const canvas = document.createElement('canvas')
     canvas.width = W; canvas.height = H
     const ctx = canvas.getContext('2d')!
 
+    const hasFilter = supportsCanvasFilter()
     let pfpImg: HTMLImageElement | null = null
     if (userPfp) pfpImg = await loadImage(userPfp).catch(() => null)
-    if (pfpImg) {
-      drawBlurredPfpBackground(ctx, pfpImg, W, H)
-    } else {
-      ctx.fillStyle = '#0A0A0C'
-      ctx.fillRect(0, 0, W, H)
+
+    let blurTmp: HTMLCanvasElement | null = null
+    if (pfpImg && !hasFilter) {
+      blurTmp = buildBlurCanvas(pfpImg, W, H)
     }
-    ctx.fillStyle = 'rgba(0,0,0,0.52)'
-    ctx.fillRect(0, 0, W, H)
+
+    drawBlurredBackground(ctx, pfpImg, W, H, blurTmp, hasFilter)
 
     const logo = await loadImage(logoSrc).catch(() => null)
     if (logo) {
-      const lw = 200, lh = Math.round(lw * logo.height / logo.width)
+      const lw = LOGO_WIDTH, lh = Math.round(lw * logo.height / logo.width)
       const offscreen = document.createElement('canvas')
       offscreen.width = lw; offscreen.height = lh
       const oc = offscreen.getContext('2d')!
@@ -709,7 +872,7 @@ async function generatePhotoReplyCard(
       oc.fillStyle = '#FFFFFF'
       oc.fillRect(0, 0, lw, lh)
       ctx.globalAlpha = 0.9
-      ctx.drawImage(offscreen, (W - lw) / 2, 90, lw, lh)
+      ctx.drawImage(offscreen, (W - lw) / 2, LOGO_TOP_Y, lw, lh)
       ctx.globalAlpha = 1
     }
 
@@ -717,8 +880,8 @@ async function generatePhotoReplyCard(
     let y = 320
 
     if (messageText) {
-      ctx.font = '52px -apple-system, sans-serif'
-      const msgLines = wrapText(ctx, messageText, boxW - innerPad * 2)
+      ctx.font = '52px -apple-system, BlinkMacSystemFont, sans-serif'
+      const msgLines = wrapTextWithWordBreak(ctx, messageText, boxW - innerPad * 2)
       const msgLineH = 68
       const senderBoxH = innerPad + 60 + 20 + msgLines.length * msgLineH + innerPad
 
@@ -730,7 +893,7 @@ async function generatePhotoReplyCard(
       roundRect(ctx, hPad, y, boxW, senderBoxH, 40)
       ctx.stroke()
 
-      ctx.font = 'bold 40px -apple-system, sans-serif'
+      ctx.font = 'bold 40px -apple-system, BlinkMacSystemFont, sans-serif'
       const anonText = '🔒  ANONYMOUS'
       const anonW = ctx.measureText(anonText).width + 48
       ctx.fillStyle = 'rgba(255,255,255,0.08)'
@@ -740,7 +903,7 @@ async function generatePhotoReplyCard(
       ctx.textAlign = 'left'
       ctx.fillText(anonText, hPad + innerPad + 24, y + innerPad + 40)
 
-      ctx.font = '52px -apple-system, sans-serif'
+      ctx.font = '52px -apple-system, BlinkMacSystemFont, sans-serif'
       ctx.fillStyle = '#FFFFFF'
       ctx.textAlign = 'left'
       msgLines.forEach((line, i) => {
@@ -765,7 +928,7 @@ async function generatePhotoReplyCard(
       y += photoDisplayH + 48
     }
 
-    ctx.font = 'bold 44px -apple-system, sans-serif'
+    ctx.font = 'bold 44px -apple-system, BlinkMacSystemFont, sans-serif'
     ctx.fillStyle = 'rgba(255,107,107,0.9)'
     ctx.textAlign = 'center'
     ctx.fillText('📷 MY REPLY', W / 2, y + 48)
