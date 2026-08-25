@@ -1,274 +1,1072 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useRef } from 'react'
+import { useRouter, useParams } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
-import type { UserProfile } from '@/types'
+import type { UserProfile } from '@/types' // ← AJOUT
 
 type Message = {
   message_id: string
   content: string
-  media_url?: string
+  media_url: string
   isOpened: boolean
   created_at: string
   contains_media: boolean
-  from_user?: string
-  to_user?: string
+  from_user: string
+  to_user: string
 }
 
 type Props = {
   onUnreadChange: (hasUnread: boolean) => void
-  isActive: boolean
-  profile: UserProfile | null
+  isActive: boolean // ← AJOUT
+  profile: UserProfile | null // ← AJOUT
 }
 
-function timeAgo(iso: string): string {
+const FLOATING_EMOJIS = [
+  { src: '/assets/poop.svg',    size: 90,  x: 5,  y: 8,  rot: -15, dur: 7.2, delay: 0   },
+  { src: '/assets/hot.svg',     size: 110, x: 75, y: 5,  rot: 12,  dur: 8.5, delay: 1.2 },
+  { src: '/assets/nerd.svg',    size: 85,  x: 85, y: 35, rot: -8,  dur: 6.8, delay: 0.5 },
+  { src: '/assets/Deamon.svg',  size: 120, x: 3,  y: 52, rot: 18,  dur: 9.1, delay: 2.1 },
+  { src: '/assets/Excited.svg', size: 95,  x: 78, y: 65, rot: -20, dur: 7.6, delay: 0.8 },
+  { src: '/assets/Skull.svg',   size: 80,  x: 12, y: 78, rot: 10,  dur: 8.0, delay: 1.7 },
+  { src: '/assets/hot.svg',     size: 70,  x: 58, y: 88, rot: -12, dur: 6.5, delay: 3.0 },
+  { src: '/assets/poop.svg',    size: 75,  x: 42, y: 2,  rot: 22,  dur: 7.9, delay: 2.5 },
+]
+
+const GLOBAL_STYLES = `
+  @keyframes floaty {
+    0%, 100% { transform: translateY(0px);   }
+    50%       { transform: translateY(-16px); }
+  }
+  textarea::placeholder { color: rgba(255,255,255,0.35); }
+  * { -webkit-tap-highlight-color: transparent; }
+`
+
+// ─── Helpers de flou (copiés depuis SharePage) ────────────────────────
+
+function supportsCanvasFilter(): boolean {
   try {
-    const diff = Date.now() - new Date(iso).getTime()
-    const s = Math.floor(diff / 1000)
-    const m = Math.floor(s / 60)
-    const h = Math.floor(m / 60)
-    const d = Math.floor(h / 24)
-    if (d > 30) return `${Math.floor(d / 30)}mo`
-    if (d > 6) return `${Math.floor(d / 7)}w`
-    if (d > 0) return `${d}d`
-    if (h > 0) return `${h}h`
-    if (m > 0) return `${m}m`
-    return 'now'
-  } catch {
-    return 'now'
+    const c = document.createElement('canvas')
+    c.width = 1; c.height = 1
+    const ctx = c.getContext('2d')!
+    ctx.filter = 'brightness(0)'
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, 1, 1)
+    const r = ctx.getImageData(0, 0, 1, 1).data[0]
+    return r === 0
+  } catch { return false }
+}
+
+function applySoftBlur(data: Uint8ClampedArray, w: number, h: number, radius: number) {
+  const tmp = new Uint8ClampedArray(data.length)
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let rv = 0, gv = 0, bv = 0, n = 0
+      for (let dx = -radius; dx <= radius; dx++) {
+        const nx = Math.min(w - 1, Math.max(0, x + dx))
+        const p = (y * w + nx) * 4
+        rv += data[p]; gv += data[p + 1]; bv += data[p + 2]; n++
+      }
+      const p = (y * w + x) * 4
+      tmp[p] = rv / n; tmp[p + 1] = gv / n; tmp[p + 2] = bv / n; tmp[p + 3] = data[p + 3]
+    }
+  }
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let rv = 0, gv = 0, bv = 0, n = 0
+      for (let dy = -radius; dy <= radius; dy++) {
+        const ny = Math.min(h - 1, Math.max(0, y + dy))
+        const p = (ny * w + x) * 4
+        rv += tmp[p]; gv += tmp[p + 1]; bv += tmp[p + 2]; n++
+      }
+      const p = (y * w + x) * 4
+      data[p] = rv / n; data[p + 1] = gv / n; data[p + 2] = bv / n
+    }
   }
 }
 
-export default function MessagesPage({ onUnreadChange, isActive, profile }: Props) {
+function buildBlurCanvas(img: HTMLImageElement, W: number, H: number): HTMLCanvasElement {
+  const sw = Math.max(4, W >> 3)
+  const sh = Math.max(4, H >> 3)
+  const small = document.createElement('canvas')
+  small.width = sw; small.height = sh
+  const sctx = small.getContext('2d')!
+  sctx.drawImage(img, 0, 0, sw, sh)
+
+  const imgData = sctx.getImageData(0, 0, sw, sh)
+  applySoftBlur(imgData.data, sw, sh, 4)
+  applySoftBlur(imgData.data, sw, sh, 4)
+  applySoftBlur(imgData.data, sw, sh, 4)
+  sctx.putImageData(imgData, 0, 0)
+
+  const m1 = document.createElement('canvas')
+  m1.width = Math.max(2, W >> 2); m1.height = Math.max(2, H >> 2)
+  m1.getContext('2d')!.drawImage(small, 0, 0, m1.width, m1.height)
+
+  const m2 = document.createElement('canvas')
+  m2.width = Math.max(2, W >> 1); m2.height = Math.max(2, H >> 1)
+  m2.getContext('2d')!.drawImage(m1, 0, 0, m2.width, m2.height)
+
+  const out = document.createElement('canvas')
+  out.width = W + 120; out.height = H + 120
+  out.getContext('2d')!.drawImage(m2, 0, 0, out.width, out.height)
+  return out
+}
+
+function drawBlurredBg(
+  ctx: CanvasRenderingContext2D,
+  pfpImg: HTMLImageElement,
+  W: number, H: number,
+  blurTmp: HTMLCanvasElement | null,
+  hasFilter: boolean,
+  extra = 0,
+) {
+  if (hasFilter) {
+    ctx.save()
+    ctx.filter = 'blur(40px) brightness(0.35)'
+    ctx.drawImage(pfpImg, -60 - extra, -60 - extra, W + 120 + extra * 2, H + 120 + extra * 2)
+    ctx.filter = 'none'
+    ctx.restore()
+  } else if (blurTmp) {
+    ctx.save()
+    ctx.globalAlpha = 1
+    ctx.drawImage(blurTmp, -60 - extra, -60 - extra, W + 120 + extra * 2, H + 120 + extra * 2)
+    ctx.fillStyle = 'rgba(0,0,0,0.50)'
+    ctx.fillRect(-60 - extra, -60 - extra, W + 120 + extra * 2, H + 120 + extra * 2)
+    ctx.restore()
+  }
+}
+
+// ─── Helpers existants ──────────────────────────────────────────────────
+
+function FloatingEmojis() {
+  return (
+    <>
+      {FLOATING_EMOJIS.map((e, i) => (
+        <div key={i} style={{
+          position: 'absolute', left: `${e.x}%`, top: `${e.y}%`,
+          transform: `rotate(${e.rot}deg)`,
+          pointerEvents: 'none', zIndex: 1,
+        }}>
+          <div style={{ animation: `floaty ${e.dur}s ease-in-out ${e.delay}s infinite` }}>
+            <img src={e.src} alt="" style={{ width: `${e.size}px`, height: `${e.size}px`, display: 'block', opacity: 0.55 }} />
+          </div>
+        </div>
+      ))}
+    </>
+  )
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = src
+  })
+}
+
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.lineTo(x + w - r, y)
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r)
+  ctx.lineTo(x + w, y + h - r)
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
+  ctx.lineTo(x + r, y + h)
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r)
+  ctx.lineTo(x, y + r)
+  ctx.quadraticCurveTo(x, y, x + r, y)
+  ctx.closePath()
+}
+
+function wrapText(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
+  const words = text.trim().split(/\s+/)
+  const lines: string[] = []
+  let cur = ''
+  for (const w of words) {
+    if (ctx.measureText(w).width > maxW) {
+      if (cur) { lines.push(cur); cur = '' }
+      let chunk = ''
+      for (const char of w) {
+        const candidate = chunk + char
+        if (ctx.measureText(candidate).width <= maxW) chunk = candidate
+        else {
+          if (chunk) lines.push(chunk)
+          chunk = char
+        }
+      }
+      cur = chunk
+      continue
+    }
+    const test = cur ? `${cur} ${w}` : w
+    if (ctx.measureText(test).width <= maxW) { cur = test }
+    else { if (cur) lines.push(cur); cur = w }
+  }
+  if (cur) lines.push(cur)
+  return lines
+}
+
+function drawImageCover(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number, y: number, w: number, h: number,
+) {
+  const imgRatio = img.width / img.height
+  const boxRatio = w / h
+  let sx = 0, sy = 0, sw = img.width, sh = img.height
+  if (imgRatio > boxRatio) {
+    sw = img.height * boxRatio
+    sx = (img.width - sw) / 2
+  } else {
+    sh = img.width / boxRatio
+    sy = (img.height - sh) / 2
+  }
+  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h)
+}
+
+// ─── generateReplyCard (avec nouveau flou) ─────────────────────────────
+
+async function generateReplyCard(
+  messageText: string,
+  replyText: string,
+  imageUrl: string | null,
+  logoSrc: string,
+  userPfp: string | null,
+  arrowsSrc: string,
+): Promise<Blob> {
+  return new Promise(async (resolve) => {
+    const W = 1080, H = 1920
+    const canvas = document.createElement('canvas')
+    canvas.width = W; canvas.height = H
+    const ctx = canvas.getContext('2d')!
+
+    const hasFilter = supportsCanvasFilter()
+    let pfpImg: HTMLImageElement | null = null
+    if (userPfp) pfpImg = await loadImage(userPfp).catch(() => null)
+
+    let blurTmp: HTMLCanvasElement | null = null
+    if (pfpImg && !hasFilter) {
+      blurTmp = buildBlurCanvas(pfpImg, W, H)
+    }
+
+    if (pfpImg) {
+      drawBlurredBg(ctx, pfpImg, W, H, blurTmp, hasFilter)
+    } else {
+      ctx.fillStyle = '#0A0A0C'
+      ctx.fillRect(0, 0, W, H)
+      ctx.fillStyle = 'rgba(0,0,0,0.52)'
+      ctx.fillRect(0, 0, W, H)
+      const vignette = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.85)
+      vignette.addColorStop(0, 'transparent')
+      vignette.addColorStop(1, 'rgba(0,0,0,0.4)')
+      ctx.fillStyle = vignette
+      ctx.fillRect(0, 0, W, H)
+    }
+
+    const emojiPositions = [
+      { src: '/assets/poop.svg',    size: 180, x: 60,  y: 120,  rot: -15, opacity: 0.18 },
+      { src: '/assets/hot.svg',     size: 220, x: 780, y: 80,   rot: 12,  opacity: 0.18 },
+      { src: '/assets/nerd.svg',    size: 160, x: 860, y: 600,  rot: -8,  opacity: 0.15 },
+      { src: '/assets/Deamon.svg',  size: 240, x: 40,  y: 900,  rot: 18,  opacity: 0.18 },
+      { src: '/assets/Excited.svg', size: 190, x: 800, y: 1200, rot: -20, opacity: 0.15 },
+      { src: '/assets/Skull.svg',   size: 160, x: 100, y: 1500, rot: 10,  opacity: 0.15 },
+    ]
+    for (const e of emojiPositions) {
+      const img = await loadImage(e.src).catch(() => null)
+      if (!img) continue
+      ctx.save()
+      ctx.globalAlpha = e.opacity
+      ctx.translate(e.x + e.size / 2, e.y + e.size / 2)
+      ctx.rotate((e.rot * Math.PI) / 180)
+      ctx.drawImage(img, -e.size / 2, -e.size / 2, e.size, e.size)
+      ctx.restore()
+    }
+    ctx.globalAlpha = 1
+
+    const logo = await loadImage(logoSrc).catch(() => null)
+    if (logo) {
+      const lw = 200, lh = Math.round(lw * logo.height / logo.width)
+      const offscreen = document.createElement('canvas')
+      offscreen.width = lw; offscreen.height = lh
+      const oc = offscreen.getContext('2d')!
+      oc.drawImage(logo, 0, 0, lw, lh)
+      oc.globalCompositeOperation = 'source-in'
+      oc.fillStyle = '#FFFFFF'
+      oc.fillRect(0, 0, lw, lh)
+      ctx.globalAlpha = 0.9
+      ctx.drawImage(offscreen, (W - lw) / 2, 90, lw, lh)
+      ctx.globalAlpha = 1
+    }
+
+    const hPad = 72, boxW = W - hPad * 2, innerPad = 48
+    let y = 320
+
+    let msgImg: HTMLImageElement | null = null
+    if (imageUrl) msgImg = await loadImage(imageUrl).catch(() => null)
+
+    ctx.font = '52px -apple-system, sans-serif'
+    const msgLines = wrapText(ctx, messageText || '', boxW - innerPad * 2)
+    const msgLineH = 68
+    const imgSize = boxW - innerPad * 2
+    const imgH = msgImg ? imgSize : 0
+    const senderBoxH = innerPad + 60 + 20 + imgH + (imgH && messageText ? 28 : 0) + msgLines.length * msgLineH + innerPad
+
+    ctx.fillStyle = 'rgba(255,255,255,0.10)'
+    roundRect(ctx, hPad, y, boxW, senderBoxH, 40)
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)'
+    ctx.lineWidth = 2
+    roundRect(ctx, hPad, y, boxW, senderBoxH, 40)
+    ctx.stroke()
+
+    ctx.font = 'bold 40px -apple-system, sans-serif'
+    const anonText = '🔒  ANONYMOUS'
+    const anonW = ctx.measureText(anonText).width + 48
+    ctx.fillStyle = 'rgba(255,255,255,0.08)'
+    roundRect(ctx, hPad + innerPad, y + innerPad, anonW, 56, 28)
+    ctx.fill()
+    ctx.fillStyle = 'rgba(255,255,255,0.65)'
+    ctx.textAlign = 'left'
+    ctx.fillText(anonText, hPad + innerPad + 24, y + innerPad + 40)
+
+    let contentY = y + innerPad + 56 + 24
+
+    if (msgImg) {
+      ctx.save()
+      roundRect(ctx, hPad + innerPad, contentY, imgSize, imgSize, 24)
+      ctx.clip()
+      drawImageCover(ctx, msgImg, hPad + innerPad, contentY, imgSize, imgSize)
+      ctx.restore()
+      contentY += imgSize + (messageText ? 28 : 0)
+    }
+
+    if (messageText) {
+      ctx.font = '52px -apple-system, sans-serif'
+      ctx.fillStyle = '#FFFFFF'
+      ctx.textAlign = 'left'
+      msgLines.forEach((line, i) => {
+        ctx.fillText(line, hPad + innerPad, contentY + msgLineH * i + 48)
+      })
+    }
+
+    y += senderBoxH + 52
+
+    ctx.font = 'bold 68px -apple-system, sans-serif'
+    const replyLines = wrapText(ctx, replyText, boxW - innerPad * 2)
+    const replyLineH = 86
+    const replyBoxH = innerPad + 60 + 28 + replyLines.length * replyLineH + innerPad
+
+    ctx.save()
+    ctx.shadowColor = 'rgba(255,107,107,0.4)'
+    ctx.shadowBlur = 60
+    ctx.fillStyle = 'rgba(255,107,107,0.01)'
+    roundRect(ctx, hPad, y, boxW, replyBoxH, 40)
+    ctx.fill()
+    ctx.restore()
+
+    ctx.fillStyle = 'rgba(255,255,255,0.13)'
+    roundRect(ctx, hPad, y, boxW, replyBoxH, 40)
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(255,107,107,0.35)'
+    ctx.lineWidth = 2
+    roundRect(ctx, hPad, y, boxW, replyBoxH, 40)
+    ctx.stroke()
+
+    ctx.font = 'bold 40px -apple-system, sans-serif'
+    ctx.fillStyle = 'rgba(255,107,107,0.9)'
+    ctx.textAlign = 'left'
+    ctx.fillText('ME', hPad + innerPad, y + innerPad + 42)
+
+    ctx.font = 'bold 68px -apple-system, sans-serif'
+    ctx.fillStyle = '#FFFFFF'
+    ctx.shadowColor = 'rgba(0,0,0,0.3)'
+    ctx.shadowBlur = 8
+    replyLines.forEach((line, i) => {
+      ctx.fillText(line, hPad + innerPad, y + innerPad + 60 + 28 + replyLineH * i + 60)
+    })
+    ctx.shadowBlur = 0
+
+    ctx.font = 'bold 46px -apple-system, sans-serif'
+    ctx.fillStyle = 'rgba(255,255,255,0.92)'
+    ctx.textAlign = 'center'
+    const ctaLines = wrapText(ctx, 'Send me something anonymously', W - 160)
+    const ctaLineH = 56
+    const arrowsH = 64
+    const bottomMargin = 90
+    const arrowsY = H - bottomMargin - arrowsH
+    const ctaStartY = arrowsY - 24 - (ctaLines.length - 1) * ctaLineH
+    ctaLines.forEach((line, i) => ctx.fillText(line, W / 2, ctaStartY + i * ctaLineH))
+
+    const arrowsImgEl = await loadImage(arrowsSrc).catch(() => null)
+    if (arrowsImgEl) {
+      const aw = Math.round(arrowsH * arrowsImgEl.width / arrowsImgEl.height)
+      const offArrows = document.createElement('canvas')
+      offArrows.width = aw; offArrows.height = arrowsH
+      const ocArrows = offArrows.getContext('2d')!
+      ocArrows.drawImage(arrowsImgEl, 0, 0, aw, arrowsH)
+      ocArrows.globalCompositeOperation = 'source-in'
+      ocArrows.fillStyle = '#FFFFFF'
+      ocArrows.fillRect(0, 0, aw, arrowsH)
+      ctx.globalAlpha = 0.92
+      ctx.drawImage(offArrows, (W - aw) / 2, arrowsY, aw, arrowsH)
+      ctx.globalAlpha = 1
+    }
+
+    canvas.toBlob(b => resolve(b!), 'image/png', 1.0)
+  })
+}
+
+// ─── generateMessageCard (nouveau flou + boîte multiligne) ────────────
+
+async function generateMessageCard(
+  messageText: string,
+  imageUrl: string | null,
+  logoSrc: string,
+  userPfp: string | null,
+  arrowsSrc: string,
+): Promise<Blob> {
+  return new Promise(async (resolve) => {
+    const W = 1080, H = 1920
+    const canvas = document.createElement('canvas')
+    canvas.width = W; canvas.height = H
+    const ctx = canvas.getContext('2d')!
+
+    const hasFilter = supportsCanvasFilter()
+    let pfpImg: HTMLImageElement | null = null
+    if (userPfp) pfpImg = await loadImage(userPfp).catch(() => null)
+
+    let blurTmp: HTMLCanvasElement | null = null
+    if (pfpImg && !hasFilter) {
+      blurTmp = buildBlurCanvas(pfpImg, W, H)
+    }
+
+    // 1. Background
+    if (pfpImg) {
+      drawBlurredBg(ctx, pfpImg, W, H, blurTmp, hasFilter)
+    } else {
+      ctx.fillStyle = '#0D0D0D'
+      ctx.fillRect(0, 0, W, H)
+      ctx.fillStyle = 'rgba(0,0,0,0.52)'
+      ctx.fillRect(0, 0, W, H)
+      const vignette = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.85)
+      vignette.addColorStop(0, 'transparent')
+      vignette.addColorStop(1, 'rgba(0,0,0,0.4)')
+      ctx.fillStyle = vignette
+      ctx.fillRect(0, 0, W, H)
+    }
+
+    // 2. Emojis
+    const emojiPositions = [
+      { src: '/assets/poop.svg',    size: 180, x: 60,  y: 120,  rot: -15, opacity: 0.18 },
+      { src: '/assets/hot.svg',     size: 220, x: 780, y: 80,   rot: 12,  opacity: 0.18 },
+      { src: '/assets/nerd.svg',    size: 160, x: 860, y: 600,  rot: -8,  opacity: 0.15 },
+      { src: '/assets/Deamon.svg',  size: 240, x: 40,  y: 900,  rot: 18,  opacity: 0.18 },
+      { src: '/assets/Excited.svg', size: 190, x: 800, y: 1200, rot: -20, opacity: 0.15 },
+      { src: '/assets/Skull.svg',   size: 160, x: 100, y: 1500, rot: 10,  opacity: 0.15 },
+    ]
+    for (const e of emojiPositions) {
+      const img = await loadImage(e.src).catch(() => null)
+      if (!img) continue
+      ctx.save()
+      ctx.globalAlpha = e.opacity
+      ctx.translate(e.x + e.size / 2, e.y + e.size / 2)
+      ctx.rotate((e.rot * Math.PI) / 180)
+      ctx.drawImage(img, -e.size / 2, -e.size / 2, e.size, e.size)
+      ctx.restore()
+    }
+    ctx.globalAlpha = 1
+
+    // 3. Logo
+    const logo = await loadImage(logoSrc).catch(() => null)
+    if (logo) {
+      const lw = 220, lh = Math.round(lw * logo.height / logo.width)
+      const offscreen = document.createElement('canvas')
+      offscreen.width = lw; offscreen.height = lh
+      const oc = offscreen.getContext('2d')!
+      oc.drawImage(logo, 0, 0, lw, lh)
+      oc.globalCompositeOperation = 'source-in'
+      oc.fillStyle = '#FFFFFF'
+      oc.fillRect(0, 0, lw, lh)
+      ctx.globalAlpha = 0.9
+      ctx.drawImage(offscreen, (W - lw) / 2, 100, lw, lh)
+      ctx.globalAlpha = 1
+    }
+
+    // 4. "🔒 Anonymous message" pill
+    ctx.font = 'bold 44px -apple-system, sans-serif'
+    const pillText = '🔒  Anonymous message'
+    const pillW = ctx.measureText(pillText).width + 64
+    const pillH = 72
+    const pillX = (W - pillW) / 2
+    const pillY = 320
+    ctx.fillStyle = 'rgba(255,255,255,0.12)'
+    roundRect(ctx, pillX, pillY, pillW, pillH, pillH / 2)
+    ctx.fill()
+    ctx.fillStyle = 'rgba(255,255,255,0.7)'
+    ctx.textAlign = 'center'
+    ctx.fillText(pillText, W / 2, pillY + 48)
+
+    // 5. Image (si présente)
+    let imageBoxY = 0
+    if (imageUrl) {
+      const img = await loadImage(imageUrl).catch(() => null)
+      if (img) {
+        const imgS = 860, imgY = 450
+        ctx.save()
+        roundRect(ctx, (W - imgS) / 2, imgY, imgS, imgS, 48)
+        ctx.clip()
+        drawImageCover(ctx, img, (W - imgS) / 2, imgY, imgS, imgS)
+        ctx.restore()
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)'
+        ctx.lineWidth = 3
+        roundRect(ctx, (W - imgS) / 2, imgY, imgS, imgS, 48)
+        ctx.stroke()
+        imageBoxY = imgY + imgS + 40
+      }
+    }
+
+    // ─── BOÎTE AVEC BANDEAU NOIR MULTILIGNE ──────────────────────────────
+
+    const boxWidth = 860
+    const boxX = (W - boxWidth) / 2
+    const boxRadius = 40
+    const messagePadding = 50
+
+    // Bandeau noir (CTA) — multiligne
+    const bandeauText = "Envoie moi un message anonyme et on chat anonymement!!"
+    ctx.font = 'bold 44px -apple-system, sans-serif'
+    const maxBandeauWidth = boxWidth - 60
+    const bandeauLines = wrapText(ctx, bandeauText, maxBandeauWidth)
+    const bandeauLineHeight = 56
+    const bandeauPaddingY = 24
+    const bandeauHeight = bandeauLines.length * bandeauLineHeight + bandeauPaddingY * 2
+
+    // Message (partie blanche)
+    let fontSize = 72
+    let lines: string[] = []
+    let contentHeight = 0
+    const maxTextWidth = boxWidth - messagePadding * 2
+    while (fontSize > 28) {
+      ctx.font = `bold ${fontSize}px -apple-system, sans-serif`
+      lines = wrapText(ctx, messageText || ' ', maxTextWidth)
+      contentHeight = lines.length * fontSize * 1.3
+      if (contentHeight + messagePadding * 2 <= 600) break
+      fontSize -= 4
+    }
+    const whiteHeight = Math.max(contentHeight + messagePadding * 2, 120)
+    const totalHeight = bandeauHeight + whiteHeight
+
+    // Position Y de la boîte
+    let boxY = imageBoxY > 0 ? imageBoxY : (H - totalHeight) / 2 + 20
+
+    // Dessiner le fond blanc (avec ombre)
+    ctx.save()
+    ctx.shadowColor = 'rgba(0,0,0,0.5)'
+    ctx.shadowBlur = 40
+    ctx.shadowOffsetY = 15
+    ctx.fillStyle = '#FFFFFF'
+    roundRect(ctx, boxX, boxY, boxWidth, totalHeight, boxRadius)
+    ctx.fill()
+    ctx.shadowBlur = 0
+    ctx.shadowOffsetY = 0
+    ctx.restore()
+
+    // Bandeau noir (coins supérieurs arrondis)
+    ctx.save()
+    ctx.beginPath()
+    const r = boxRadius
+    ctx.moveTo(boxX + r, boxY)
+    ctx.lineTo(boxX + boxWidth - r, boxY)
+    ctx.quadraticCurveTo(boxX + boxWidth, boxY, boxX + boxWidth, boxY + r)
+    ctx.lineTo(boxX + boxWidth, boxY + bandeauHeight)
+    ctx.lineTo(boxX, boxY + bandeauHeight)
+    ctx.lineTo(boxX, boxY + r)
+    ctx.quadraticCurveTo(boxX, boxY, boxX + r, boxY)
+    ctx.closePath()
+    ctx.fillStyle = '#111111'
+    ctx.fill()
+    ctx.restore()
+
+    // Texte du bandeau (centré verticalement) — MULTILIGNE
+    ctx.save()
+    ctx.font = 'bold 44px -apple-system, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillStyle = '#FFFFFF'
+    const bandeauStartY = boxY + bandeauPaddingY + bandeauLineHeight / 2
+    bandeauLines.forEach((line, i) => {
+      ctx.fillText(line, W / 2, bandeauStartY + i * bandeauLineHeight)
+    })
+    ctx.restore()
+
+    // Message (partie blanche)
+    ctx.save()
+    ctx.shadowColor = 'rgba(0,0,0,0.2)'
+    ctx.shadowBlur = 12
+    ctx.shadowOffsetX = 2
+    ctx.shadowOffsetY = 4
+    ctx.font = `bold ${fontSize}px -apple-system, sans-serif`
+    ctx.fillStyle = '#111111'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'top'
+    const textStartY = boxY + bandeauHeight + messagePadding
+    lines.forEach((line, i) => {
+      ctx.fillText(line, W / 2, textStartY + i * fontSize * 1.3)
+    })
+    ctx.restore()
+
+    // ─── CTA final ──────────────────────────────────────────────────────────
+
+    ctx.font = 'bold 46px -apple-system, sans-serif'
+    ctx.fillStyle = 'rgba(255,255,255,0.92)'
+    ctx.textAlign = 'center'
+    const ctaLines = wrapText(ctx, 'Send me something anonymously', W - 160)
+    const ctaLineH = 56
+    const arrowsH = 64
+    const bottomMargin = 90
+    const arrowsY = H - bottomMargin - arrowsH
+    const ctaStartY = arrowsY - 24 - (ctaLines.length - 1) * ctaLineH
+    ctaLines.forEach((line, i) => ctx.fillText(line, W / 2, ctaStartY + i * ctaLineH))
+
+    const arrowsImgEl = await loadImage(arrowsSrc).catch(() => null)
+    if (arrowsImgEl) {
+      const aw = Math.round(arrowsH * arrowsImgEl.width / arrowsImgEl.height)
+      const offArrows = document.createElement('canvas')
+      offArrows.width = aw; offArrows.height = arrowsH
+      const ocArrows = offArrows.getContext('2d')!
+      ocArrows.drawImage(arrowsImgEl, 0, 0, aw, arrowsH)
+      ocArrows.globalCompositeOperation = 'source-in'
+      ocArrows.fillStyle = '#FFFFFF'
+      ocArrows.fillRect(0, 0, aw, arrowsH)
+      ctx.globalAlpha = 0.92
+      ctx.drawImage(offArrows, (W - aw) / 2, arrowsY, aw, arrowsH)
+      ctx.globalAlpha = 1
+    }
+
+    canvas.toBlob(b => resolve(b!), 'image/png', 1.0)
+  })
+}
+
+// ─── ReadMessageScreen (UI inchangé) ───────────────────────────────────
+
+export default function  MessagesPage({ onUnreadChange, isActive, profile }: Props) {
   const router = useRouter()
-  const [messages, setMessages] = useState<Message[]>([])
+  const params = useParams()
+  const messageId = params?.id as string
+
+  const [message, setMessage] = useState<Message | null>(null)
   const [loading, setLoading] = useState(true)
+  const [userLink, setUserLink] = useState('')
+  const [userPfp, setUserPfp] = useState<string | null>(null)
+
+  const [imageBlurred, setImageBlurred] = useState(true)
+  const [showFullscreen, setShowFullscreen] = useState(false)
+  const [showReply, setShowReply] = useState(false)
+  const [replyText, setReplyText] = useState('')
+  const [replySending, setReplySending] = useState(false)
+  const [sharing, setSharing] = useState(false)
+
+  const [messageCardBlob, setMessageCardBlob] = useState<Blob | null>(null)
+  const [cardGenerating, setCardGenerating] = useState(false)
+  const [replyCardBlob, setReplyCardBlob] = useState<Blob | null>(null)
+
+  const replyDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const replyGenPromiseRef = useRef<Promise<Blob> | null>(null)
+
+  const font = "'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif"
+  const logoSrc = typeof window !== 'undefined'
+    ? `${window.location.origin}/assets/TBH_Title_Logo.svg`
+    : '/assets/TBH_Title_Logo.svg'
+  const arrowsSrc = typeof window !== 'undefined'
+    ? `${window.location.origin}/assets/arrows.svg`
+    : '/assets/arrows.svg'
 
   useEffect(() => {
-    let mounted = true
-    let channelInstance: ReturnType<typeof supabaseClient.channel> | null = null
-
-    const setup = async () => {
+    const load = async () => {
       const { data: { session } } = await supabaseClient.auth.getSession()
-      if (!session || !mounted) return
+      if (!session) { router.push('/'); return }
 
-      const { data, error } = await supabaseClient
-        .from('messages')
-        .select('*')
-        .eq('to_user', session.user.id)
-        .order('created_at', { ascending: false })
+      const { data: msg } = await supabaseClient
+        .from('messages').select('*').eq('message_id', messageId).single()
+      if (msg) setMessage(msg)
 
-      if (mounted) {
-        if (error) {
-          console.error('Error fetching messages:', error)
-        } else if (data) {
-          setMessages(data)
-          onUnreadChange(data.some(m => !m.isOpened))
-        }
-        setLoading(false)
-      }
+      const { data: profile } = await supabaseClient
+        .from('users_table').select('slug, pfp').eq('user_id', session.user.id).single()
+      if (profile?.slug) setUserLink(`${window.location.origin}/send/${profile.slug}`)
+      if (profile?.pfp) setUserPfp(profile.pfp)
 
-      const channelName = `messages-inbox-${session.user.id}`
-      channelInstance = supabaseClient.channel(channelName)
+      setLoading(false)
+    }
+    load()
+  }, [messageId, router])
 
-      channelInstance
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'messages',
-            filter: `to_user=eq.${session.user.id}`,
-          },
-          (payload) => {
-            if (mounted) {
-              setMessages((prev) => [payload.new as Message, ...prev])
-              onUnreadChange(true)
-            }
-          }
-        )
-        .subscribe((status) => {
-          if (status === 'SUBSCRIBED' && !mounted && channelInstance) {
-            supabaseClient.removeChannel(channelInstance)
-          }
+  const isImageMessage = !!(message?.contains_media || message?.media_url)
+  const imageUrl = message?.media_url || null
+  const textContent = message?.content ?? ''
+
+  useEffect(() => {
+    if (!message) return
+    let cancelled = false
+    setCardGenerating(true)
+    setMessageCardBlob(null)
+    generateMessageCard(textContent, imageUrl, logoSrc, userPfp, arrowsSrc)
+      .then(blob => {
+        if (!cancelled) setMessageCardBlob(blob)
+      })
+      .catch(console.error)
+      .finally(() => {
+        if (!cancelled) setCardGenerating(false)
+      })
+    return () => { cancelled = true }
+  }, [message, textContent, imageUrl, logoSrc, userPfp, arrowsSrc])
+
+  useEffect(() => {
+    if (!showReply || !replyText.trim()) {
+      setReplyCardBlob(null)
+      replyGenPromiseRef.current = null
+      if (replyDebounceRef.current) clearTimeout(replyDebounceRef.current)
+      return
+    }
+    if (replyDebounceRef.current) clearTimeout(replyDebounceRef.current)
+    replyDebounceRef.current = setTimeout(() => {
+      const promise = generateReplyCard(textContent, replyText, imageUrl, logoSrc, userPfp, arrowsSrc)
+      replyGenPromiseRef.current = promise
+      promise
+        .then(blob => {
+          if (replyGenPromiseRef.current === promise) setReplyCardBlob(blob)
         })
-    }
-
-    setup()
-
+        .catch(console.error)
+    }, 600)
     return () => {
-      mounted = false
-      if (channelInstance) {
-        const isConnected = supabaseClient.realtime.isConnected()
-        if (isConnected) {
-          supabaseClient.removeChannel(channelInstance).catch(() => {})
-        }
-      }
+      if (replyDebounceRef.current) clearTimeout(replyDebounceRef.current)
     }
-  }, [onUnreadChange])
+  }, [replyText, showReply])
 
-  // Re-fetch when tab becomes active
-  useEffect(() => {
-    if (!isActive) return
-    const fetchLatest = async () => {
-      const { data: { session } } = await supabaseClient.auth.getSession()
-      if (!session) return
-      const { data } = await supabaseClient
-        .from('messages')
-        .select('*')
-        .eq('to_user', session.user.id)
-        .order('created_at', { ascending: false })
-      if (data) {
-        setMessages(data)
-        onUnreadChange(data.some(m => !m.isOpened))
+  const handleShareMessage = async () => {
+    if (!message || sharing || !messageCardBlob) return
+    setSharing(true)
+    try {
+      const file = new File([messageCardBlob], 'tbh.png', { type: 'image/png' })
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], text: userLink })
+        return
       }
+      if (navigator.share) {
+        await navigator.share({ url: userLink })
+        return
+      }
+      const url = URL.createObjectURL(messageCardBlob)
+      const a = document.createElement('a')
+      a.href = url; a.download = 'tbh.png'
+      document.body.appendChild(a); a.click(); document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 10000)
+    } catch (e: any) {
+      if (e?.name !== 'AbortError') console.error('Share failed', e)
+    } finally {
+      setSharing(false)
     }
-    fetchLatest()
-  }, [isActive, onUnreadChange])
+  }
 
-  const handleMessageClick = async (msg: Message) => {
-    if (!msg.isOpened) {
-      await supabaseClient
-        .from('messages')
-        .update({ isOpened: true })
-        .eq('message_id', msg.message_id)
-      setMessages((prev) =>
-        prev.map((m) => (m.message_id === msg.message_id ? { ...m, isOpened: true } : m))
-      )
-      onUnreadChange(messages.filter((m) => m.message_id !== msg.message_id).some((m) => !m.isOpened))
+  const handleSendReply = async () => {
+    const text = replyText.trim()
+    if (!text || replySending) return
+
+    setReplySending(true)
+    try {
+      if (replyDebounceRef.current) {
+        clearTimeout(replyDebounceRef.current)
+        replyDebounceRef.current = null
+      }
+
+      let blob = replyCardBlob
+      if (!blob) {
+        blob = replyGenPromiseRef.current
+          ? await replyGenPromiseRef.current
+          : await generateReplyCard(textContent, text, imageUrl, logoSrc, userPfp, arrowsSrc)
+      }
+
+      const file = new File([blob], 'tbh.png', { type: 'image/png' })
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], text: userLink })
+      } else if (navigator.share) {
+        await navigator.share({ url: userLink })
+      } else {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url; a.download = 'tbh.png'
+        document.body.appendChild(a); a.click(); document.body.removeChild(a)
+        setTimeout(() => URL.revokeObjectURL(url), 10000)
+      }
+
+      setShowReply(false)
+      setReplyText('')
+      setReplyCardBlob(null)
+      replyGenPromiseRef.current = null
+    } catch (e: any) {
+      if (e?.name !== 'AbortError') console.error('Reply share failed', e)
+    } finally {
+      setReplySending(false)
     }
-    router.push(`/message/${msg.message_id}`)
   }
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-3 px-4 pt-3">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="h-[76px] rounded-[20px] bg-[#F5F5F5] animate-pulse" />
-        ))}
-      </div>
+      <main className="min-h-screen bg-black flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+      </main>
     )
   }
 
-  if (messages.length === 0) {
+  if (!message) {
     return (
-      <div className="flex flex-col items-center justify-center h-full pt-24 gap-3">
-        <img src="/assets/BrokenHeart.svg" alt="" style={{ width: '56px', height: '56px' }} />
-        <p className="text-[18px] font-bold text-[#888]">No messages yet</p>
-        <p className="text-[13px] text-[#AAA]">Share your link to receive some!</p>
-      </div>
+      <main className="min-h-screen bg-black flex flex-col items-center justify-center gap-3">
+        <p className="text-[18px] font-bold text-[#888]">Message not found</p>
+        <button onClick={() => router.back()} className="text-sm underline text-[#666]">Go back</button>
+      </main>
     )
   }
 
   return (
-    <div className="relative flex flex-col" style={{ height: 'calc(100vh - 120px)' }}>
-      <div
-        className="flex-1 overflow-y-auto pt-2 pb-28"
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-      >
-        <style>{`div::-webkit-scrollbar { display: none; }`}</style>
+    <main className="min-h-screen flex flex-col relative overflow-hidden" style={{ fontFamily: font }}>
+      <style>{GLOBAL_STYLES}</style>
 
-        {messages.map((msg) => {
-          const isImage = msg.content?.startsWith('[IMAGE](')
-          const imageUrl = isImage
-            ? msg.content.match(/\[IMAGE\]\(([^)]+)\)/)?.[1] ?? null
-            : msg.media_url ?? null
-          const preview = isImage
-            ? msg.content.substring(msg.content.indexOf(')') + 2)
-            : msg.content ?? ''
+      <div className="absolute inset-0 z-0">
+        {userPfp ? (
+          <div style={{
+            position: 'absolute', inset: 0,
+            backgroundImage: `url(${userPfp})`,
+            backgroundSize: 'cover', backgroundPosition: 'center',
+            filter: 'blur(32px) brightness(0.35)',
+            transform: 'scale(1.1)',
+          }} />
+        ) : (
+          <div className="absolute inset-0 bg-[#0D0D0D]" />
+        )}
+        <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.45)' }} />
+      </div>
 
-          return (
-            <button
-              key={msg.message_id}
-              onClick={() => handleMessageClick(msg)}
-              className="relative w-full text-left mx-4 my-[5px] rounded-[20px] bg-white active:scale-[0.97] transition-transform"
-              style={{
-                width: 'calc(100% - 32px)',
-                boxShadow: msg.isOpened
-                  ? '0 2px 8px rgba(0,0,0,0.06)'
-                  : '0 6px 20px rgba(0,0,0,0.10)',
-              }}
-            >
-              <div className="flex items-center gap-3 p-[14px]">
-                {/* Left icon */}
-                <div
-                  className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+      <div className="absolute inset-0 z-[1] overflow-hidden">
+        <FloatingEmojis />
+      </div>
+
+      <div className="relative z-10 flex flex-col min-h-screen">
+        <div className="flex items-center px-4 pt-12 pb-4">
+          <button
+            onClick={() => router.back()}
+            className="w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+            style={{ background: 'rgba(255,255,255,0.12)' }}
+          >
+            <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+              <path d="M19 12H5M12 5l-7 7 7 7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        </div>
+
+        <div className="flex-1" />
+
+        {/* UI inchangé : card preview avec bandeau noir dans l'app */}
+        <div className="px-5 mb-6">
+          <div className="rounded-[28px] overflow-hidden bg-white shadow-[0_24px_60px_rgba(0,0,0,0.45),0_8px_20px_rgba(0,0,0,0.25)]">
+            <div className="bg-[#111111] px-5 py-4 text-center">
+              <span className="inline-flex items-center rounded-full bg-white/10 px-4 py-2 text-[12px] font-bold text-white/75">
+                🔒&nbsp; Anonymous message
+              </span>
+            </div>
+
+            <div className="bg-white px-6 py-6 min-h-[120px]">
+              <div className="mb-5 rounded-[14px] bg-[#111111] px-4 py-3 text-center">
+                <span className="text-[13px] font-bold leading-tight text-white">
+                  Envoie moi un message anonyme et on chat anonymement!!
+                </span>
+              </div>
+
+              {isImageMessage && imageUrl && (
+                <div className="w-full mb-4">
+                  <div
+                    onClick={() => setShowFullscreen(true)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === ' ') setShowFullscreen(true)
+                    }}
+                    className="w-full flex items-center gap-3 p-3 rounded-[16px] active:scale-[0.98] transition-transform cursor-pointer"
+                    style={{ background: 'rgba(0,0,0,0.05)' }}
+                  >
+                    <div className="w-14 h-14 rounded-[12px] overflow-hidden bg-black/10 flex-shrink-0">
+                      <img
+                        src={imageUrl}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        style={{ filter: imageBlurred ? 'blur(10px)' : 'none', transition: 'filter 0.3s' }}
+                      />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="font-semibold text-[15px] text-black">Photo</p>
+                      <p className="text-[11px] text-black/45">Tap to view fullscreen</p>
+                    </div>
+                    <button
+                      onClick={e => { e.stopPropagation(); setImageBlurred(!imageBlurred) }}
+                      className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
+                      style={{ background: imageBlurred ? '#111111' : 'rgba(0,0,0,0.08)' }}
+                    >
+                      {imageBlurred ? (
+                        <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="#fff" strokeWidth="2"/>
+                          <circle cx="12" cy="12" r="3" stroke="#fff" strokeWidth="2"/>
+                        </svg>
+                      ) : (
+                        <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" stroke="#111" strokeWidth="2" strokeLinecap="round"/>
+                          <line x1="1" y1="1" x2="23" y2="23" stroke="#111" strokeWidth="2" strokeLinecap="round"/>
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                  <div className="w-full h-[1px] mb-4" style={{ background: 'rgba(0,0,0,0.08)' }} />
+                </div>
+              )}
+
+              {textContent ? (
+                <p
+                  className="w-full text-center font-semibold text-black"
                   style={{
-                    background: msg.isOpened
-                      ? '#E5E5E5'
-                      : 'linear-gradient(135deg, #cf5454, #ff4da6)',
+                    fontSize: textContent.length > 100 ? '18px' : textContent.length > 50 ? '24px' : '32px',
+                    lineHeight: '1.3',
                   }}
                 >
-                  {msg.isOpened ? (
-                    <img
-                      src="/assets/Love_Letter.svg"
-                      className="w-6 h-6 object-contain"
-                      style={{ filter: 'none' }}
-                      alt=""
-                    />
-                  ) : (
-                    <img
-                      src="/assets/R.svg"
-                      className="w-6 h-6 object-contain"
-                      style={{ filter: 'none' }}
-                      alt=""
-                    />
-                  )}
-                </div>
+                  {textContent}
+                </p>
+              ) : (
+                <p className="text-black/40 text-center italic">No message content</p>
+              )}
+            </div>
+          </div>
+        </div>
 
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  {!msg.isOpened ? (
-                    <>
-                      <p
-                        className="text-[16px] font-bold"
-                        style={{
-                          background: 'linear-gradient(90deg, #FF6B6B, #4D96FF)',
-                          WebkitBackgroundClip: 'text',
-                          WebkitTextFillColor: 'transparent',
-                        }}
-                      >
-                        New message
-                      </p>
-                      <p className="text-[12px] text-[#888]">
-                        {isImage || msg.contains_media ? '📷 Photo' : 'Tap to read'}
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-[15px] font-medium text-[#0D0D0D] truncate">{preview || 'Photo'}</p>
-                      <p className="text-[11px] text-[#AAA]">{timeAgo(msg.created_at)}</p>
-                    </>
-                  )}
-                </div>
+        <div className="flex-1" />
 
-                {/* Right: image thumb or chevron */}
-                {imageUrl ? (
-                  <div className="w-[52px] h-[52px] rounded-[12px] overflow-hidden bg-[#EEE] flex-shrink-0">
-                    <img
-                      src={imageUrl}
-                      alt=""
-                      className="w-full h-full object-cover"
-                      style={{ filter: msg.isOpened ? 'none' : 'blur(10px)' }}
-                    />
-                  </div>
-                ) : (
-                  <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
-                    <path
-                      d="M9 18l6-6-6-6"
-                      stroke="#CCC"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
+        <div className="px-5 pb-10 flex flex-col gap-3">
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowReply(true)}
+              className="flex-1 py-4 rounded-[32px] font-bold text-[15px] text-white active:scale-95 transition-transform"
+              style={{ background: 'rgba(255,255,255,0.12)' }}
+            >
+              Reply
+            </button>
+            <button
+              onClick={handleShareMessage}
+              disabled={sharing || cardGenerating || !messageCardBlob}
+              className="flex-1 py-4 rounded-[32px] font-bold text-[15px] text-white active:scale-95 transition-transform disabled:opacity-60 flex items-center justify-center"
+              style={{ background: 'linear-gradient(135deg, #FF6B6B, #FF431D)' }}
+            >
+              {(sharing || cardGenerating)
+                ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                : 'Share'
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {showFullscreen && imageUrl && (
+        <div className="fixed inset-0 z-50 bg-black flex flex-col">
+          <div className="flex items-center justify-between px-4 pt-12 pb-4">
+            <button
+              onClick={() => setShowFullscreen(false)}
+              className="w-10 h-10 rounded-full flex items-center justify-center"
+              style={{ background: 'rgba(255,255,255,0.12)' }}
+            >
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+                <path d="M18 6L6 18M6 6l12 12" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </button>
+            <img src="/assets/TBH_Title_Logo.svg" alt="TBH" className="h-6 invert" />
+            <div className="w-10" />
+          </div>
+          <div className="flex-1 flex items-center justify-center overflow-hidden">
+            <img src={imageUrl} alt="" className="max-w-full max-h-full object-contain" style={{ touchAction: 'pinch-zoom' }} />
+          </div>
+          {textContent && (
+            <div className="px-5 pb-10">
+              <div className="rounded-[20px] px-5 py-4" style={{ background: 'rgba(0,0,0,0.55)' }}>
+                <p className="text-white text-center text-[16px] font-medium">{textContent}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {showReply && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end">
+          <div className="absolute inset-0 bg-black/60" onClick={() => !replySending && setShowReply(false)} />
+          <div className="relative z-10 rounded-t-[32px] overflow-hidden" style={{ maxHeight: '85vh' }}>
+            {userPfp && (
+              <div style={{
+                position: 'absolute', inset: 0,
+                backgroundImage: `url(${userPfp})`,
+                backgroundSize: 'cover', backgroundPosition: 'center',
+                filter: 'blur(28px) brightness(0.3)',
+                transform: 'scale(1.15)',
+              }} />
+            )}
+            <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.55)' }} />
+            <div className="absolute inset-0 overflow-hidden">
+              <FloatingEmojis />
+            </div>
+
+            <div className="relative z-10 pb-10">
+              <div className="flex justify-center pt-3 pb-5">
+                <div className="w-10 h-[4px] rounded-full" style={{ background: 'rgba(255,255,255,0.25)' }} />
+              </div>
+              <div className="px-5">
+                <p className="text-center font-bold text-[16px] text-white mb-1">Reply publicly</p>
+                <p className="text-center text-[12px] mb-5" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                  Your reply will be shared as a story card
+                </p>
+                <div className="rounded-[14px] p-3 mb-4" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                  <p className="text-[13px] line-clamp-2" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                    {(imageUrl ? '📷 ' : '') + (textContent || '')}
+                  </p>
+                </div>
+                <div className="flex items-end gap-3">
+                  <textarea
+                    value={replyText}
+                    onChange={e => setReplyText(e.target.value)}
+                    placeholder="Your reply..."
+                    rows={3}
+                    disabled={replySending}
+                    className="flex-1 rounded-[16px] px-4 py-3 text-[16px] text-white outline-none resize-none disabled:opacity-60"
+                    style={{
+                      background: 'rgba(255,255,255,0.1)',
+                      minHeight: '52px', maxHeight: '140px',
+                      fontFamily: font,
+                    }}
+                  />
+                  <button
+                    onClick={handleSendReply}
+                    disabled={!replyText.trim() || replySending}
+                    className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 active:scale-90 transition-transform"
+                    style={{ background: replyText.trim() ? 'linear-gradient(135deg, #FF6B6B, #FF431D)' : 'rgba(255,255,255,0.15)' }}
+                  >
+                    {replySending
+                      ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      : <span style={{ fontSize: '13px', fontWeight: '800', color: 'white' }}>Go</span>
+                    }
+                  </button>
+                </div>
+                {replySending && (
+                  <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', marginTop: '8px', textAlign: 'center' }}>
+                    Preparing and sharing...
+                  </p>
                 )}
               </div>
-            </button>
-          )
-        })}
-      </div>
-    </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </main>
   )
 }
