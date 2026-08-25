@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
+import type { UserProfile } from '@/types' // ← AJOUT
 
 type Message = {
   message_id: string
@@ -13,6 +14,12 @@ type Message = {
   contains_media: boolean
   from_user: string
   to_user: string
+}
+
+type Props = {
+  onUnreadChange: (hasUnread: boolean) => void
+  isActive: boolean // ← AJOUT
+  profile: UserProfile | null // ← AJOUT
 }
 
 const FLOATING_EMOJIS = [
@@ -644,7 +651,7 @@ async function generateMessageCard(
 
 // ─── ReadMessageScreen (UI inchangé) ───────────────────────────────────
 
-export default function ReadMessageScreen() {
+export default function ReadMessageScreen({ onUnreadChange, isActive, profile }: Props) {
   const router = useRouter()
   const params = useParams()
   const messageId = params?.id as string
