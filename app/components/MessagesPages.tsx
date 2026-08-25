@@ -651,7 +651,7 @@ async function generateMessageCard(
 
 // ─── ReadMessageScreen (UI inchangé) ───────────────────────────────────
 
-export default function ReadMessageScreen({ onUnreadChange, isActive, profile }: Props) {
+export default function ReadMessageScreen( ) {
   const router = useRouter()
   const params = useParams()
   const messageId = params?.id as string
