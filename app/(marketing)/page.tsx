@@ -449,7 +449,7 @@ const LandingPage: React.FC = () => {
         .cta-btn {
           position: relative;
           overflow: hidden;
-          font-family: 'Outfit', sans-serif;
+          font-family: 'Outfit', sans-serif !important;
           background: linear-gradient(135deg, #FF6B6B, #FF4D1C);
           border: none;
           color: #000000;
@@ -538,7 +538,7 @@ const LandingPage: React.FC = () => {
         }
 
         .block-features .feature-text {
-          font-family: 'Outfit', sans-serif;
+          font-family: 'Outfit', sans-serif !important;
           font-weight: 800;
           font-size: clamp(2.4rem, 7vw, 4.2rem);
           line-height: 1.2;
@@ -611,7 +611,7 @@ const LandingPage: React.FC = () => {
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%);
-          font-family: 'Outfit', sans-serif;
+          font-family: 'Outfit', sans-serif !important;
           font-weight: 800;
           font-size: clamp(2.4rem, 7vw, 4.5rem);
           color: #FFFFFF;
@@ -706,6 +706,7 @@ const LandingPage: React.FC = () => {
           opacity: 0;
           transform: translateY(12px);
           animation: messageIn 0.4s ease forwards;
+          font-family: 'Outfit', sans-serif !important;
         }
 
         .message.received {
@@ -728,6 +729,7 @@ const LandingPage: React.FC = () => {
           opacity: 0.6;
           margin-bottom: 2px;
           display: block;
+          font-family: 'Outfit', sans-serif !important;
         }
         .message.received .sender { color: #555; }
         .message.sent .sender { color: rgba(255,255,255,0.7); }
@@ -791,7 +793,7 @@ const LandingPage: React.FC = () => {
           font-size: 13px;
           color: #0D0D0D;
           outline: none;
-          font-family: 'Outfit', sans-serif;
+          font-family: 'Outfit', sans-serif !important;
         }
         .chat-footer .input-field::placeholder { color: #999; }
         .chat-footer .send-btn {
@@ -823,7 +825,7 @@ const LandingPage: React.FC = () => {
           border: none;
           cursor: pointer;
           font-weight: 700;
-          font-family: 'Outfit', sans-serif;
+          font-family: 'Outfit', sans-serif !important;
           transition: transform 0.15s, box-shadow 0.2s;
           letter-spacing: 0.3px;
           position: relative;
@@ -886,7 +888,7 @@ const LandingPage: React.FC = () => {
           align-items: center;
           justify-content: center;
           text-align: center;
-          font-family: 'Outfit', sans-serif;
+          font-family: 'Outfit', sans-serif !important;
           font-weight: 800;
           font-size: clamp(2.8rem, 9vw, 5.2rem);
           line-height: 1.2;
@@ -995,7 +997,7 @@ const LandingPage: React.FC = () => {
         }
 
         .game-ideas {
-          font-family: 'Outfit', sans-serif;
+          font-family: 'Outfit', sans-serif !important;
           padding: 6px 0 4px 0;
           overflow: hidden;
           white-space: nowrap;
@@ -1015,6 +1017,7 @@ const LandingPage: React.FC = () => {
           color: rgba(255, 255, 255, 0.85);
           padding: 0 16px;
           letter-spacing: 0.2px;
+          font-family: 'Outfit', sans-serif !important;
         }
 
         .game-ideas-item .separator {
@@ -1074,6 +1077,7 @@ const LandingPage: React.FC = () => {
           font-weight: 400;
           max-width: 280px;
           line-height: 1.5;
+          font-family: 'Outfit', sans-serif !important;
         }
 
         .footer-links {
@@ -1095,6 +1099,7 @@ const LandingPage: React.FC = () => {
           letter-spacing: 0.5px;
           text-transform: uppercase;
           margin-bottom: 4px;
+          font-family: 'Outfit', sans-serif !important;
         }
 
         .footer-links-column a {
@@ -1103,6 +1108,7 @@ const LandingPage: React.FC = () => {
           font-size: 15px;
           font-weight: 400;
           transition: color 0.2s ease;
+          font-family: 'Outfit', sans-serif !important;
         }
 
         .footer-links-column a:hover {
@@ -1150,6 +1156,7 @@ const LandingPage: React.FC = () => {
           color: rgba(255, 255, 255, 0.25);
           font-size: 13px;
           font-weight: 400;
+          font-family: 'Outfit', sans-serif !important;
         }
 
         .footer-bottom-legal {
@@ -1163,6 +1170,7 @@ const LandingPage: React.FC = () => {
           font-size: 13px;
           font-weight: 400;
           transition: color 0.2s ease;
+          font-family: 'Outfit', sans-serif !important;
         }
 
         .footer-bottom-legal a:hover {
@@ -1188,6 +1196,7 @@ const LandingPage: React.FC = () => {
           }
           .block-features .feature-text {
             font-size: clamp(2rem, 6vw, 3.2rem);
+            font-family: 'Outfit', sans-serif !important;
           }
           .block-3 {
             min-height: 380px;
@@ -1197,10 +1206,11 @@ const LandingPage: React.FC = () => {
             height: 240px;
           }
           .slider-svg {
-            width: clamp(80px, 18vw, 140px) !important;
+            width: clamp(100px, 25vw, 180px) !important;
           }
           .messagerie-text {
             font-size: clamp(2rem, 5vw, 3rem);
+            font-family: 'Outfit', sans-serif !important;
           }
           .block-4 {
             min-height: 540px;
@@ -1218,13 +1228,16 @@ const LandingPage: React.FC = () => {
           .message {
             font-size: 15px;
             padding: 10px 14px;
+            font-family: 'Outfit', sans-serif !important;
           }
           .chat-header .title {
             font-size: 16px;
+            font-family: 'Outfit', sans-serif !important;
           }
           .chat-footer .input-field {
             font-size: 14px;
             padding: 10px 16px;
+            font-family: 'Outfit', sans-serif !important;
           }
           .chat-footer .send-btn {
             width: 40px;
@@ -1234,11 +1247,13 @@ const LandingPage: React.FC = () => {
           .block-4 .cta-btn {
             font-size: 18px;
             padding: 16px 40px;
+            font-family: 'Outfit', sans-serif !important;
           }
 
           .hero-text {
             font-size: clamp(2.4rem, 8vw, 4rem);
             padding: 12px 0;
+            font-family: 'Outfit', sans-serif !important;
           }
           .hero-text span {
             max-width: 100%;
@@ -1247,47 +1262,48 @@ const LandingPage: React.FC = () => {
           .svg-1 {
             top: 4%;
             left: 2%;
-            width: clamp(80px, 20vw, 140px);
+            width: clamp(100px, 30vw, 200px);
           }
           .svg-2 {
             top: 24%;
             left: 6%;
-            width: clamp(60px, 16vw, 100px);
+            width: clamp(80px, 24vw, 160px);
           }
           .svg-3 {
             top: 6%;
             right: 2%;
-            width: clamp(70px, 18vw, 120px);
+            width: clamp(90px, 28vw, 180px);
           }
           .svg-4 {
             top: 26%;
             right: 6%;
-            width: clamp(55px, 14vw, 90px);
+            width: clamp(70px, 22vw, 140px);
           }
           .svg-5 {
             top: 4%;
             left: 2%;
-            width: clamp(70px, 18vw, 120px);
+            width: clamp(90px, 28vw, 180px);
           }
           .svg-7 {
             top: 50%;
             left: 4%;
-            width: clamp(60px, 16vw, 100px);
+            width: clamp(80px, 24vw, 160px);
           }
           .svg-6 {
             top: 6%;
             right: 2%;
-            width: clamp(70px, 18vw, 120px);
+            width: clamp(90px, 28vw, 180px);
           }
           .svg-8 {
             top: 50%;
             right: 4%;
-            width: clamp(60px, 16vw, 100px);
+            width: clamp(80px, 24vw, 160px);
           }
 
           .game-ideas-item {
             font-size: 15px;
             padding: 0 14px;
+            font-family: 'Outfit', sans-serif !important;
           }
           .game-ideas-item .separator {
             width: 6px;
@@ -1306,6 +1322,7 @@ const LandingPage: React.FC = () => {
           .cta-btn {
             padding: 12px 32px;
             font-size: 16px;
+            font-family: 'Outfit', sans-serif !important;
           }
 
           .footer-top {
@@ -1326,6 +1343,7 @@ const LandingPage: React.FC = () => {
           }
           .footer-brand p {
             font-size: 15px;
+            font-family: 'Outfit', sans-serif !important;
           }
 
           .nav-inner {
@@ -1346,6 +1364,18 @@ const LandingPage: React.FC = () => {
           }
           .feature-text {
             transform: none !important;
+          }
+
+          /* ─── Animation flottante sur mobile ─── */
+          .svg-deco,
+          .svg-feature,
+          .slider-svg {
+            animation: float 4.5s ease-in-out infinite;
+          }
+          .svg-deco.loaded,
+          .svg-feature.loaded,
+          .slider-svg.loaded {
+            opacity: 1;
           }
         }
 
@@ -1369,10 +1399,11 @@ const LandingPage: React.FC = () => {
             height: 200px;
           }
           .slider-svg {
-            width: clamp(60px, 16vw, 100px) !important;
+            width: clamp(80px, 20vw, 140px) !important;
           }
           .messagerie-text {
             font-size: clamp(1.6rem, 4.5vw, 2.6rem);
+            font-family: 'Outfit', sans-serif !important;
           }
           .block-4 {
             min-height: 480px;
@@ -1389,13 +1420,16 @@ const LandingPage: React.FC = () => {
           .message {
             font-size: 14px;
             padding: 8px 12px;
+            font-family: 'Outfit', sans-serif !important;
           }
           .chat-header .title {
             font-size: 14px;
+            font-family: 'Outfit', sans-serif !important;
           }
           .chat-footer .input-field {
             font-size: 13px;
             padding: 8px 14px;
+            font-family: 'Outfit', sans-serif !important;
           }
           .chat-footer .send-btn {
             width: 36px;
@@ -1405,10 +1439,12 @@ const LandingPage: React.FC = () => {
           .block-4 .cta-btn {
             font-size: 16px;
             padding: 14px 32px;
+            font-family: 'Outfit', sans-serif !important;
           }
 
           .hero-text {
             font-size: clamp(2rem, 7vw, 3.2rem);
+            font-family: 'Outfit', sans-serif !important;
           }
           .navbar-inline .logo-img {
             height: 28px;
@@ -1416,19 +1452,48 @@ const LandingPage: React.FC = () => {
           .cta-btn {
             padding: 10px 24px;
             font-size: 14px;
+            font-family: 'Outfit', sans-serif !important;
           }
           .game-ideas-item {
             font-size: 13px;
+            font-family: 'Outfit', sans-serif !important;
           }
           .footer-brand .logo-img {
             height: 32px;
           }
           .footer-links-column a {
             font-size: 13px;
+            font-family: 'Outfit', sans-serif !important;
           }
           .footer-bottom p,
           .footer-bottom-legal a {
             font-size: 12px;
+            font-family: 'Outfit', sans-serif !important;
+          }
+
+          .svg-1 {
+            width: clamp(80px, 25vw, 160px);
+          }
+          .svg-2 {
+            width: clamp(60px, 20vw, 120px);
+          }
+          .svg-3 {
+            width: clamp(70px, 22vw, 140px);
+          }
+          .svg-4 {
+            width: clamp(55px, 18vw, 100px);
+          }
+          .svg-5 {
+            width: clamp(70px, 22vw, 140px);
+          }
+          .svg-7 {
+            width: clamp(60px, 20vw, 120px);
+          }
+          .svg-6 {
+            width: clamp(70px, 22vw, 140px);
+          }
+          .svg-8 {
+            width: clamp(60px, 20vw, 120px);
           }
         }
       `}</style>
