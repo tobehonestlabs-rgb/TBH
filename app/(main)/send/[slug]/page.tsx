@@ -1,0 +1,709 @@
+'use client'
+
+import { FormEvent, useState, useEffect, useRef } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { supabaseClient } from '@/lib/supabaseClient'
+import InAppBrowserBanner from '@/app/components/InAppBrowserBanner'
+import ImageEditor from '@/app/components/ImageEditor'
+import { getStoredLocale, getT, type T } from '@/lib/i18n'
+
+const SUGGESTIONS = [
+  "You deserve a kiss 😘",
+  "I really like you",
+  "You're someone special, you know",
+  "I love the way you speak",
+  "You make my day better just by existing ✨",
+  "There's something about you I can't get out of my head",
+  "You're way more beautiful than you think 🌹",
+  "I wish I could tell you this in person",
+  "You have no idea how much you mean to me 💫",
+  "I could talk to you forever and never get tired",
+]
+
+const FLOATING_EMOJIS = [
+  { src: '/assets/poop.svg',    size: 90,  x: 5,  y: 8,  rot: -15, dur: 7.2, delay: 0   },
+  { src: '/assets/hot.svg',     size: 110, x: 75, y: 5,  rot: 12,  dur: 8.5, delay: 1.2 },
+  { src: '/assets/nerd.svg',    size: 85,  x: 85, y: 35, rot: -8,  dur: 6.8, delay: 0.5 },
+  { src: '/assets/Deamon.svg',  size: 120, x: 3,  y: 52, rot: 18,  dur: 9.1, delay: 2.1 },
+  { src: '/assets/Excited.svg', size: 95,  x: 78, y: 65, rot: -20, dur: 7.6, delay: 0.8 },
+  { src: '/assets/Skull.svg',   size: 80,  x: 12, y: 78, rot: 10,  dur: 8.0, delay: 1.7 },
+  { src: '/assets/hot.svg',     size: 70,  x: 58, y: 88, rot: -12, dur: 6.5, delay: 3.0 },
+  { src: '/assets/poop.svg',    size: 75,  x: 42, y: 2,  rot: 22,  dur: 7.9, delay: 2.5 },
+]
+
+const GLOBAL_STYLES = `
+  .ios-arc {
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 2.5px solid rgba(255,255,255,0.3);
+    border-top: 2.5px solid #FFF;
+    animation: ios-spin 0.75s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes ios-spin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes send-shimmer {
+    0%   { background-position: -200% center; }
+    100% { background-position: 200% center; }
+  }
+  .send-btn-loading {
+    background: linear-gradient(90deg, #1a1a1a 0%, #2a2a2a 40%, #1a1a1a 60%, #111 100%) !important;
+    background-size: 200% auto !important;
+    animation: send-shimmer 1.4s linear infinite !important;
+  }
+  @keyframes floaty {
+    0%, 100% { transform: translateY(0px);   }
+    50%       { transform: translateY(-18px); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to   { opacity: 1; transform: translateY(0);    }
+  }
+  @keyframes liftdance {
+    0%   { transform: translateY(0px)   rotate(0deg);   }
+    8%   { transform: translateY(-10px) rotate(-2deg);  }
+    16%  { transform: translateY(-10px) rotate(2deg);   }
+    24%  { transform: translateY(-10px) rotate(-2deg);  }
+    32%  { transform: translateY(0px)   rotate(0deg);   }
+    100% { transform: translateY(0px)   rotate(0deg);   }
+  }
+  @keyframes countpop {
+    0%   { transform: scale(1);    opacity: 1; }
+    30%  { transform: scale(1.18); opacity: 0; }
+    31%  { transform: scale(0.85); opacity: 0; }
+    60%  { transform: scale(1.08); opacity: 1; }
+    100% { transform: scale(1);    opacity: 1; }
+  }
+  .liftdance { animation: liftdance 3s ease-in-out infinite; }
+  .countpop  { animation: countpop 0.5s ease forwards; }
+  textarea::placeholder { color: rgba(255,255,255,0.2); }
+  * { -webkit-tap-highlight-color: transparent; }
+`
+
+type RecipientProfile = {
+  username: string
+  pfp: string | null
+}
+
+function FloatingEmojis() {
+  return (
+    <>
+      {FLOATING_EMOJIS.map((e, i) => (
+        <div key={i} style={{
+          position: 'absolute', left: `${e.x}%`, top: `${e.y}%`,
+          transform: `rotate(${e.rot}deg)`, pointerEvents: 'none', zIndex: 0,
+        }}>
+          <div style={{ animation: `floaty ${e.dur}s ease-in-out ${e.delay}s infinite` }}>
+            <img src={e.src} alt="" style={{ width: `${e.size}px`, height: `${e.size}px`, display: 'block' }} />
+          </div>
+        </div>
+      ))}
+    </>
+  )
+}
+
+export default function SendMessagePage() {
+  const { slug } = useParams<{ slug: string }>()
+  const router = useRouter()
+
+  const [t, setT] = useState<T>(() => getT(getStoredLocale()))
+  const [recipient, setRecipient] = useState<RecipientProfile | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [success, setSuccess] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [agreedToTerms, setAgreedToTerms] = useState(false)
+  const [popupVisible, setPopupVisible] = useState(false)
+  const [suggIndex, setSuggIndex] = useState(0)
+  const [suggVisible, setSuggVisible] = useState(true)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [showEditor, setShowEditor] = useState(false)
+  const [editorSrc, setEditorSrc] = useState<string | null>(null)
+  const [message, setMessage] = useState('')
+  const [liveCount, setLiveCount] = useState(() => Math.floor(Math.random() * 3000) + 4000)
+  const [countAnimKey, setCountAnimKey] = useState(0)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const editedBlobRef = useRef<Blob | null>(null)
+  const ipRef          = useRef<string | null>(null)
+  const countryRef     = useRef<string | null>(null)
+  const cityRef        = useRef<string | null>(null)
+  const regionRef      = useRef<string | null>(null)
+  const latRef         = useRef<string | null>(null)
+  const lonRef         = useRef<string | null>(null)
+  const browserRef     = useRef<string | null>(null)
+  const fingerprintRef = useRef<string | null>(null)
+  const phoneTypeRef   = useRef<string | null>(null)
+
+  const themeGradient = 'linear-gradient(180deg, #0D0D0D 45%, #ff431dcb 85%, #ff4a1d 100%)'
+  const accentColor = '#ff3f1d'
+  const font = "-apple-system, 'SF Pro Display', BlinkMacSystemFont, sans-serif"
+
+  const btnPress   = (e: React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement>) =>
+    ((e.currentTarget as HTMLButtonElement).style.transform = 'scale(0.96)')
+  const btnRelease = (e: React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement>) =>
+    ((e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)')
+
+  // Resolve locale once on client
+  useEffect(() => { setT(getT(getStoredLocale())) }, [])
+
+  // Fetch IP and country eagerly on mount
+  useEffect(() => {
+    const ctrl = new AbortController()
+    const t = setTimeout(() => ctrl.abort(), 6000)
+    // Browser name from userAgent
+    const ua = navigator.userAgent
+    browserRef.current = ua.includes('Firefox') ? 'Firefox'
+      : ua.includes('SamsungBrowser') ? 'Samsung Internet'
+      : (ua.includes('Opera') || ua.includes('OPR')) ? 'Opera'
+      : (ua.includes('Edge') || ua.includes('Edg')) ? 'Edge'
+      : ua.includes('Chrome') ? 'Chrome'
+      : ua.includes('Safari') ? 'Safari'
+      : 'Unknown'
+
+    // Phone type from userAgent
+    phoneTypeRef.current = /iPhone/.test(ua) ? 'iPhone'
+      : /iPad/.test(ua) ? 'iPad'
+      : /Android/.test(ua) ? 'Android'
+      : 'Desktop'
+
+    // Simple canvas-based fingerprint (no external lib)
+    try {
+      const fp = [navigator.userAgent, navigator.language, screen.width + 'x' + screen.height, new Date().getTimezoneOffset(), navigator.hardwareConcurrency ?? 0].join('|')
+      fingerprintRef.current = btoa(unescape(encodeURIComponent(fp))).slice(0, 32)
+    } catch { fingerprintRef.current = null }
+
+    Promise.all([
+      fetch('/api/ip',  { signal: ctrl.signal }).then(r => r.json()).catch(() => ({})),
+      fetch('/api/geo', { signal: ctrl.signal }).then(r => r.json()).catch(() => ({})),
+    ]).then(([ipData, geoData]) => {
+      ipRef.current      = ipData.ip        ?? null
+      countryRef.current = geoData.country  ?? null
+      cityRef.current    = geoData.city     ?? null
+      regionRef.current  = geoData.region   ?? null
+      latRef.current     = geoData.latitude ?? null
+      lonRef.current     = geoData.longitude ?? null
+    }).finally(() => clearTimeout(t))
+  }, [])
+
+  useEffect(() => {
+    if (!slug) return
+    supabaseClient
+      .from('users_table').select('username, pfp').eq('slug', slug).single()
+      .then(({ data }) => { if (data) setRecipient(data) })
+  }, [slug])
+
+  useEffect(() => {
+    const t = setTimeout(() => setPopupVisible(true), 60)
+    return () => clearTimeout(t)
+  }, [])
+
+  useEffect(() => {
+    if (!agreedToTerms) return
+    const interval = setInterval(() => {
+      setSuggVisible(false)
+      setTimeout(() => { setSuggIndex(i => (i + 1) % SUGGESTIONS.length); setSuggVisible(true) }, 400)
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [agreedToTerms])
+
+  // Live count ticker on success screen
+  useEffect(() => {
+    if (!success) return
+    const interval = setInterval(() => {
+      setLiveCount(Math.floor(Math.random() * 3000) + 4000)
+      setCountAnimKey(k => k + 1)
+    }, 3500)
+    return () => clearInterval(interval)
+  }, [success])
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setEditorSrc(URL.createObjectURL(file))
+    setShowEditor(true)
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  const handleEditorDone = (blob: Blob, dataUrl: string) => {
+    editedBlobRef.current = blob
+    setImagePreview(dataUrl)
+    setShowEditor(false)
+  }
+
+  const handleEditorCancel = () => {
+    setShowEditor(false)
+  }
+
+  const handleReEdit = () => {
+    if (!imagePreview) return
+    setEditorSrc(imagePreview)
+    setShowEditor(true)
+  }
+
+ const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  e.preventDefault()
+  if (!message.trim() || isSubmitting) return
+  setIsSubmitting(true)
+  setError(null)
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 12000)
+  try {
+    const formData = new FormData()
+    formData.append('message', message)
+    formData.append('slug', slug as string)
+    if (editedBlobRef.current) formData.append('image', editedBlobRef.current, 'image.jpg')
+    if (ipRef.current)          formData.append('ip_address',         ipRef.current)
+    if (countryRef.current)     formData.append('country',            countryRef.current)
+    if (cityRef.current)        formData.append('city',               cityRef.current)
+    if (regionRef.current)      formData.append('region',             regionRef.current)
+    if (latRef.current)         formData.append('latitude',           latRef.current)
+    if (lonRef.current)         formData.append('longitude',          lonRef.current)
+    if (browserRef.current)     formData.append('browser_name',       browserRef.current)
+    if (fingerprintRef.current) formData.append('device_fingerprint', fingerprintRef.current)
+    if (phoneTypeRef.current)   formData.append('phone_type',         phoneTypeRef.current)
+
+    const response = await fetch('/api/messages', { method: 'POST', body: formData, signal: controller.signal })
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}))
+      const detail = body?.error || body?.details || ''
+      const err: any = new Error(detail || `HTTP ${response.status}`)
+      err.status = response.status
+      err.detail = detail
+      throw err
+    }
+    setSuccess(true)
+    setMessage('')
+    setImagePreview(null)
+    editedBlobRef.current = null
+  } catch (err: any) {
+    console.error('[send] failed:', err)
+    if (err?.name === 'AbortError') {
+      setError(t.requestTimeout)
+    } else if (err?.status === 413) {
+      setError(t.imageTooLarge)
+    } else if (err?.status >= 500) {
+      setError(`${t.serverError} (${err.status})`)
+    } else if (err?.status) {
+      setError(`${t.failedToSend} (${err.status})${err.detail ? ': ' + err.detail : ''}`)
+    } else {
+      setError(t.failedToSend)
+    }
+  } finally {
+    clearTimeout(timeout)
+    setIsSubmitting(false)
+  }
+}
+  // ── Terms popup ──────────────────────────────────────────────────────────────
+  if (!agreedToTerms) {
+    return (
+      <main style={{
+        height: '100%', overflowY: 'auto', background: themeGradient,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '24px', fontFamily: font, position: 'relative',
+      }}>
+        <FloatingEmojis />
+        <style>{GLOBAL_STYLES}</style>
+
+        <div style={{
+          position: 'relative', zIndex: 1, width: '100%', maxWidth: '360px',
+          background: 'rgba(35,35,35,0.85)',
+          backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)',
+          borderRadius: '32px', overflow: 'hidden',
+          boxShadow: '0 40px 100px rgba(0,0,0,0.7)',
+          transform: popupVisible ? 'translateY(0) scale(1)' : 'translateY(40px) scale(0.95)',
+          opacity: popupVisible ? 1 : 0,
+          transition: 'transform 0.6s cubic-bezier(0.23,1,0.32,1), opacity 0.4s ease',
+        }}>
+          <div style={{ padding: '32px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+
+            {recipient && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <div style={{ width: '72px', height: '72px', borderRadius: '50%', overflow: 'hidden', border: `3px solid ${accentColor}`, background: '#333' }}>
+                  {recipient.pfp
+                    ? <img src={recipient.pfp} alt={recipient.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '28px', fontWeight: '800' }}>
+                        {recipient.username[0]?.toUpperCase()}
+                      </div>
+                  }
+                </div>
+                <p style={{ fontSize: '15px', fontWeight: '700', color: 'rgba(255,255,255,0.8)', margin: 0 }}>@{recipient.username}</p>
+              </div>
+            )}
+
+            <p style={{ fontSize: '22px', fontWeight: '800', color: '#FFFFFF', margin: 0 }}>{t.beforeSend}</p>
+            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', margin: 0, textAlign: 'center' }}>
+              {t.prohibited}
+            </p>
+
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {[
+                { emoji: '🚫', text: t.harassment },
+                { emoji: '⚠️', text: t.harmful },
+                { emoji: '🚨', text: t.sexualContent },
+                { emoji: '👺', text: t.noSlurs },
+              ].map(item => (
+                <div key={item.text} style={{
+                  display: 'flex', alignItems: 'center', gap: '12px',
+                  padding: '14px 16px', borderRadius: '18px', background: 'rgba(255,255,255,0.05)',
+                }}>
+                  <span style={{ fontSize: '18px' }}>{item.emoji}</span>
+                  <p style={{ fontSize: '14px', fontWeight: '600', color: 'rgba(255,255,255,0.85)', margin: 0 }}>{item.text}</p>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setAgreedToTerms(true)}
+              onMouseDown={btnPress} onMouseUp={btnRelease}
+              onTouchStart={btnPress} onTouchEnd={btnRelease}
+              style={{
+                width: '100%', padding: '18px', borderRadius: '99px', border: 'none',
+                background: accentColor, color: 'white', fontSize: '16px', fontWeight: '800',
+                cursor: 'pointer', transition: 'transform 0.12s ease', fontFamily: font, marginTop: '8px',
+              }}
+            >
+              {t.agree}
+            </button>
+
+            <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)', textAlign: 'center', margin: 0 }}>
+              {t.violations}
+            </p>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
+  // ── Success screen ───────────────────────────────────────────────────────────
+  if (success) {
+    return (
+      <main style={{
+        height: '100%', overflowY: 'auto', background: themeGradient,
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        justifyContent: 'center', padding: '32px 24px', fontFamily: font, gap: '24px',
+        position: 'relative',
+      }}>
+        <FloatingEmojis />
+        <style>{GLOBAL_STYLES}</style>
+
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', width: '100%' }}>
+
+          <img src="/assets/TBH_Title_Logo.svg" alt="TBH" style={{ height: '48px', filter: 'invert(1)' }} />
+
+          {/* Sent card */}
+          <div style={{
+            width: '100%', maxWidth: '360px',
+            background: 'rgba(35,35,35,0.85)',
+            backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)',
+            borderRadius: '32px', padding: '36px 24px',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
+            boxShadow: '0 40px 80px rgba(0,0,0,0.5)',
+            animation: 'fadeUp 0.5s ease',
+          }}>
+            {recipient?.pfp && (
+              <div style={{ width: '72px', height: '72px', borderRadius: '50%', overflow: 'hidden', border: `3px solid ${accentColor}`, marginBottom: '8px' }}>
+                <img src={recipient.pfp} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+            )}
+           <img src="/assets/Party.svg" alt="" style={{ width: '56px', height: '56px' }} />
+            <p style={{ fontSize: '24px', fontWeight: '800', color: '#fff', margin: '4px 0 0' }}>{t.delivered}</p>
+            <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', textAlign: 'center', margin: 0 }}>
+              {t.deliveredTo}{' '}
+              <span style={{ color: accentColor, fontWeight: '700' }}>@{recipient?.username ?? slug}</span>{' '}
+              was delivered.
+            </p>
+
+            {/* Live count */}
+           <div style={{ marginTop: '16px', textAlign: 'center' }}>
+  <p style={{ 
+    fontSize: '14px', 
+    color: 'rgba(255,255,255,0.6)', // Subtle white for the main text
+    margin: 0,
+    letterSpacing: '-0.01em'
+  }}>
+    <span
+      key={countAnimKey}
+      className="countpop"
+      style={{ 
+        fontWeight: '800', 
+        color: '#FFFFFF', // Pure white and bold for the number
+        display: 'inline-block' 
+      }}
+    >
+      {liveCount.toLocaleString()}
+    </span>
+    {' '} {t.peopleReceiving}
+  </p>
+
+  <style>{`
+    .countpop {
+      animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    @keyframes popIn {
+      0% { transform: scale(0.8); opacity: 0.5; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+  `}</style>
+</div>
+          </div>
+
+          {/* Buttons */}
+          <div style={{ width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <button
+              onClick={() => setSuccess(false)}
+              onMouseDown={btnPress} onMouseUp={btnRelease}
+              onTouchStart={btnPress} onTouchEnd={btnRelease}
+              style={{
+                width: '100%', padding: '18px', borderRadius: '99px', border: 'none',
+                background: '#0D0D0D', color: 'white', fontSize: '16px', fontWeight: '800',
+                cursor: 'pointer', transition: 'transform 0.12s ease', fontFamily: font,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              }}
+            >
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              {t.sendAnother}
+            </button>
+
+            <button
+              onClick={() => router.push('/')}
+              onMouseDown={btnPress} onMouseUp={btnRelease}
+              onTouchStart={btnPress} onTouchEnd={btnRelease}
+              style={{
+                width: '100%', padding: '18px', borderRadius: '99px', border: 'none',
+                background: accentColor, color: 'white', fontSize: '16px', fontWeight: '800',
+                cursor: 'pointer', transition: 'transform 0.12s ease', fontFamily: font,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              }}
+            >
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+              {t.getMyLink}
+            </button>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
+  // ── Main send screen ─────────────────────────────────────────────────────────
+  return (
+    <>
+    {showEditor && editorSrc && (
+      <ImageEditor
+        src={editorSrc}
+        onDone={handleEditorDone}
+        onCancel={handleEditorCancel}
+        accentColor={accentColor}
+        font={font}
+      />
+    )}
+    <main style={{
+      height: '100%', overflowY: 'auto', background: themeGradient,
+      fontFamily: font, display: 'flex', flexDirection: 'column',
+      alignItems: 'center', padding: '0 20px 48px',
+      position: 'relative',
+    }}>
+      <InAppBrowserBanner />
+      <FloatingEmojis />
+      <style>{GLOBAL_STYLES}</style>
+
+      <div style={{ position: 'relative', zIndex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+
+        {/* Header */}
+        <div style={{ paddingTop: '56px', paddingBottom: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+          <img src="/assets/TBH_Simple_Logo.svg" alt="TBH" style={{ height: '44px', filter: 'invert(1)' }} />
+          <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.55)', margin: 0 }}>{t.anonymousMessaging}</p>
+        </div>
+
+        {/* Message card */}
+        <form
+          id="message-form"
+          onSubmit={handleSubmit}
+          style={{
+            width: '100%', maxWidth: '400px',
+            background: 'rgba(30,30,30,0.85)',
+            backdropFilter: 'blur(50px)', WebkitBackdropFilter: 'blur(50px)',
+            borderRadius: '32px', padding: '24px',
+            boxShadow: '0 32px 100px rgba(0,0,0,0.5)',
+            display: 'flex', flexDirection: 'column', gap: '20px',
+          }}
+        >
+          {/* Recipient row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: '44px', height: '44px', borderRadius: '50%',
+              overflow: 'hidden', border: `2.5px solid ${accentColor}`,
+              background: '#333', flexShrink: 0,
+            }}>
+              {recipient?.pfp
+                ? <img src={recipient.pfp} alt={recipient.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '18px', fontWeight: '800' }}>
+                    {(recipient?.username ?? slug as string)?.[0]?.toUpperCase() ?? '?'}
+                  </div>
+              }
+            </div>
+            <p style={{ fontSize: '16px', fontWeight: '700', color: '#fff', margin: 0 }}>
+              {t.messageFor} <span style={{ color: accentColor }}>@{recipient?.username ?? slug}</span>
+            </p>
+          </div>
+
+          {/* Suggestion */}
+          <p style={{
+            fontSize: '13px', color: 'rgba(255,255,255,0.3)',
+            minHeight: '38px', margin: 0,
+            transition: 'opacity 0.4s ease', opacity: suggVisible ? 1 : 0,
+          }}>
+            {SUGGESTIONS[suggIndex]}
+          </p>
+
+          {/* Textarea */}
+          <div style={{ position: 'relative' }}>
+            <textarea
+              required rows={5} maxLength={1000}
+              value={message} onChange={e => setMessage(e.target.value)}
+              placeholder={t.writePlaceholder}
+              style={{
+                width: '100%', padding: '4px 4px 40px',
+                fontSize: '18px', fontWeight: '600', color: '#FFF',
+                background: 'transparent', border: 'none', outline: 'none',
+                resize: 'none', lineHeight: '1.5', fontFamily: font, boxSizing: 'border-box',
+              }}
+            />
+            <p style={{
+              position: 'absolute', bottom: '0', left: '4px', fontSize: '12px', margin: 0,
+              color: message.length > 900 ? accentColor : 'rgba(255,255,255,0.25)',
+            }}>
+              {message.length}/1000
+            </p>
+          </div>
+
+          {/* Image picker */}
+          <input ref={fileRef} type="file" accept="image/*" onChange={handleImageChange} style={{ display: 'none' }} />
+          {imagePreview ? (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '12px',
+              padding: '10px 12px', borderRadius: '16px',
+              background: 'rgba(255,255,255,0.06)',
+            }}>
+              <div style={{ width: '44px', height: '44px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0 }}>
+                <img src={imagePreview} alt="" style={{
+                  width: '100%', height: '100%', objectFit: 'cover',
+                  filter: 'blur(4px)', transform: 'scale(1.15)',
+                }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>Photo</p>
+                <p style={{ margin: 0, fontSize: '11px', color: 'rgba(255,255,255,0.3)', marginTop: '2px' }}>Ready to send</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleReEdit}
+                style={{
+                  position: 'absolute', top: '12px', left: '12px',
+                  padding: '6px 12px', borderRadius: '99px',
+                  background: 'rgba(0,0,0,0.65)', border: 'none', color: 'white',
+                  cursor: 'pointer', fontSize: '13px', fontWeight: '700',
+                  display: 'flex', alignItems: 'center', gap: '5px', fontFamily: font,
+                }}
+              >✏️ Edit</button>
+              {/* Remove button */}
+              <button
+                type="button"
+                onClick={() => { setImagePreview(null); editedBlobRef.current = null }}
+                style={{
+                  width: '30px', height: '30px', borderRadius: '50%', flexShrink: 0,
+                  background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <svg width="11" height="11" fill="none" viewBox="0 0 24 24">
+                  <path d="M18 6L6 18M6 6l12 12" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button" onClick={() => fileRef.current?.click()}
+              onMouseDown={btnPress} onMouseUp={btnRelease}
+              onTouchStart={btnPress} onTouchEnd={btnRelease}
+              style={{
+                padding: '14px 16px', borderRadius: '16px', border: 'none',
+                background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)',
+                fontSize: '14px', fontWeight: 600, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                fontFamily: font, transition: 'transform 0.12s ease',
+              }}
+            >
+              <svg width="17" height="17" fill="none" viewBox="0 0 24 24">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <circle cx="12" cy="13" r="4" stroke="currentColor" strokeWidth="2"/>
+              </svg>
+              {t.addPhoto}
+            </button>
+          )}
+
+          {error && <p style={{ color: '#ff6b6b', fontSize: '13px', margin: 0 }}>{error}</p>}
+        </form>
+
+        {/* Send button */}
+        <div style={{ width: '100%', maxWidth: '400px', marginTop: '16px' }}>
+          <button
+            type="submit" form="message-form"
+            disabled={isSubmitting || !message.trim()}
+            onMouseDown={e => { if (message.trim() && !isSubmitting) btnPress(e) }}
+            onMouseUp={btnRelease}
+            onTouchStart={e => { if (message.trim() && !isSubmitting) btnPress(e) }}
+            onTouchEnd={btnRelease}
+            className={isSubmitting ? 'send-btn-loading' : ''}
+            style={{
+              width: '100%', padding: '20px', borderRadius: '99px', border: 'none',
+              background: message.trim() ? '#0D0D0D' : 'rgba(255,255,255,0.1)',
+              color: 'white', fontSize: '18px', fontWeight: '800',
+              transition: 'transform 0.12s ease, background 0.2s ease',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+              cursor: isSubmitting ? 'not-allowed' : message.trim() ? 'pointer' : 'default',
+              fontFamily: font,
+            }}
+          >
+            {isSubmitting ? (
+              <>
+                <div className="ios-arc" />
+                <span style={{ fontSize: '16px', fontWeight: '700', opacity: 0.9 }}>{t.sending}</span>
+              </>
+            ) : t.sendAnonymously}
+          </button>
+        </div>
+
+        {/* CTA */}
+        <div style={{ marginTop: '32px', textAlign: 'center' }}>
+          <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.35)', margin: '0 0 10px' }}>
+            {t.wantLink}
+          </p>
+          <button
+            onClick={() => router.push('/')}
+            onMouseDown={btnPress} onMouseUp={btnRelease}
+            onTouchStart={btnPress} onTouchEnd={btnRelease}
+            style={{
+              padding: '12px 28px', borderRadius: '99px',
+              background: 'rgba(255,255,255,0.1)', border: 'none',
+              color: 'white', fontSize: '14px', fontWeight: '700',
+              cursor: 'pointer', fontFamily: font, transition: 'transform 0.12s ease',
+              display: 'flex', alignItems: 'center', gap: '6px',
+            }}
+          >
+            <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+            {t.getMyLink}
+          </button>
+        </div>
+
+      </div>
+    </main>
+    </>
+  )
+}

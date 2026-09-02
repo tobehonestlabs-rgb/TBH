@@ -1,42 +1,104 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
-import { getServerSupabase } from '@/lib/serverSupabase'
+import { createClient } from '@supabase/supabase-js'
 
-
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+// --------------------------------------------------------------------
+// GET : Récupère les messages d'une conversation
+// --------------------------------------------------------------------
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const supabase = getServerSupabase()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { id } = await params
 
+    // 1. Extraire le token du header Authorization
+    const authHeader = req.headers.get('Authorization')
+    const token = authHeader?.split(' ')[1]
+
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized: missing token' }, { status: 401 })
+    }
+
+    // 2. Créer un client Supabase avec ce token pour vérifier l'utilisateur
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { global: { headers: { Authorization: `Bearer ${token}` } } }
+    )
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      return NextResponse.json({ error: 'Unauthorized: invalid token' }, { status: 401 })
+    }
+
+    // 3. Récupérer les messages (avec supabaseAdmin)
     const { data, error } = await supabaseAdmin
       .from('conversation_messages')
       .select('*')
-      .eq('conversation_id', params.id)
+      .eq('conversation_id', id)
       .order('created_at', { ascending: true })
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
     return NextResponse.json({ messages: data ?? [] })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+// --------------------------------------------------------------------
+// POST : Envoie un nouveau message (texte, GIF, image, photos)
+// --------------------------------------------------------------------
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const supabase = getServerSupabase()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { id } = await params
 
-    const { content, gif_url } = await req.json()
-    if (!content?.trim() && !gif_url) return NextResponse.json({ error: 'Empty message' }, { status: 400 })
+    const authHeader = req.headers.get('Authorization')
+    const token = authHeader?.split(' ')[1]
+
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized: missing token' }, { status: 401 })
+    }
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { global: { headers: { Authorization: `Bearer ${token}` } } }
+    )
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      return NextResponse.json({ error: 'Unauthorized: invalid token' }, { status: 401 })
+    }
+
+    const { content, gif_url, image_url, photos } = await req.json()
+
+    const hasText = content?.trim()?.length > 0
+    const hasGif = !!gif_url
+    const hasImageUrl = !!image_url
+    const hasPhotos = photos && Array.isArray(photos) && photos.length > 0
+
+    if (!hasText && !hasGif && !hasImageUrl && !hasPhotos) {
+      return NextResponse.json({ error: 'Empty message' }, { status: 400 })
+    }
 
     const insertData: Record<string, any> = {
-      conversation_id: params.id,
+      conversation_id: id,
       sender_id: user.id,
+      content: content?.trim() || '',
     }
-    if (content?.trim()) insertData.content = content.trim()
-    if (gif_url)         insertData.gif_url = gif_url
+
+    if (hasGif) insertData.gif_url = gif_url
+    if (hasPhotos) insertData.photos = photos
+    else if (hasImageUrl) insertData.image_url = image_url
 
     const { data, error } = await supabaseAdmin
       .from('conversation_messages')
@@ -44,16 +106,23 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       .select()
       .single()
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
 
-    // Update conversation last_message
+    // Mettre à jour la conversation
+    let lastMessageText = '📷 Photo'
+    if (hasText) lastMessageText = content.trim()
+    else if (hasGif) lastMessageText = '🎬 GIF'
+    else if (hasPhotos || hasImageUrl) lastMessageText = '📷 Photo'
+
     await supabaseAdmin
       .from('conversations')
       .update({
-        last_message:    content?.trim() ?? '🎬 GIF',
+        last_message: lastMessageText,
         last_message_at: new Date().toISOString(),
       })
-      .eq('id', params.id)
+      .eq('id', id)
 
     return NextResponse.json({ message: data })
   } catch (e: any) {

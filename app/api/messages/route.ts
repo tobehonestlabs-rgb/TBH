@@ -92,6 +92,7 @@ export async function POST(req: NextRequest) {
         from_user: null,
         content: message,
         media_url: imageUrl ?? null,
+        photos: imageUrl ?? null,
         contains_media: imageUrl != null,
         message_id: messageId,
         ip_address: ipAddress,
