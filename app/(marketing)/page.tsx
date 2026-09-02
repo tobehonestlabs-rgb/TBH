@@ -2,9 +2,6 @@
 import { useRouter } from 'next/navigation';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
-
-
-
 // ─── Constantes de timing pour le mockup ───
 const TYPING_DURATION = 2200;
 const MIN_DELAY_BETWEEN_MSGS = 2000;
@@ -74,8 +71,8 @@ const getSvgStyles = (index: number) => {
 const LandingPage: React.FC = () => {
   const router = useRouter();
   const handleJoin = () => {
-  router.push('/sign-up');
-};
+    router.push('/sign-up');
+  };
   const [isNavVisible, setIsNavVisible] = useState(false);
   const heroRef = useRef<HTMLElement | null>(null);
   const featureRef = useRef<HTMLElement | null>(null);
@@ -184,7 +181,7 @@ const LandingPage: React.FC = () => {
 
     const animate = () => {
       setMousePos((prev) => ({
-        x: prev.x + (targetPos.x - prev.x) * DAMPING * 1.5, // sensibilité augmentée
+        x: prev.x + (targetPos.x - prev.x) * DAMPING * 1.5,
         y: prev.y + (targetPos.y - prev.y) * DAMPING * 1.5,
       }));
       frameId = requestAnimationFrame(animate);
@@ -311,12 +308,10 @@ const LandingPage: React.FC = () => {
   const showNextMessage = useCallback(() => {
     const conv = conversations[currentConvIndex];
     if (!conv || msgIndex >= conv.length) {
-      // Fin de la conversation : pause puis prochaine
       conversationTimerRef.current = setTimeout(() => {
         setCurrentConvIndex((prev) => (prev + 1) % conversations.length);
         setMsgIndex(0);
         clearChat();
-        // Lancer la prochaine conversation après un court délai
         conversationTimerRef.current = setTimeout(() => {
           setIsPlaying(true);
           showNextMessage();
@@ -329,7 +324,6 @@ const LandingPage: React.FC = () => {
     const isReceived = msg.type === 'received';
 
     if (isReceived) {
-      // Afficher l'indicateur de frappe
       if (typingIndicatorRef.current) {
         typingIndicatorRef.current.style.display = 'flex';
       }
@@ -337,19 +331,16 @@ const LandingPage: React.FC = () => {
         chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
       }
 
-      // Après le typing, ajouter le message
       conversationTimerRef.current = setTimeout(() => {
         if (typingIndicatorRef.current) {
           typingIndicatorRef.current.style.display = 'none';
         }
         addMessage(msg);
         setMsgIndex((prev) => prev + 1);
-        // Planifier le message suivant
         const delay = MIN_DELAY_BETWEEN_MSGS + Math.random() * (MAX_DELAY_BETWEEN_MSGS - MIN_DELAY_BETWEEN_MSGS);
         conversationTimerRef.current = setTimeout(showNextMessage, delay);
       }, TYPING_DURATION);
     } else {
-      // Message envoyé : ajout direct
       addMessage(msg);
       setMsgIndex((prev) => prev + 1);
       const delay = MIN_DELAY_BETWEEN_MSGS + Math.random() * (MAX_DELAY_BETWEEN_MSGS - MIN_DELAY_BETWEEN_MSGS);
@@ -360,12 +351,10 @@ const LandingPage: React.FC = () => {
   // ─── Démarrer la conversation au montage ───
   useEffect(() => {
     if (isPlaying) {
-      // Annuler tout timer existant
       if (conversationTimerRef.current) {
         clearTimeout(conversationTimerRef.current);
         conversationTimerRef.current = null;
       }
-      // Démarrer après un délai initial
       conversationTimerRef.current = setTimeout(showNextMessage, INITIAL_DELAY);
     }
     return () => {
@@ -403,7 +392,6 @@ const LandingPage: React.FC = () => {
     btn.style.setProperty('--y', '50%');
   };
 
-  // ─── Application de l'effet "follow cursor" sur les héros ───
   const heroTransform = `translate(${mousePos.x * 8}px, ${mousePos.y * 6}px)`;
   const featureTransform = `translate(${mousePos.x * 6}px, ${mousePos.y * 4}px)`;
 
@@ -1181,159 +1169,282 @@ const LandingPage: React.FC = () => {
           color: rgba(255, 255, 255, 0.7);
         }
 
+        /* ─── RESPONSIVE : MOBILE ─── */
         @media (max-width: 768px) {
-          .hero-text {
-            font-size: clamp(2.2rem, 8vw, 3.5rem);
+          main {
+            padding: 8px 10px;
+            gap: 16px;
+          }
+          .block {
+            padding: 20px 16px;
+            min-height: 240px;
+          }
+          .block-1 {
+            min-height: 380px;
+          }
+          .block-features {
+            min-height: 320px;
+            padding: 40px 20px;
           }
           .block-features .feature-text {
-            font-size: clamp(1.8rem, 5.5vw, 3rem);
+            font-size: clamp(1.6rem, 5vw, 2.8rem);
           }
           .block-3 {
-            min-height: 380px;
-            padding: 30px 16px;
+            min-height: 340px;
+            padding: 24px 12px;
           }
           .slider-container {
-            height: 200px;
+            height: 180px;
+          }
+          .slider-svg {
+            width: clamp(60px, 12vw, 100px) !important;
           }
           .messagerie-text {
-            font-size: clamp(1.8rem, 5vw, 3rem);
+            font-size: clamp(1.6rem, 4.5vw, 2.8rem);
           }
           .block-4 {
-            min-height: 500px;
-            padding: 30px 16px;
+            min-height: 480px;
+            padding: 24px 12px;
+            gap: 24px;
           }
           .phone-mockup {
-            width: 280px;
+            width: 260px;
             padding: 12px;
           }
+          .phone-notch {
+            width: 70px;
+            height: 16px;
+            top: 14px;
+          }
           .chat-body {
-            min-height: 320px;
-            max-height: 380px;
+            min-height: 280px;
+            max-height: 340px;
+          }
+          .message {
+            font-size: 13px;
+            padding: 8px 12px;
+          }
+          .chat-header .title {
+            font-size: 14px;
+          }
+          .chat-header .back,
+          .chat-header .actions {
+            font-size: 16px;
+          }
+          .chat-footer .input-field {
+            font-size: 12px;
+            padding: 8px 14px;
+          }
+          .chat-footer .send-btn {
+            width: 34px;
+            height: 34px;
+            font-size: 15px;
+          }
+          .block-4 .cta-btn {
+            font-size: 16px;
+            padding: 14px 32px;
           }
 
           .navbar-inline {
             flex-direction: column;
             align-items: flex-start;
-            gap: 16px;
-          }
-
-          .block {
-            padding: 20px 18px;
-            min-height: 220px;
-          }
-
-          .block-1 {
-            min-height: 380px;
-          }
-
-          .block-features {
-            min-height: 350px;
-            padding: 40px 20px;
-          }
-
-          .nav-inner {
-            flex-direction: column;
-            align-items: flex-start;
             gap: 12px;
+          }
+          .navbar-inline .logo-img {
+            height: 28px;
+          }
+          .hero-text {
+            font-size: clamp(2rem, 7vw, 3.2rem);
+            padding: 6px 0;
+          }
+          .hero-text span {
+            max-width: 100%;
+          }
+
+          .svg-1 {
+            top: 4%;
+            left: 2%;
+            width: clamp(50px, 15vw, 80px);
+          }
+          .svg-2 {
+            top: 24%;
+            left: 6%;
+            width: clamp(40px, 12vw, 60px);
+          }
+          .svg-3 {
+            top: 6%;
+            right: 2%;
+            width: clamp(46px, 14vw, 70px);
+          }
+          .svg-4 {
+            top: 26%;
+            right: 6%;
+            width: clamp(36px, 10vw, 55px);
+          }
+          .svg-5 {
+            top: 4%;
+            left: 2%;
+            width: clamp(50px, 14vw, 80px);
+          }
+          .svg-7 {
+            top: 50%;
+            left: 4%;
+            width: clamp(40px, 12vw, 60px);
+          }
+          .svg-6 {
+            top: 6%;
+            right: 2%;
+            width: clamp(50px, 14vw, 80px);
+          }
+          .svg-8 {
+            top: 50%;
+            right: 4%;
+            width: clamp(40px, 12vw, 60px);
           }
 
           .game-ideas-item {
             font-size: 13px;
             padding: 0 10px;
           }
-
           .game-ideas-item .separator {
             width: 4px;
             height: 4px;
             margin: 0 6px;
           }
 
-          .cta-btn {
-            padding: 12px 28px;
-            font-size: 16px;
-          }
-
           .footer-top {
             flex-direction: column;
             align-items: flex-start;
+            gap: 30px;
           }
-
           .footer-links {
             gap: 30px;
           }
-
           .footer-bottom {
             flex-direction: column;
             align-items: flex-start;
-            gap: 8px;
+            gap: 12px;
+          }
+          .footer-brand .logo-img {
+            height: 32px;
+          }
+          .footer-brand p {
+            font-size: 14px;
+            max-width: 100%;
           }
 
-          .svg-1 {
-            top: 4%;
-            left: 2%;
-            width: clamp(50px, 18vw, 80px);
+          .nav-inner {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
           }
-
-          .svg-2 {
-            top: 24%;
-            left: 6%;
-            width: clamp(40px, 12vw, 60px);
+          .nav-inner .logo-img {
+            height: 28px;
           }
-
-          .svg-3 {
-            top: 6%;
-            right: 2%;
-            width: clamp(46px, 16vw, 70px);
+          .navbar-fixed {
+            padding: 10px 16px;
           }
-
-          .svg-4 {
-            top: 26%;
-            right: 6%;
-            width: clamp(36px, 10vw, 55px);
+          .cta-btn {
+            padding: 10px 28px;
+            font-size: 15px;
           }
-
-          .svg-5 {
-            top: 4%;
-            left: 2%;
-            width: clamp(60px, 16vw, 100px);
+          .hero-content {
+            transform: none !important; /* désactiver le suivi de souris sur mobile */
           }
-          .svg-7 {
-            top: 50%;
-            left: 4%;
-            width: clamp(50px, 13vw, 80px);
-          }
-          .svg-6 {
-            top: 6%;
-            right: 2%;
-            width: clamp(60px, 16vw, 100px);
-          }
-          .svg-8 {
-            top: 50%;
-            right: 4%;
-            width: clamp(50px, 13vw, 80px);
+          .feature-text {
+            transform: none !important;
           }
         }
 
         @media (max-width: 480px) {
-          .svg-1 { width: 40px; left: 1%; }
-          .svg-2 { width: 28px; left: 4%; }
-          .svg-3 { width: 36px; right: 1%; }
-          .svg-4 { width: 24px; right: 4%; }
-
-          .svg-5 { width: 45px; left: 1%; }
-          .svg-7 { width: 36px; left: 3%; }
-          .svg-6 { width: 45px; right: 1%; }
-          .svg-8 { width: 36px; right: 3%; }
-
+          .block {
+            padding: 16px 12px;
+            min-height: 200px;
+          }
+          .block-1 {
+            min-height: 320px;
+          }
+          .block-features {
+            min-height: 280px;
+            padding: 30px 16px;
+          }
+          .block-3 {
+            min-height: 300px;
+            padding: 20px 10px;
+          }
           .slider-container {
-            height: 160px;
+            height: 150px;
+          }
+          .slider-svg {
+            width: clamp(40px, 10vw, 60px) !important;
+          }
+          .messagerie-text {
+            font-size: clamp(1.4rem, 4vw, 2.2rem);
+          }
+          .block-4 {
+            min-height: 420px;
+            padding: 20px 10px;
           }
           .phone-mockup {
-            width: 260px;
+            width: 220px;
+            padding: 10px;
+          }
+          .phone-notch {
+            width: 60px;
+            height: 14px;
+            top: 12px;
           }
           .chat-body {
-            min-height: 280px;
-            max-height: 340px;
+            min-height: 220px;
+            max-height: 280px;
+          }
+          .message {
+            font-size: 12px;
+            padding: 6px 10px;
+          }
+          .chat-header .title {
+            font-size: 12px;
+          }
+          .chat-header .back,
+          .chat-header .actions {
+            font-size: 14px;
+          }
+          .chat-footer .input-field {
+            font-size: 11px;
+            padding: 6px 12px;
+          }
+          .chat-footer .send-btn {
+            width: 30px;
+            height: 30px;
+            font-size: 13px;
+          }
+          .block-4 .cta-btn {
+            font-size: 14px;
+            padding: 12px 24px;
+          }
+
+          .hero-text {
+            font-size: clamp(1.8rem, 6vw, 2.8rem);
+          }
+          .navbar-inline .logo-img {
+            height: 24px;
+          }
+          .cta-btn {
+            padding: 8px 20px;
+            font-size: 13px;
+          }
+          .game-ideas-item {
+            font-size: 11px;
+          }
+          .footer-brand .logo-img {
+            height: 28px;
+          }
+          .footer-links-column a {
+            font-size: 13px;
+          }
+          .footer-bottom p,
+          .footer-bottom-legal a {
+            font-size: 12px;
           }
         }
       `}</style>
@@ -1542,7 +1653,6 @@ const LandingPage: React.FC = () => {
               </div>
             </div>
             <div className="footer-social">
-            
             </div>
           </div>
           <div className="footer-bottom">
