@@ -1169,93 +1169,76 @@ const LandingPage: React.FC = () => {
           color: rgba(255, 255, 255, 0.7);
         }
 
-        /* ─── RESPONSIVE : MOBILE ─── */
+        /* ─── RESPONSIVE : MOBILE (corrigé) ─── */
         @media (max-width: 768px) {
           main {
-            padding: 8px 10px;
-            gap: 16px;
-          }
-          .block {
-            padding: 20px 16px;
-            min-height: 240px;
-          }
-          .block-1 {
-            min-height: 380px;
-          }
-          .block-features {
-            min-height: 320px;
-            padding: 40px 20px;
-          }
-          .block-features .feature-text {
-            font-size: clamp(1.6rem, 5vw, 2.8rem);
-          }
-          .block-3 {
-            min-height: 340px;
-            padding: 24px 12px;
-          }
-          .slider-container {
-            height: 180px;
-          }
-          .slider-svg {
-            width: clamp(60px, 12vw, 100px) !important;
-          }
-          .messagerie-text {
-            font-size: clamp(1.6rem, 4.5vw, 2.8rem);
-          }
-          .block-4 {
-            min-height: 480px;
-            padding: 24px 12px;
+            padding: 16px 20px;
             gap: 24px;
           }
-          .phone-mockup {
-            width: 260px;
-            padding: 12px;
+          .block {
+            padding: 28px 24px;
+            min-height: 280px;
           }
-          .phone-notch {
-            width: 70px;
-            height: 16px;
-            top: 14px;
+          .block-1 {
+            min-height: 420px;
+          }
+          .block-features {
+            min-height: 360px;
+            padding: 48px 24px;
+          }
+          .block-features .feature-text {
+            font-size: clamp(2rem, 6vw, 3.2rem);
+          }
+          .block-3 {
+            min-height: 380px;
+            padding: 32px 16px;
+          }
+          .slider-container {
+            height: 240px;
+          }
+          .slider-svg {
+            width: clamp(80px, 18vw, 140px) !important;
+          }
+          .messagerie-text {
+            font-size: clamp(2rem, 5vw, 3rem);
+          }
+          .block-4 {
+            min-height: 540px;
+            padding: 32px 16px;
+            gap: 32px;
+          }
+          .phone-mockup {
+            width: 300px;
+            padding: 14px;
           }
           .chat-body {
-            min-height: 280px;
-            max-height: 340px;
+            min-height: 320px;
+            max-height: 380px;
           }
           .message {
-            font-size: 13px;
-            padding: 8px 12px;
+            font-size: 15px;
+            padding: 10px 14px;
           }
           .chat-header .title {
-            font-size: 14px;
-          }
-          .chat-header .back,
-          .chat-header .actions {
             font-size: 16px;
           }
           .chat-footer .input-field {
-            font-size: 12px;
-            padding: 8px 14px;
+            font-size: 14px;
+            padding: 10px 16px;
           }
           .chat-footer .send-btn {
-            width: 34px;
-            height: 34px;
-            font-size: 15px;
+            width: 40px;
+            height: 40px;
+            font-size: 17px;
           }
           .block-4 .cta-btn {
-            font-size: 16px;
-            padding: 14px 32px;
+            font-size: 18px;
+            padding: 16px 40px;
           }
 
-          .navbar-inline {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 12px;
-          }
-          .navbar-inline .logo-img {
-            height: 28px;
-          }
           .hero-text {
-            font-size: clamp(2rem, 7vw, 3.2rem);
-            padding: 6px 0;
+            font-size: clamp(2.4rem, 8vw, 4rem);
+            padding: 12px 0;
           }
           .hero-text span {
             max-width: 100%;
@@ -1264,61 +1247,74 @@ const LandingPage: React.FC = () => {
           .svg-1 {
             top: 4%;
             left: 2%;
-            width: clamp(50px, 15vw, 80px);
+            width: clamp(80px, 20vw, 140px);
           }
           .svg-2 {
             top: 24%;
             left: 6%;
-            width: clamp(40px, 12vw, 60px);
+            width: clamp(60px, 16vw, 100px);
           }
           .svg-3 {
             top: 6%;
             right: 2%;
-            width: clamp(46px, 14vw, 70px);
+            width: clamp(70px, 18vw, 120px);
           }
           .svg-4 {
             top: 26%;
             right: 6%;
-            width: clamp(36px, 10vw, 55px);
+            width: clamp(55px, 14vw, 90px);
           }
           .svg-5 {
             top: 4%;
             left: 2%;
-            width: clamp(50px, 14vw, 80px);
+            width: clamp(70px, 18vw, 120px);
           }
           .svg-7 {
             top: 50%;
             left: 4%;
-            width: clamp(40px, 12vw, 60px);
+            width: clamp(60px, 16vw, 100px);
           }
           .svg-6 {
             top: 6%;
             right: 2%;
-            width: clamp(50px, 14vw, 80px);
+            width: clamp(70px, 18vw, 120px);
           }
           .svg-8 {
             top: 50%;
             right: 4%;
-            width: clamp(40px, 12vw, 60px);
+            width: clamp(60px, 16vw, 100px);
           }
 
           .game-ideas-item {
-            font-size: 13px;
-            padding: 0 10px;
+            font-size: 15px;
+            padding: 0 14px;
           }
           .game-ideas-item .separator {
-            width: 4px;
-            height: 4px;
-            margin: 0 6px;
+            width: 6px;
+            height: 6px;
+            margin: 0 8px;
+          }
+
+          .navbar-inline {
+            flex-direction: row;
+            align-items: center;
+            gap: 16px;
+          }
+          .navbar-inline .logo-img {
+            height: 32px;
+          }
+          .cta-btn {
+            padding: 12px 32px;
+            font-size: 16px;
           }
 
           .footer-top {
             flex-direction: column;
             align-items: flex-start;
-            gap: 30px;
+            gap: 32px;
           }
           .footer-links {
-            gap: 30px;
+            gap: 32px;
           }
           .footer-bottom {
             flex-direction: column;
@@ -1326,30 +1322,27 @@ const LandingPage: React.FC = () => {
             gap: 12px;
           }
           .footer-brand .logo-img {
-            height: 32px;
+            height: 36px;
           }
           .footer-brand p {
-            font-size: 14px;
-            max-width: 100%;
+            font-size: 15px;
           }
 
           .nav-inner {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 10px;
+            flex-direction: row;
+            align-items: center;
+            gap: 16px;
           }
           .nav-inner .logo-img {
-            height: 28px;
+            height: 32px;
           }
           .navbar-fixed {
-            padding: 10px 16px;
+            padding: 12px 20px;
           }
-          .cta-btn {
-            padding: 10px 28px;
-            font-size: 15px;
-          }
+
+          /* Désactiver follow cursor sur mobile */
           .hero-content {
-            transform: none !important; /* désactiver le suivi de souris sur mobile */
+            transform: none !important;
           }
           .feature-text {
             transform: none !important;
@@ -1358,86 +1351,77 @@ const LandingPage: React.FC = () => {
 
         @media (max-width: 480px) {
           .block {
-            padding: 16px 12px;
-            min-height: 200px;
+            padding: 20px 16px;
+            min-height: 240px;
           }
           .block-1 {
-            min-height: 320px;
+            min-height: 360px;
           }
           .block-features {
-            min-height: 280px;
-            padding: 30px 16px;
+            min-height: 320px;
+            padding: 36px 16px;
           }
           .block-3 {
-            min-height: 300px;
-            padding: 20px 10px;
+            min-height: 320px;
+            padding: 24px 12px;
           }
           .slider-container {
-            height: 150px;
+            height: 200px;
           }
           .slider-svg {
-            width: clamp(40px, 10vw, 60px) !important;
+            width: clamp(60px, 16vw, 100px) !important;
           }
           .messagerie-text {
-            font-size: clamp(1.4rem, 4vw, 2.2rem);
+            font-size: clamp(1.6rem, 4.5vw, 2.6rem);
           }
           .block-4 {
-            min-height: 420px;
-            padding: 20px 10px;
+            min-height: 480px;
+            padding: 24px 12px;
           }
           .phone-mockup {
-            width: 220px;
-            padding: 10px;
-          }
-          .phone-notch {
-            width: 60px;
-            height: 14px;
-            top: 12px;
+            width: 260px;
+            padding: 12px;
           }
           .chat-body {
-            min-height: 220px;
-            max-height: 280px;
+            min-height: 260px;
+            max-height: 320px;
           }
           .message {
-            font-size: 12px;
-            padding: 6px 10px;
+            font-size: 14px;
+            padding: 8px 12px;
           }
           .chat-header .title {
-            font-size: 12px;
-          }
-          .chat-header .back,
-          .chat-header .actions {
             font-size: 14px;
           }
           .chat-footer .input-field {
-            font-size: 11px;
-            padding: 6px 12px;
+            font-size: 13px;
+            padding: 8px 14px;
           }
           .chat-footer .send-btn {
-            width: 30px;
-            height: 30px;
-            font-size: 13px;
+            width: 36px;
+            height: 36px;
+            font-size: 15px;
           }
           .block-4 .cta-btn {
-            font-size: 14px;
-            padding: 12px 24px;
+            font-size: 16px;
+            padding: 14px 32px;
           }
 
           .hero-text {
-            font-size: clamp(1.8rem, 6vw, 2.8rem);
+            font-size: clamp(2rem, 7vw, 3.2rem);
           }
           .navbar-inline .logo-img {
-            height: 24px;
+            height: 28px;
           }
           .cta-btn {
-            padding: 8px 20px;
-            font-size: 13px;
+            padding: 10px 24px;
+            font-size: 14px;
           }
           .game-ideas-item {
-            font-size: 11px;
+            font-size: 13px;
           }
           .footer-brand .logo-img {
-            height: 28px;
+            height: 32px;
           }
           .footer-links-column a {
             font-size: 13px;
