@@ -1,17 +1,152 @@
 'use client';
+import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+
+
+
+// ─── Constantes de timing pour le mockup ───
+const TYPING_DURATION = 2200;
+const MIN_DELAY_BETWEEN_MSGS = 2000;
+const MAX_DELAY_BETWEEN_MSGS = 3200;
+const PAUSE_BETWEEN_CONVERSATIONS = 5000;
+const INITIAL_DELAY = 1200;
+
+// ─── Définition des groupes de SVGs ───
+const svgGroupsData = [
+  // Groupe 1
+  [
+    '/assets/Chance-friend.svg',
+    '/assets/Louisiana.svg',
+    '/assets/Message one (2).svg',
+    '/assets/Message two.svg',
+  ],
+  // Groupe 2
+  [
+    '/assets/Maris.svg',
+    '/assets/Tania.svg',
+    '/assets/Message three.svg',
+    '/assets/Message four.svg',
+  ],
+  // Groupe 3
+  [
+    '/assets/Chance-friend.svg',
+    '/assets/Tania.svg',
+    '/assets/Message five.svg',
+    '/assets/Message two.svg',
+  ],
+];
+
+// ─── Positions fixes pour chaque groupe ───
+const getFixedPositions = (groupIndex: number) => {
+  const offsets = [
+    { top: 12, left: 4 },   // Groupe 1
+    { top: 8, left: 6 },    // Groupe 2
+    { top: 15, left: 3 },   // Groupe 3
+  ];
+  const off = offsets[groupIndex % offsets.length];
+
+  return [
+    { top: `${off.top}%`, left: `${off.left}%`, right: undefined, bottom: undefined },
+    { top: `${off.top + 38}%`, left: `${off.left + 2}%`, right: undefined, bottom: undefined },
+    { top: `${off.top + 4}%`, left: undefined, right: `${off.left + 2}%`, bottom: undefined },
+    { top: `${off.top + 42}%`, left: undefined, right: `${off.left}%`, bottom: undefined },
+  ];
+};
+
+// ─── Tailles et rotations fixes ───
+const getSvgStyles = (index: number) => {
+  const sizes = [
+    'clamp(90px, 14vw, 220px)',
+    'clamp(80px, 12vw, 180px)',
+    'clamp(100px, 15vw, 240px)',
+    'clamp(85px, 13vw, 190px)',
+  ];
+  const rotations = [-8, 6, -12, 10];
+  const delays = [0.2, 1.0, 0.5, 1.5];
+  return {
+    size: sizes[index % sizes.length],
+    rotation: rotations[index % rotations.length],
+    delay: delays[index % delays.length],
+  };
+};
 
 const LandingPage: React.FC = () => {
+  const router = useRouter();
+  const handleJoin = () => {
+  router.push('/sign-up');
+};
   const [isNavVisible, setIsNavVisible] = useState(false);
   const heroRef = useRef<HTMLElement | null>(null);
   const featureRef = useRef<HTMLElement | null>(null);
   const heroSvgsRef = useRef<(HTMLImageElement | null)[]>([]);
   const featureSvgsRef = useRef<(HTMLImageElement | null)[]>([]);
 
+  // ─── Références pour le mockup ───
+  const chatBodyRef = useRef<HTMLDivElement>(null);
+  const typingIndicatorRef = useRef<HTMLDivElement>(null);
+  const conversationTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // ─── Références pour l'effet "follow cursor" ───
+  const heroContentRef = useRef<HTMLDivElement>(null);
+  const featureContentRef = useRef<HTMLDivElement>(null);
+
   const DAMPING = 0.08;
 
-  // ── Scroll navbar ──
+  // ─── État du slider ───
+  const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  // ─── État du mockup ───
+  const [currentConvIndex, setCurrentConvIndex] = useState(0);
+  const [msgIndex, setMsgIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(true);
+
+  // ─── État pour l'effet "follow cursor" ───
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [targetPos, setTargetPos] = useState({ x: 0, y: 0 });
+
+  // ─── Conversations ───
+  const conversations = useMemo(() => [
+    // Conversation 1 – Flirt
+    [
+      { sender: 'Anonyme', text: 'J’aime tes yeux, ils sont beaux à regarder.', time: '21:04', type: 'received' },
+      { sender: 'Moi', text: 'Ah bon ? Tu me connais ?', time: '21:05', type: 'sent' },
+      { sender: 'Anonyme', text: 'Je te vois tous les jours à la fac, tu es toujours seul à la bibliothèque.', time: '21:07', type: 'received' },
+      { sender: 'Moi', text: 'Et tu n’oses pas venir me parler ?', time: '21:08', type: 'sent' },
+      { sender: 'Anonyme', text: 'Pas encore. Mais peut-être un jour, si tu réponds à ce message.', time: '21:10', type: 'received' }
+    ],
+    // Conversation 2 – Humour
+    [
+      { sender: 'Anonyme', text: 'Ton chien est trop mignon !', time: '18:23', type: 'received' },
+      { sender: 'Moi', text: 'Mais je n’ai pas de chien…', time: '18:24', type: 'sent' },
+      { sender: 'Anonyme', text: 'Ah mince, je me suis trompé de personne !', time: '18:25', type: 'received' },
+      { sender: 'Moi', text: 'Haha, mais tu peux garder le compliment, je le prends.', time: '18:26', type: 'sent' },
+      { sender: 'Anonyme', text: 'Bon, alors ton sourire est mignon aussi, même sans chien.', time: '18:28', type: 'received' }
+    ],
+    // Conversation 3 – Sincère
+    [
+      { sender: 'Anonyme', text: 'Je voulais te dire que tu es la personne la plus intéressante que j’ai rencontrée.', time: '23:12', type: 'received' },
+      { sender: 'Moi', text: 'C’est gentil… mais qui es-tu ?', time: '23:13', type: 'sent' },
+      { sender: 'Anonyme', text: 'Quelqu’un qui t’observe depuis longtemps, sans oser te parler.', time: '23:15', type: 'received' },
+      { sender: 'Moi', text: 'Ça fait un peu flippant, non ?', time: '23:16', type: 'sent' },
+      { sender: 'Anonyme', text: 'Pas de panique, je suis inoffensif. Juste un admirateur timide.', time: '23:18', type: 'received' }
+    ]
+  ], []);
+
+  // ─── Changement du slider toutes les 10 secondes ───
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIsTransitioning(true);
+      setTimeout(() => {
+        setCurrentGroupIndex((prev) => (prev + 1) % svgGroupsData.length);
+        setIsTransitioning(false);
+      }, 600);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // ─── Scroll navbar ──
   useEffect(() => {
     const handleScroll = () => {
       setIsNavVisible(window.scrollY > 100);
@@ -20,9 +155,9 @@ const LandingPage: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // ── Fade‑in de tous les SVGs ──
+  // ─── Fade‑in de tous les SVGs ──
   useEffect(() => {
-    const svgs = document.querySelectorAll('.svg-deco, .svg-feature');
+    const svgs = document.querySelectorAll('.svg-deco, .svg-feature, .slider-svg');
     svgs.forEach((el, i) => {
       const delay = 100 + i * 120;
       setTimeout(() => {
@@ -31,7 +166,35 @@ const LandingPage: React.FC = () => {
     });
   }, []);
 
-  // ── Parallax pour le bloc héro ──
+  // ─── Effet "follow cursor" ──
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      const x = (e.clientX / window.innerWidth - 0.5) * 2;
+      const y = (e.clientY / window.innerHeight - 0.5) * 2;
+      setTargetPos({ x, y });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
+  // ─── Animation de suivi du curseur ───
+  useEffect(() => {
+    let frameId: number;
+
+    const animate = () => {
+      setMousePos((prev) => ({
+        x: prev.x + (targetPos.x - prev.x) * DAMPING * 1.5, // sensibilité augmentée
+        y: prev.y + (targetPos.y - prev.y) * DAMPING * 1.5,
+      }));
+      frameId = requestAnimationFrame(animate);
+    };
+
+    animate();
+    return () => cancelAnimationFrame(frameId);
+  }, [targetPos]);
+
+  // ─── Parallax héro ──
   const heroTarget = useRef({ x: 0.5, y: 0.5 });
   const heroCurrent = useRef({ x: 0.5, y: 0.5 });
   const heroFrame = useRef<number | null>(null);
@@ -48,7 +211,7 @@ const LandingPage: React.FC = () => {
     heroTarget.current.y = 0.5;
   }, []);
 
-  // ── Parallax pour le bloc features ──
+  // ── Parallax features ──
   const featureTarget = useRef({ x: 0.5, y: 0.5 });
   const featureCurrent = useRef({ x: 0.5, y: 0.5 });
   const featureFrame = useRef<number | null>(null);
@@ -65,6 +228,7 @@ const LandingPage: React.FC = () => {
     featureTarget.current.y = 0.5;
   }, []);
 
+  // ── Animation parallax ──
   useEffect(() => {
     const hero = heroRef.current;
     if (hero) {
@@ -78,7 +242,7 @@ const LandingPage: React.FC = () => {
     }
 
     const heroIntensities = [20, 14, 18, 12];
-    const featureIntensities = [18, 18, 14, 14]; // légèrement augmentées pour les plus grands SVGs
+    const featureIntensities = [18, 18, 14, 14];
 
     function animate() {
       // Hero
@@ -120,7 +284,99 @@ const LandingPage: React.FC = () => {
     };
   }, [handleHeroMove, handleHeroLeave, handleFeatureMove, handleFeatureLeave]);
 
-  // ── Idées de jeux ──
+  // ─── Fonctions du mockup ───
+  const addMessage = useCallback((msg: any) => {
+    if (!chatBodyRef.current) return;
+    const div = document.createElement('div');
+    div.className = `message ${msg.type}`;
+    div.innerHTML = `
+      <span class="sender">${msg.sender}</span>
+      ${msg.text}
+      <span class="time">${msg.time}</span>
+    `;
+    chatBodyRef.current.insertBefore(div, typingIndicatorRef.current);
+    chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
+  }, []);
+
+  const clearChat = useCallback(() => {
+    if (!chatBodyRef.current) return;
+    const messages = chatBodyRef.current.querySelectorAll('.message');
+    messages.forEach(el => el.remove());
+    if (typingIndicatorRef.current) {
+      typingIndicatorRef.current.style.display = 'none';
+    }
+  }, []);
+
+  // ─── Fonction récursive pour afficher le prochain message ───
+  const showNextMessage = useCallback(() => {
+    const conv = conversations[currentConvIndex];
+    if (!conv || msgIndex >= conv.length) {
+      // Fin de la conversation : pause puis prochaine
+      conversationTimerRef.current = setTimeout(() => {
+        setCurrentConvIndex((prev) => (prev + 1) % conversations.length);
+        setMsgIndex(0);
+        clearChat();
+        // Lancer la prochaine conversation après un court délai
+        conversationTimerRef.current = setTimeout(() => {
+          setIsPlaying(true);
+          showNextMessage();
+        }, 500);
+      }, PAUSE_BETWEEN_CONVERSATIONS);
+      return;
+    }
+
+    const msg = conv[msgIndex];
+    const isReceived = msg.type === 'received';
+
+    if (isReceived) {
+      // Afficher l'indicateur de frappe
+      if (typingIndicatorRef.current) {
+        typingIndicatorRef.current.style.display = 'flex';
+      }
+      if (chatBodyRef.current) {
+        chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
+      }
+
+      // Après le typing, ajouter le message
+      conversationTimerRef.current = setTimeout(() => {
+        if (typingIndicatorRef.current) {
+          typingIndicatorRef.current.style.display = 'none';
+        }
+        addMessage(msg);
+        setMsgIndex((prev) => prev + 1);
+        // Planifier le message suivant
+        const delay = MIN_DELAY_BETWEEN_MSGS + Math.random() * (MAX_DELAY_BETWEEN_MSGS - MIN_DELAY_BETWEEN_MSGS);
+        conversationTimerRef.current = setTimeout(showNextMessage, delay);
+      }, TYPING_DURATION);
+    } else {
+      // Message envoyé : ajout direct
+      addMessage(msg);
+      setMsgIndex((prev) => prev + 1);
+      const delay = MIN_DELAY_BETWEEN_MSGS + Math.random() * (MAX_DELAY_BETWEEN_MSGS - MIN_DELAY_BETWEEN_MSGS);
+      conversationTimerRef.current = setTimeout(showNextMessage, delay);
+    }
+  }, [currentConvIndex, msgIndex, conversations, addMessage, clearChat]);
+
+  // ─── Démarrer la conversation au montage ───
+  useEffect(() => {
+    if (isPlaying) {
+      // Annuler tout timer existant
+      if (conversationTimerRef.current) {
+        clearTimeout(conversationTimerRef.current);
+        conversationTimerRef.current = null;
+      }
+      // Démarrer après un délai initial
+      conversationTimerRef.current = setTimeout(showNextMessage, INITIAL_DELAY);
+    }
+    return () => {
+      if (conversationTimerRef.current) {
+        clearTimeout(conversationTimerRef.current);
+        conversationTimerRef.current = null;
+      }
+    };
+  }, [isPlaying, showNextMessage]);
+
+  // ─── Idées de jeux ──
   const gameIdeas = [
     'Envoie un message à ton crush',
     'Demande un avis sincère',
@@ -131,7 +387,7 @@ const LandingPage: React.FC = () => {
   ];
   const duplicatedIdeas = [...gameIdeas, ...gameIdeas];
 
-  // ── Bouton "Action" ──
+  // ─── Bouton "Action" ──
   const handleMouseMoveBtn = (e: React.MouseEvent<HTMLButtonElement>) => {
     const btn = e.currentTarget;
     const rect = btn.getBoundingClientRect();
@@ -146,6 +402,10 @@ const LandingPage: React.FC = () => {
     btn.style.setProperty('--x', '50%');
     btn.style.setProperty('--y', '50%');
   };
+
+  // ─── Application de l'effet "follow cursor" sur les héros ───
+  const heroTransform = `translate(${mousePos.x * 8}px, ${mousePos.y * 6}px)`;
+  const featureTransform = `translate(${mousePos.x * 6}px, ${mousePos.y * 4}px)`;
 
   return (
     <>
@@ -269,7 +529,7 @@ const LandingPage: React.FC = () => {
         }
 
         .block-1 {
-          background: linear-gradient(145deg, #FEA05C, #FC554F);
+          background: linear-gradient(145deg, #EBD38F, #FEA05C, #FC554F, #FB673F);
           min-height: 500px;
           display: flex;
           flex-direction: column;
@@ -279,20 +539,20 @@ const LandingPage: React.FC = () => {
 
         .block-features {
           background: linear-gradient(145deg, #000000, #000000);
-          min-height: 480px; /* Augmenté */
+          min-height: 480px;
           display: flex;
           align-items: center;
           justify-content: center;
           position: relative;
           overflow: hidden;
           text-align: center;
-          padding: 60px 30px; /* Augmenté */
+          padding: 60px 30px;
         }
 
         .block-features .feature-text {
           font-family: 'Outfit', sans-serif;
           font-weight: 800;
-          font-size: clamp(2.4rem, 7vw, 4.2rem); /* Augmenté */
+          font-size: clamp(2.4rem, 7vw, 4.2rem);
           line-height: 1.2;
           color: #FFFFFF;
           max-width: 800px;
@@ -300,12 +560,321 @@ const LandingPage: React.FC = () => {
           position: relative;
         }
 
+        /* ─── TROISIÈME BLOC ─── */
+        .block-3 {
+          background: linear-gradient(145deg, #000000, #000000);
+          min-height: 460px;
+          position: relative;
+          overflow: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 40px 20px;
+        }
+
+        .slider-container {
+          width: 100%;
+          max-width: 1100px;
+          height: 280px;
+          overflow: hidden;
+          position: relative;
+        }
+
+        .slider-track {
+          display: flex;
+          width: 100%;
+          height: 100%;
+          transition: transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+          will-change: transform;
+        }
+
+        .slider-group {
+          flex: 0 0 100%;
+          position: relative;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .slider-svg {
+          position: absolute;
+          pointer-events: none;
+          opacity: 0;
+          transition: opacity 0.8s ease;
+          will-change: transform;
+        }
+
+        .slider-svg.loaded {
+          opacity: 1;
+        }
+
+        .slider-svg.floating {
+          animation: float 4.5s ease-in-out infinite;
+        }
+
+        @keyframes float {
+          0%, 100% { transform: translateY(0px) rotate(var(--rot, 0deg)); }
+          50% { transform: translateY(-14px) rotate(var(--rot, 0deg)); }
+        }
+
+        .messagerie-text {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          font-family: 'Outfit', sans-serif;
+          font-weight: 800;
+          font-size: clamp(2.4rem, 7vw, 4.5rem);
+          color: #FFFFFF;
+          text-align: center;
+          z-index: 10;
+          letter-spacing: -0.02em;
+          line-height: 1.2;
+          text-shadow: 0 4px 30px rgba(0,0,0,0.8);
+          pointer-events: none;
+          width: 90%;
+          max-width: 800px;
+        }
+
+        /* ─── QUATRIÈME BLOC : Dégradé + bouton ─── */
+        .block-4 {
+          background: linear-gradient(145deg, #EBD38F, #FEA05C, #FC554F, #FB673F);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 40px 20px;
+          min-height: 600px;
+          gap: 30px;
+        }
+
+        .phone-mockup-wrapper {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .phone-mockup {
+          width: 320px;
+          background: #121212;
+          border-radius: 48px;
+          padding: 16px;
+          box-shadow: 0 30px 60px rgba(0,0,0,0.8), 0 0 0 2px #2A2A2A inset;
+          position: relative;
+        }
+
+        .phone-notch {
+          position: absolute;
+          top: 20px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 100px;
+          height: 20px;
+          background: #0A0A0A;
+          border-radius: 20px;
+          z-index: 10;
+        }
+
+        .phone-screen {
+          background: #FFFFFF;
+          border-radius: 32px;
+          overflow: hidden;
+          position: relative;
+        }
+
+        .chat-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 14px 16px 10px 16px;
+          background: #F8F8F8;
+          border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+        }
+        .chat-header .back { color: #FF4D1C; font-size: 18px; font-weight: 600; cursor: default; }
+        .chat-header .title { font-weight: 700; font-size: 16px; color: #0D0D0D; letter-spacing: -0.3px; }
+        .chat-header .title span { color: #FF4D1C; }
+        .chat-header .actions { color: #999; font-size: 18px; cursor: default; }
+
+        .chat-body {
+          padding: 12px 12px 8px 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          min-height: 400px;
+          max-height: 480px;
+          overflow-y: auto;
+          background: #FFFFFF;
+          position: relative;
+        }
+
+        .message {
+          max-width: 80%;
+          padding: 10px 14px;
+          border-radius: 18px;
+          font-size: 14px;
+          line-height: 1.4;
+          word-wrap: break-word;
+          opacity: 0;
+          transform: translateY(12px);
+          animation: messageIn 0.4s ease forwards;
+        }
+
+        .message.received {
+          align-self: flex-start;
+          background: #F1F1F1;
+          color: #0D0D0D;
+          border-bottom-left-radius: 4px;
+        }
+
+        .message.sent {
+          align-self: flex-end;
+          background: linear-gradient(135deg, #FF6B6B, #FF4D1C);
+          color: #FFFFFF;
+          border-bottom-right-radius: 4px;
+        }
+
+        .message .sender {
+          font-size: 11px;
+          font-weight: 600;
+          opacity: 0.6;
+          margin-bottom: 2px;
+          display: block;
+        }
+        .message.received .sender { color: #555; }
+        .message.sent .sender { color: rgba(255,255,255,0.7); }
+
+        .message .time {
+          font-size: 9px;
+          opacity: 0.5;
+          margin-top: 4px;
+          text-align: right;
+          display: block;
+        }
+        .message.received .time { color: #888; }
+        .message.sent .time { color: rgba(255,255,255,0.6); }
+
+        .typing-indicator {
+          align-self: flex-start;
+          background: #F1F1F1;
+          padding: 12px 16px;
+          border-radius: 18px;
+          border-bottom-left-radius: 4px;
+          display: none;
+          gap: 4px;
+          align-items: center;
+          margin-top: 4px;
+        }
+
+        .typing-indicator .dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #888;
+          animation: dotPulse 1.2s infinite ease-in-out;
+        }
+        .typing-indicator .dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator .dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes dotPulse {
+          0%, 60%, 100% { transform: scale(0.8); opacity: 0.3; }
+          30% { transform: scale(1.2); opacity: 1; }
+        }
+
+        @keyframes messageIn {
+          0% { opacity: 0; transform: translateY(12px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+
+        .chat-footer {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px 12px 14px 12px;
+          background: #FFFFFF;
+          border-top: 1px solid rgba(0, 0, 0, 0.06);
+        }
+        .chat-footer .input-field {
+          flex: 1;
+          background: #F2F2F2;
+          border: none;
+          border-radius: 24px;
+          padding: 10px 16px;
+          font-size: 13px;
+          color: #0D0D0D;
+          outline: none;
+          font-family: 'Outfit', sans-serif;
+        }
+        .chat-footer .input-field::placeholder { color: #999; }
+        .chat-footer .send-btn {
+          background: linear-gradient(135deg, #FF6B6B, #FF4D1C);
+          border: none;
+          border-radius: 50%;
+          width: 40px;
+          height: 40px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #fff;
+          font-size: 18px;
+          cursor: default;
+          flex-shrink: 0;
+        }
+
+        .chat-body::-webkit-scrollbar { width: 3px; }
+        .chat-body::-webkit-scrollbar-track { background: transparent; }
+        .chat-body::-webkit-scrollbar-thumb { background: #D0D0D0; border-radius: 10px; }
+
+        /* Bouton "Rejoins le fun" */
+        .block-4 .cta-btn {
+          background: linear-gradient(135deg, #0D0D0D, #1A1A1A);
+          color: #FFFFFF;
+          font-size: 20px;
+          padding: 16px 48px;
+          border-radius: 40px;
+          border: none;
+          cursor: pointer;
+          font-weight: 700;
+          font-family: 'Outfit', sans-serif;
+          transition: transform 0.15s, box-shadow 0.2s;
+          letter-spacing: 0.3px;
+          position: relative;
+          overflow: hidden;
+          z-index: 1;
+        }
+
+        .block-4 .cta-btn::before {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 200%;
+          height: 200%;
+          background: #FFFFFF;
+          border-radius: 50%;
+          transform: translate(-50%, -50%) scale(0);
+          transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+          z-index: -1;
+        }
+
+        .block-4 .cta-btn:hover::before {
+          transform: translate(-50%, -50%) scale(1);
+        }
+
+        .block-4 .cta-btn:hover {
+          transform: scale(1.04);
+          box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+          color: #000000;
+        }
+
+        /* ─── Autres blocs ─── */
         .hero-content {
           position: relative;
           z-index: 2;
           display: flex;
           flex-direction: column;
           flex: 1;
+          transition: transform 0.1s ease-out;
         }
 
         .navbar-inline {
@@ -321,27 +890,6 @@ const LandingPage: React.FC = () => {
           height: 34px;
           width: auto;
           flex-shrink: 0;
-        }
-
-        .nav-links-inline {
-          display: flex;
-          gap: 32px;
-          align-items: center;
-          font-family: 'Outfit', sans-serif;
-          font-weight: 600;
-          font-size: 20px;
-          color: rgba(255, 255, 255, 0.9);
-        }
-
-        .nav-links-inline a {
-          color: rgba(255, 255, 255, 0.9);
-          text-decoration: none;
-          transition: color 0.2s ease;
-          cursor: pointer;
-        }
-
-        .nav-links-inline a:hover {
-          color: #000000;
         }
 
         .hero-text {
@@ -409,7 +957,7 @@ const LandingPage: React.FC = () => {
           transition: transform 0.2s cubic-bezier(0.2, 0.6, 0.3, 1);
         }
 
-        /* SVGs bloc 2 - AGGRANDIS */
+        /* SVGs bloc 2 */
         .svg-feature {
           position: absolute;
           pointer-events: none;
@@ -458,14 +1006,6 @@ const LandingPage: React.FC = () => {
           background: linear-gradient(145deg, #EBD38F, #FEA05C);
         }
 
-        .block-3 {
-          background: linear-gradient(145deg, #FC554F, #FB673F);
-        }
-
-        .block-4 {
-          background: linear-gradient(145deg, #FB673F, #FF6B6B);
-        }
-
         .game-ideas {
           font-family: 'Outfit', sans-serif;
           padding: 6px 0 4px 0;
@@ -504,11 +1044,12 @@ const LandingPage: React.FC = () => {
           100% { transform: translateX(-50%); }
         }
 
+        /* ─── Footer ─── */
         .site-footer {
           background: #000000;
           border-top: 1px solid rgba(255, 107, 107, 0.2);
           margin-top: 40px;
-          padding: 40px 16px 30px;
+          padding: 60px 16px 40px;
           font-family: 'Outfit', sans-serif;
         }
 
@@ -517,7 +1058,7 @@ const LandingPage: React.FC = () => {
           margin: 0 auto;
           display: flex;
           flex-direction: column;
-          gap: 30px;
+          gap: 40px;
         }
 
         .footer-top {
@@ -525,37 +1066,38 @@ const LandingPage: React.FC = () => {
           justify-content: space-between;
           align-items: flex-start;
           flex-wrap: wrap;
-          gap: 30px;
+          gap: 40px;
         }
 
         .footer-brand {
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: 12px;
         }
 
         .footer-brand .logo-img {
-          height: 32px;
+          height: 40px;
           width: auto;
         }
 
         .footer-brand p {
           color: rgba(255, 255, 255, 0.4);
-          font-size: 14px;
+          font-size: 15px;
           font-weight: 400;
-          max-width: 260px;
+          max-width: 280px;
+          line-height: 1.5;
         }
 
         .footer-links {
           display: flex;
-          gap: 40px;
+          gap: 50px;
           flex-wrap: wrap;
         }
 
         .footer-links-column {
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: 12px;
         }
 
         .footer-links-column h4 {
@@ -564,7 +1106,7 @@ const LandingPage: React.FC = () => {
           font-weight: 700;
           letter-spacing: 0.5px;
           text-transform: uppercase;
-          margin-bottom: 2px;
+          margin-bottom: 4px;
         }
 
         .footer-links-column a {
@@ -589,10 +1131,10 @@ const LandingPage: React.FC = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 40px;
-          height: 40px;
+          width: 44px;
+          height: 44px;
           border-radius: 50%;
-          background: rgba(0, 0, 0, 0);
+          background: rgba(255, 255, 255, 0.06);
           color: rgba(255, 255, 255, 0.6);
           transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
           text-decoration: none;
@@ -608,12 +1150,12 @@ const LandingPage: React.FC = () => {
 
         .footer-bottom {
           border-top: 1px solid rgba(255, 255, 255, 0.06);
-          padding-top: 20px;
+          padding-top: 24px;
           display: flex;
           justify-content: space-between;
           align-items: center;
           flex-wrap: wrap;
-          gap: 12px;
+          gap: 16px;
         }
 
         .footer-bottom p {
@@ -624,7 +1166,7 @@ const LandingPage: React.FC = () => {
 
         .footer-bottom-legal {
           display: flex;
-          gap: 24px;
+          gap: 28px;
         }
 
         .footer-bottom-legal a {
@@ -646,17 +1188,33 @@ const LandingPage: React.FC = () => {
           .block-features .feature-text {
             font-size: clamp(1.8rem, 5.5vw, 3rem);
           }
+          .block-3 {
+            min-height: 380px;
+            padding: 30px 16px;
+          }
+          .slider-container {
+            height: 200px;
+          }
+          .messagerie-text {
+            font-size: clamp(1.8rem, 5vw, 3rem);
+          }
+          .block-4 {
+            min-height: 500px;
+            padding: 30px 16px;
+          }
+          .phone-mockup {
+            width: 280px;
+            padding: 12px;
+          }
+          .chat-body {
+            min-height: 320px;
+            max-height: 380px;
+          }
 
           .navbar-inline {
             flex-direction: column;
             align-items: flex-start;
             gap: 16px;
-          }
-
-          .nav-links-inline {
-            flex-wrap: wrap;
-            gap: 18px;
-            font-size: 18px;
           }
 
           .block {
@@ -701,7 +1259,7 @@ const LandingPage: React.FC = () => {
           }
 
           .footer-links {
-            gap: 24px;
+            gap: 30px;
           }
 
           .footer-bottom {
@@ -766,6 +1324,17 @@ const LandingPage: React.FC = () => {
           .svg-7 { width: 36px; left: 3%; }
           .svg-6 { width: 45px; right: 1%; }
           .svg-8 { width: 36px; right: 3%; }
+
+          .slider-container {
+            height: 160px;
+          }
+          .phone-mockup {
+            width: 260px;
+          }
+          .chat-body {
+            min-height: 280px;
+            max-height: 340px;
+          }
         }
       `}</style>
 
@@ -773,7 +1342,9 @@ const LandingPage: React.FC = () => {
       <nav className={`navbar-fixed ${isNavVisible ? 'visible' : ''}`}>
         <div className="nav-inner">
           <img src="assets/landingpage_logo.svg" alt="TBH" className="logo-img" />
-          <button className="cta-btn">Rejoins tes potes</button>
+          <button className="cta-btn" onClick={handleJoin}>
+            Rejoins tes potes
+          </button>
         </div>
       </nav>
 
@@ -816,19 +1387,14 @@ const LandingPage: React.FC = () => {
             ref={(el) => { heroSvgsRef.current[3] = el; }}
           />
 
-          <div className="hero-content">
+          <div className="hero-content" ref={heroContentRef} style={{ transform: heroTransform }}>
             <nav className="navbar-inline">
               <img src="assets/landingpage_logo.svg" alt="TBH" className="logo-img" />
-              <div className="nav-links-inline">
-                <a href="#">À propos</a>
-                <a href="#">Blog</a>
-                <a href="#">Sécurité</a>
-                <a href="#">Contact</a>
-              </div>
               <button
                 className="cta-btn"
                 onMouseMove={handleMouseMoveBtn}
                 onMouseLeave={handleMouseLeaveBtn}
+                onClick={handleJoin}
               >
                 Rejoins tes potes
               </button>
@@ -845,7 +1411,7 @@ const LandingPage: React.FC = () => {
           </div>
         </section>
 
-        {/* NOUVEAU BLOC : features */}
+        {/* Bloc 2 (Features) */}
         <section className="block block-features" ref={featureRef}>
           <img
             src="/assets/Ana.svg"
@@ -872,27 +1438,93 @@ const LandingPage: React.FC = () => {
             ref={(el) => { featureSvgsRef.current[3] = el; }}
           />
 
-          <div className="feature-text">
-            reçois<br /> des messages<br /> anonymes<br />
-            et chat<br /> avec eux
+          <div className="feature-text" ref={featureContentRef} style={{ transform: featureTransform }}>
+            reçois des messages anonymes<br />
+            et chat avec eu
           </div>
         </section>
 
-        {/* Bloc 2 */}
-        <section className="block block-2"></section>
+        {/* Bloc 3 (Slider) */}
+        <section className="block block-3">
+          <div className="slider-container">
+            <div
+              className="slider-track"
+              style={{ transform: `translateX(-${currentGroupIndex * 100}%)` }}
+            >
+              {svgGroupsData.map((group, groupIdx) => {
+                const positions = getFixedPositions(groupIdx);
+                return (
+                  <div key={groupIdx} className="slider-group">
+                    {group.map((src, svgIdx) => {
+                      const pos = positions[svgIdx] || {};
+                      const style = getSvgStyles(svgIdx);
+                      return (
+                        <img
+                          key={svgIdx}
+                          src={src}
+                          alt=""
+                          className="slider-svg floating"
+                          style={{
+                            position: 'absolute',
+                            top: pos.top || 'auto',
+                            left: pos.left || 'auto',
+                            right: pos.right || 'auto',
+                            bottom: pos.bottom || 'auto',
+                            width: style.size,
+                            transform: `rotate(${style.rotation}deg)`,
+                            animationDelay: `${style.delay}s`,
+                            '--rot': `${style.rotation}deg`,
+                          } as React.CSSProperties}
+                        />
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div className="messagerie-text">remplie ta messagerie</div>
+        </section>
 
-        {/* Bloc 3 */}
-        <section className="block block-3"></section>
+        {/* Bloc 4 (Mockup téléphone + bouton) */}
+        <section className="block block-4">
+          <div className="phone-mockup-wrapper">
+            <div className="phone-mockup">
+              <div className="phone-notch"></div>
+              <div className="phone-screen">
 
-        {/* Bloc 4 */}
-        <section className="block block-4"></section>
+                <div className="chat-header">
+                  <span className="back">‹</span>
+                  <span className="title">Anonyme <span>·</span> TBH</span>
+                  <span className="actions">⋯</span>
+                </div>
+
+                <div className="chat-body" ref={chatBodyRef}>
+                  <div className="typing-indicator" ref={typingIndicatorRef}>
+                    <span className="dot"></span>
+                    <span className="dot"></span>
+                    <span className="dot"></span>
+                  </div>
+                </div>
+
+                <div className="chat-footer">
+                  <input type="text" className="input-field" placeholder="Écris un message..." disabled />
+                  <div className="send-btn">➤</div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          <button className="cta-btn" onClick={handleJoin}>Rejoins le fun</button>
+        </section>
       </main>
 
       <footer className="site-footer">
         <div className="footer-inner">
           <div className="footer-top">
             <div className="footer-brand">
-              <img src="assets/landingpage_logo.svg" alt="TBH" className="logo-img" />
+              <img src="assets/white_logo.svg" alt="TBH" className="logo-img" />
               <p>Des messages anonymes, des conversations sincères.</p>
             </div>
             <div className="footer-links">
@@ -910,9 +1542,7 @@ const LandingPage: React.FC = () => {
               </div>
             </div>
             <div className="footer-social">
-              <a href="#" aria-label="Instagram">IG</a>
-              <a href="#" aria-label="TikTok">TT</a>
-              <a href="#" aria-label="X">X</a>
+            
             </div>
           </div>
           <div className="footer-bottom">
