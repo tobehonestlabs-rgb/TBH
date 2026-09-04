@@ -82,7 +82,7 @@ export default function AboutPage() {
         {/* Action Button */}
         <div className="pt-12 pb-24">
           <Link href="/" className="inline-block text-sm font-black text-white bg-black px-10 py-4 rounded-2xl active:scale-95 transition-transform shadow-lg">
-            BACK TO TBH
+            RETOUR À TBH
           </Link>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
+import { useTranslation } from '@/lib/i18n'
 
 const SHARE_LINKS_TABLE = process.env.NEXT_PUBLIC_SUPABASE_SHARE_LINKS_TABLE || 'share_links'
 
@@ -19,6 +20,7 @@ function generateSlug(username: string): string {
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function OnboardingPage() {
   const router = useRouter()
+  const { t } = useTranslation()
   const [step, setStep] = useState<Step>('profile')
 
   // Step 1 state
@@ -158,8 +160,8 @@ const handleFinish = async () => {
       {step === 'profile' && (
         <div className="flex flex-col flex-1 px-7 pt-14 pb-8 overflow-y-auto">
           <div className="flex-1">
-            <h1 className="text-[28px] font-bold text-[#0D0D0D]">Almost there 👋</h1>
-            <p className="text-sm text-[#888] mt-1 mb-9">Pick a username and your birth year.</p>
+            <h1 className="text-[28px] font-bold text-[#0D0D0D]">Presque terminé 👋</h1>
+            <p className="text-sm text-[#888] mt-1 mb-9">Choisis un pseudo et ton année de naissance.</p>
 
             {/* Username input */}
             <div className="relative mb-4">
@@ -168,7 +170,7 @@ const handleFinish = async () => {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="username"
+                placeholder={t.usernamePlaceholder || 'pseudo'}
                 maxLength={30}
                 className="w-full h-[60px] pl-9 pr-4 bg-[#F5F5F5] rounded-2xl text-[#0D0D0D] font-semibold text-lg placeholder:text-[#AAAAAA] outline-none focus:ring-2 focus:ring-[#0D0D0D] transition"
               />
@@ -180,7 +182,7 @@ const handleFinish = async () => {
               className="w-full h-[60px] bg-[#F5F5F5] rounded-2xl flex items-center justify-center font-semibold text-lg transition"
               style={{ color: birthYear ? '#0D0D0D' : '#AAAAAA' }}
             >
-              {birthYear ? birthYear : 'Birth year'}
+              {birthYear ? birthYear : 'Année de naissance'}
             </button>
 
             {error && <p className="text-[#FD2A1C] text-sm mt-3 text-center">{error}</p>}
@@ -192,7 +194,7 @@ const handleFinish = async () => {
             disabled={username.trim().length < 2 || !birthYear}
             className="w-full h-[56px] rounded-[32px] bg-[#0D0D0D] text-white font-semibold text-xl disabled:bg-[#D8D8D8] transition active:scale-95 flex-shrink-0"
           >
-            Next
+            Suivant
           </button>
         </div>
       )}
@@ -216,15 +218,15 @@ const handleFinish = async () => {
               )}
             </button>
 
-            <h1 className="text-[22px] font-bold text-[#0D0D0D]">Choose a photo</h1>
-            <p className="text-sm text-[#888] mt-1 mb-6">This is what people will see.</p>
+            <h1 className="text-[22px] font-bold text-[#0D0D0D]">Choisis une photo</h1>
+            <p className="text-sm text-[#888] mt-1 mb-6">C’est ce que tes amis verront.</p>
 
             {/* Tap to choose */}
             <button
               onClick={() => fileInputRef.current?.click()}
               className="px-8 py-3 rounded-2xl bg-[#F5F5F5] text-[#0D0D0D] font-medium text-sm active:scale-95 transition"
             >
-              {imagePreview ? 'Change photo' : 'Choose from gallery'}
+              {imagePreview ? 'Changer de photo' : 'Choisir dans la galerie'}
             </button>
 
             <input
@@ -246,7 +248,7 @@ const handleFinish = async () => {
           >
             {loading
               ? <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              : 'Finish'
+              : 'Terminer'
             }
           </button>
 
@@ -256,7 +258,7 @@ const handleFinish = async () => {
             disabled={loading}
             className="mt-3 text-sm text-[#AAAAAA] underline flex-shrink-0"
           >
-            Skip for now
+            Passer cette étape
           </button>
         </div>
       )}
@@ -274,7 +276,7 @@ const handleFinish = async () => {
               <div className="w-11 h-[5px] rounded-full bg-[#555]" />
             </div>
 
-            <p className="text-white text-center text-[22px] font-bold py-4">Birth Year</p>
+            <p className="text-white text-center text-[22px] font-bold py-4">Année de naissance</p>
 
             {/* Scrollable years */}
             <div className="h-[220px] overflow-y-auto">
@@ -300,7 +302,7 @@ const handleFinish = async () => {
                 onClick={() => { setBirthYear(tempYear); setShowYearPicker(false) }}
                 className="w-full h-[56px] rounded-2xl bg-white text-black font-bold text-lg active:scale-95 transition"
               >
-                Confirm
+                Confirmer
               </button>
             </div>
           </div>

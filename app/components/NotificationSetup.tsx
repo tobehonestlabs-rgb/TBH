@@ -1,10 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslation } from '@/lib/i18n'
 
 const A2HS_PROMPT_CHOICE_KEY = 'tbh-a2hs-prompt-choice'
 
 export default function NotificationSetup() {
+  const { t } = useTranslation()
   const [showPrompt, setShowPrompt] = useState(false)
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
 
@@ -86,13 +88,13 @@ export default function NotificationSetup() {
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-3">
               <p className="m-0 text-[13px] font-extrabold text-[#0D0D0D]">TBH</p>
-              <p className="m-0 text-[11px] font-semibold text-[#9B9B9B]">now</p>
+              <p className="m-0 text-[11px] font-semibold text-[#9B9B9B]">{t.justNow || 'maintenant'}</p>
             </div>
             <p className="m-0 mt-0.5 text-[15px] font-bold leading-snug text-[#0D0D0D]">
-              Add to Home Screen
+              {t.addToHomeScreen || "Ajouter à l'écran d'accueil"}
             </p>
             <p className="m-0 mt-1 text-[13px] leading-snug text-[#666]">
-              Add TBH to your home screen for easier access to messages.
+              {t.addToHomeScreenDesc || "Ajoutez TBH à votre écran d'accueil pour accéder facilement à vos messages."}
             </p>
           </div>
         </div>
@@ -103,14 +105,14 @@ export default function NotificationSetup() {
             onClick={handleDismiss}
             className="h-12 text-[14px] font-bold text-[#777] active:bg-black/[0.04]"
           >
-            Not now
+            {t.notNow || 'Plus tard'}
           </button>
           <button
             type="button"
             onClick={handleAdd}
             className="h-12 border-l border-black/[0.06] text-[14px] font-extrabold text-[#0D0D0D] active:bg-black/[0.04]"
           >
-            Add
+            {t.add || 'Ajouter'}
           </button>
         </div>
       </div>

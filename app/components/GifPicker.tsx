@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useTranslation } from '@/lib/i18n'
 
 export type GifResult = {
   id: string
@@ -16,6 +17,7 @@ type Props = {
 const API_KEY = (process.env.NEXT_PUBLIC_GIPHY_API_KEY ?? '').trim()
 
 export default function GifPicker({ onSelect, onClose }: Props) {
+  const { t, locale } = useTranslation()
   const [query,   setQuery]   = useState('')
   const [results, setResults] = useState<GifResult[]>([])
   const [loading, setLoading] = useState(false)
@@ -24,7 +26,7 @@ export default function GifPicker({ onSelect, onClose }: Props) {
 
   const search = async (q: string) => {
     if (!API_KEY) {
-      setError('GIF search requires a valid Giphy API key.')
+      setError(locale === 'fr' ? 'La recherche de GIF nécessite une clé API Giphy valide.' : 'GIF search requires a valid Giphy API key.')
       setResults([])
       setLoading(false)
       return
@@ -43,7 +45,7 @@ export default function GifPicker({ onSelect, onClose }: Props) {
       }))
       setResults(gifs)
     } catch {
-      setError('Unable to load GIFs. Please try again later.')
+      setError(locale === 'fr' ? 'Impossible de charger les GIF. Veuillez réessayer plus tard.' : 'Unable to load GIFs. Please try again later.')
       setResults([])
     }
     setLoading(false)
@@ -75,8 +77,8 @@ export default function GifPicker({ onSelect, onClose }: Props) {
               search(query)
             }
           }}
-          placeholder="Search GIFs…"
-          aria-label="Search GIFs"
+          placeholder={t.searchGifsPlaceholder || 'Rechercher des GIF…'}
+          aria-label={t.searchGifsPlaceholder || 'Rechercher des GIF…'}
           type="search"
           autoComplete="off"
           spellCheck={false}
@@ -113,7 +115,7 @@ export default function GifPicker({ onSelect, onClose }: Props) {
             <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           </div>
         ) : results.length === 0 ? (
-          <p className="text-white/30 text-[13px] text-center py-8">No GIFs found</p>
+          <p className="text-white/30 text-[13px] text-center py-8">{t.noGifsFound || 'Aucun GIF trouvé'}</p>
         ) : (
           <div className="columns-2 gap-2">
             {results.map(gif => (

@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
 import InAppBrowserBanner from '@/app/components/InAppBrowserBanner'
 import ImageEditor from '@/app/components/ImageEditor'
-import { getStoredLocale, getT, type T } from '@/lib/i18n'
+import { getStoredLocale, getT, useTranslation, type T } from '@/lib/i18n'
 
 const SUGGESTIONS = [
   "You deserve a kiss 😘",
@@ -18,6 +18,19 @@ const SUGGESTIONS = [
   "I wish I could tell you this in person",
   "You have no idea how much you mean to me 💫",
   "I could talk to you forever and never get tired",
+]
+
+const SUGGESTIONS_FR = [
+  "Tu mérites un bisou 😘",
+  "Je t'aime vraiment bien",
+  "Tu es quelqu'un de spécial pour moi",
+  "J'adore ta façon de parler",
+  "Tu illumines ma journée juste en existant ✨",
+  "Impossible de te sortir de ma tête",
+  "Tu es tellement plus beau/belle que tu ne le penses 🌹",
+  "J'aimerais pouvoir te le dire en vrai",
+  "Tu n'imagines pas à quel point tu comptes pour moi 💫",
+  "Je pourrais te parler pendant des heures",
 ]
 
 const FLOATING_EMOJIS = [
@@ -106,7 +119,8 @@ export default function SendMessagePage() {
   const { slug } = useParams<{ slug: string }>()
   const router = useRouter()
 
-  const [t, setT] = useState<T>(() => getT(getStoredLocale()))
+  const { t, locale } = useTranslation()
+  const suggestions = locale === 'fr' ? SUGGESTIONS_FR : SUGGESTIONS
   const [recipient, setRecipient] = useState<RecipientProfile | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -141,9 +155,6 @@ export default function SendMessagePage() {
     ((e.currentTarget as HTMLButtonElement).style.transform = 'scale(0.96)')
   const btnRelease = (e: React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement>) =>
     ((e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)')
-
-  // Resolve locale once on client
-  useEffect(() => { setT(getT(getStoredLocale())) }, [])
 
   // Fetch IP and country eagerly on mount
   useEffect(() => {
@@ -200,10 +211,10 @@ export default function SendMessagePage() {
     if (!agreedToTerms) return
     const interval = setInterval(() => {
       setSuggVisible(false)
-      setTimeout(() => { setSuggIndex(i => (i + 1) % SUGGESTIONS.length); setSuggVisible(true) }, 400)
+      setTimeout(() => { setSuggIndex(i => (i + 1) % suggestions.length); setSuggVisible(true) }, 400)
     }, 5000)
     return () => clearInterval(interval)
-  }, [agreedToTerms])
+  }, [agreedToTerms, suggestions.length])
 
   // Live count ticker on success screen
   useEffect(() => {
@@ -409,7 +420,7 @@ export default function SendMessagePage() {
             <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', textAlign: 'center', margin: 0 }}>
               {t.deliveredTo}{' '}
               <span style={{ color: accentColor, fontWeight: '700' }}>@{recipient?.username ?? slug}</span>{' '}
-              was delivered.
+              {locale === 'fr' ? 'a été envoyé.' : 'was delivered.'}
             </p>
 
             {/* Live count */}
@@ -556,7 +567,7 @@ export default function SendMessagePage() {
             minHeight: '38px', margin: 0,
             transition: 'opacity 0.4s ease', opacity: suggVisible ? 1 : 0,
           }}>
-            {SUGGESTIONS[suggIndex]}
+            {suggestions[suggIndex % suggestions.length]}
           </p>
 
           {/* Textarea */}
@@ -595,8 +606,8 @@ export default function SendMessagePage() {
                 }} />
               </div>
               <div style={{ flex: 1 }}>
-                <p style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>Photo</p>
-                <p style={{ margin: 0, fontSize: '11px', color: 'rgba(255,255,255,0.3)', marginTop: '2px' }}>Ready to send</p>
+                <p style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>{t.photo || 'Photo'}</p>
+                <p style={{ margin: 0, fontSize: '11px', color: 'rgba(255,255,255,0.3)', marginTop: '2px' }}>{locale === 'fr' ? 'Prête à envoyer' : 'Ready to send'}</p>
               </div>
               <button
                 type="button"
@@ -608,7 +619,7 @@ export default function SendMessagePage() {
                   cursor: 'pointer', fontSize: '13px', fontWeight: '700',
                   display: 'flex', alignItems: 'center', gap: '5px', fontFamily: font,
                 }}
-              >✏️ Edit</button>
+              >✏️ {t.edit || (locale === 'fr' ? 'Modifier' : 'Edit')}</button>
               {/* Remove button */}
               <button
                 type="button"

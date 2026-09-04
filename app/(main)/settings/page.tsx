@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
+import { useTranslation } from '@/lib/i18n'
 
 export default function SettingsPage() {
   const router = useRouter()
+  const { t } = useTranslation()
   const [username, setUsername] = useState('')
   const [pfp, setPfp] = useState<string | null>(null)
   const [slug, setSlug] = useState<string | null>(null)
@@ -64,7 +66,7 @@ export default function SettingsPage() {
             <path d="M15 18l-6-6 6-6" stroke="#0D0D0D" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
-        <h1 className="text-[22px] font-extrabold text-[#0D0D0D] tracking-tight">Settings</h1>
+        <h1 className="text-[22px] font-extrabold text-[#0D0D0D] tracking-tight">{t.settings || 'Paramètres'}</h1>
       </div>
 
       <div className="flex flex-col px-5 gap-7 pb-16 pt-2">
@@ -104,13 +106,13 @@ export default function SettingsPage() {
               onClick={() => router.push('/edit')}
               className="px-4 py-2 rounded-full bg-white text-[#0D0D0D] text-[13px] font-bold active:scale-95 transition-transform flex-shrink-0"
             >
-              Edit
+              {t.edit || 'Modifier'}
             </button>
           </div>
         </div>
 
         {/* ── Account section ── */}
-        <Section label="Account">
+        <Section label={t.account || 'Compte'}>
           <SettingsRow
             icon={
               <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
@@ -118,14 +120,14 @@ export default function SettingsPage() {
                 <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" stroke="#0D0D0D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             }
-            label="Edit profile"
-            sublabel="Change your username and photo"
+            label={t.editProfile || 'Modifier le profil'}
+            sublabel={t.changeUsernameAndPhoto || 'Changer ton pseudo et ta photo'}
             onClick={() => router.push('/edit')}
           />
         </Section>
 
         {/* ── Resources section ── */}
-        <Section label="Resources">
+        <Section label={t.resources || 'Ressources'}>
           <SettingsRow
             icon={
               <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
@@ -134,8 +136,8 @@ export default function SettingsPage() {
                 <line x1="12" y1="17" x2="12.01" y2="17" stroke="#0D0D0D" strokeWidth="2" strokeLinecap="round"/>
               </svg>
             }
-            label="How to share"
-            sublabel="Learn how to post your link"
+            label={t.howToShare || 'Comment partager'}
+            sublabel={t.learnHowToPost || 'Apprends à publier ton lien'}
             onClick={() => router.push('/guide')}
             divider
           />
@@ -153,7 +155,7 @@ export default function SettingsPage() {
           />
           <SettingsRow
             icon={<img src="/assets/social_media_icons/X.svg" className="w-[18px] h-[18px] object-contain" alt="" />}
-            label="Follow us on X"
+            label={t.followUsOnX || 'Suivez-nous sur X'}
             sublabel="@tbh_studio"
             onClick={() => window.open('https://x.com/tbh_studio', '_blank')}
             external
@@ -179,7 +181,7 @@ export default function SettingsPage() {
               )}
             </div>
             <span className="text-[15px] font-semibold text-[#FF3B30]">
-              {loggingOut ? 'Logging out...' : 'Log out'}
+              {loggingOut ? 'Déconnexion…' : 'Se déconnecter'}
             </span>
           </button>
         </Section>

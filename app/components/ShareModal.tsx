@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { useTranslation } from '@/lib/i18n'
 
 interface ShareModalProps {
   isOpen: boolean
@@ -8,6 +9,7 @@ interface ShareModalProps {
 }
 
 export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
+  const { t, locale } = useTranslation()
   if (!isOpen) return null
 
   return (
@@ -21,28 +23,40 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
           <div className="w-12 h-1 bg-gray-200 rounded-full mb-8" />
 
           <h2 className="text-3xl font-black tracking-tighter leading-none mb-6 italic">
-            HOW TO SHARE
+            {t.howToShareTitle || (locale === 'fr' ? 'COMMENT PARTAGER' : 'HOW TO SHARE')}
           </h2>
 
           <div className="w-full space-y-6 text-left mb-8">
             <div className="flex gap-4">
               <div className="flex-shrink-0 w-6 h-6 rounded-full bg-black text-white flex items-center justify-center text-[10px] font-black">1</div>
               <p className="text-sm font-bold text-gray-500 leading-tight">
-                Your link is already <span className="text-black">copied to your clipboard.</span>
+                {locale === 'fr' ? (
+                  <>Ton lien est déjà <span className="text-black">copié dans ton presse-papier.</span></>
+                ) : (
+                  <>Your link is already <span className="text-black">copied to your clipboard.</span></>
+                )}
               </p>
             </div>
 
             <div className="flex gap-4">
               <div className="flex-shrink-0 w-6 h-6 rounded-full bg-black text-white flex items-center justify-center text-[10px] font-black">2</div>
               <p className="text-sm font-bold text-gray-500 leading-tight">
-                Pick your app below and <span className="text-black">paste the link</span> using the sticker or paperclip tool.
+                {locale === 'fr' ? (
+                  <>Choisis ton app ci-dessous et <span className="text-black">colle le lien</span> avec le sticker ou trombone.</>
+                ) : (
+                  <>Pick your app below and <span className="text-black">paste the link</span> using the sticker or paperclip tool.</>
+                )}
               </p>
             </div>
 
             <div className="flex gap-4">
               <div className="flex-shrink-0 w-6 h-6 rounded-full bg-black text-white flex items-center justify-center text-[10px] font-black">3</div>
               <p className="text-sm font-bold text-gray-500 leading-tight">
-                Overlay your <span className="text-black">saved image</span> and post!
+                {locale === 'fr' ? (
+                  <>Superpose ton <span className="text-black">image enregistrée</span> et publie !</>
+                ) : (
+                  <>Overlay your <span className="text-black">saved image</span> and post!</>
+                )}
               </p>
             </div>
           </div>
@@ -51,7 +65,7 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
             onClick={onClose}
             className="w-full h-14 bg-black text-white rounded-2xl font-black text-sm tracking-widest active:scale-95 transition-transform"
           >
-            LET'S GO
+            {locale === 'fr' ? "C'EST PARTI" : "LET'S GO"}
           </button>
         </div>
       </div>

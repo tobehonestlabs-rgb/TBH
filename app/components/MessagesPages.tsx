@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { supabaseClient } from '@/lib/supabaseClient'
 import { apiFetch } from '@/lib/api'
-import { getT } from '@/lib/i18n'
+import { getT, useTranslation } from '@/lib/i18n'
 import InsightsMap from './InsightsMap'
 import GifPicker, { GifResult } from './GifPicker'
 import TBHProScreen from './TBHProScreen'
@@ -950,7 +950,7 @@ type ConvMsg = {
 
 export default function MessagesPage({ onUnreadChange, isActive, profile }: Props) {
   const isPro = !!profile?.active_subscription
-  const t = getT()
+  const { t } = useTranslation()
   const [messages, setMessages]         = useState<Message[]>([])
   const [loading, setLoading]           = useState(true)
   const [selectedMsg, setSelectedMsg]   = useState<Message | null>(null)
@@ -1377,8 +1377,8 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
         <img src="/assets/BrokenHeart.svg" alt="" style={{ width: '56px', height: '56px' }} />
-        <p className="text-[18px] font-bold text-[#888]">No messages yet</p>
-        <p className="text-[13px] text-[#AAA]">Share your link to receive some!</p>
+        <p className="text-[18px] font-bold text-[#888]">{t.noMessagesYetInbox || 'Pas encore de messages'}</p>
+        <p className="text-[13px] text-[#AAA]">{t.shareLinkToReceive || 'Partage ton lien pour en recevoir !'}</p>
       </div>
     )
   }
@@ -1408,8 +1408,8 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
               <div className="flex-1 min-w-0">
                 {!msg.isOpened ? (
                   <>
-                    <p className="text-[16px] font-bold" style={{ background: 'linear-gradient(90deg, #FF6B6B, #4D96FF)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>New message</p>
-                    <p className="text-[12px] text-[#888]">{hasImage ? 'Photo' : 'Tap to read'}</p>
+                    <p className="text-[16px] font-bold" style={{ background: 'linear-gradient(90deg, #FF6B6B, #4D96FF)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{t.newMessage || 'Nouveau message'}</p>
+                    <p className="text-[12px] text-[#888]">{hasImage ? (t.photo || 'Photo') : (t.tapToRead || 'Appuie pour lire')}</p>
                   </>
                 ) : (
                   <>
@@ -1441,7 +1441,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
           >
             {/* Top bar */}
             <div className="flex items-center justify-between px-5 pt-4 pb-2 flex-shrink-0">
-              <button onClick={handleReport} className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform" style={{ background: '#FFF0EE' }} title="Report">
+              <button onClick={handleReport} className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform" style={{ background: '#FFF0EE' }} title={t.report || 'Signaler'}>
                 <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
                   <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" stroke="#FF3B30" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   <line x1="4" y1="22" x2="4" y2="15" stroke="#FF3B30" strokeWidth="2" strokeLinecap="round"/>
@@ -1467,16 +1467,10 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                       <div className="overflow-hidden rounded-[28px] bg-white shadow-[0_24px_60px_rgba(0,0,0,0.18),0_8px_20px_rgba(0,0,0,0.12)] mb-3">
                         <div className="bg-[#111111] px-5 py-4 text-center">
                           <span className="inline-flex items-center rounded-full bg-white/10 px-4 py-2 text-[12px] font-bold text-white/75">
-                            🔒&nbsp; Anonymous message
+                            🔒&nbsp; Envoie moi un message anonyme et on chat anonymement
                           </span>
                         </div>
-                        <div className="bg-white px-6 py-6">
-                          <div className="mb-5 rounded-[14px] bg-[#111111] px-4 py-3 text-center">
-                            <span className="text-[13px] font-bold leading-tight text-white">
-                              Envoie moi un message anonyme et on chat anonymement!!
-                            </span>
-                          </div>
-
+                        <div className="bg-white px-6 py-6 min-h-[140px] flex flex-col justify-center items-center">
                           {isImageMessage && imageUrl && (
                             <>
                               <div
@@ -1491,8 +1485,8 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                                   <img src={imageUrl} alt="" className="w-full h-full object-cover" style={{ filter: imageBlurred ? 'blur(10px)' : 'none', transition: 'filter 0.3s' }} />
                                 </div>
                                 <div className="flex-1 text-left">
-                                  <p className="font-semibold text-[15px] text-[#0D0D0D]">Photo</p>
-                                  <p className="text-[12px] text-[#ADADAD]">Tap to view fullscreen</p>
+                                  <p className="font-semibold text-[15px] text-[#0D0D0D]">{t.photo || 'Photo'}</p>
+                                  <p className="text-[12px] text-[#ADADAD]">{t.photoTapFullscreen || 'Appuie pour agrandir'}</p>
                                 </div>
                                 <button
                                   onClick={e => { e.stopPropagation(); setImageBlurred(b => !b) }}
@@ -1510,8 +1504,8 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                               {/* Blur photo in shared/reply cards — separate from the in-app preview toggle above */}
                               <div className="w-full flex items-center justify-between px-4 py-3.5 rounded-[22px] mb-4" style={{ background: '#F7F7F9' }}>
                                 <div>
-                                  <p className="text-[14px] font-semibold text-[#0D0D0D]">Blur photo when sharing</p>
-                                  <p className="text-[11px] text-[#ADADAD]">Hides it in the exported card</p>
+                                  <p className="text-[14px] font-semibold text-[#0D0D0D]">{t.blurPhotoWhenSharing || 'Flouter la photo lors du partage'}</p>
+                                  <p className="text-[11px] text-[#ADADAD]">{t.hidesInExportedCard || 'La masque dans la carte exportée'}</p>
                                 </div>
                                 <BlurPhotoSwitch
                                   checked={blurSharedPhoto}
@@ -1528,7 +1522,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                               {textContent}
                             </p>
                           ) : (
-                            <p className="text-center italic text-black/40">No message content</p>
+                            <p className="text-center italic text-black/40">{t.noMessageContent || 'Aucun contenu de message'}</p>
                           )}
                         </div>
                       </div>
@@ -1541,7 +1535,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                         className="w-full py-3.5 rounded-[22px] mb-3 text-center font-semibold text-[15px] text-[#0D0D0D] active:scale-[0.98] transition-transform"
                         style={{ background: '#F7F7F9' }}
                       >
-                        Who sent this👀
+                        {t.whoSentThisBtn || 'Qui a envoyé ça 👀'}
                       </button>
 
                       {/* Chat */}
@@ -1550,7 +1544,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                         className="w-full py-3.5 rounded-[22px] mb-5 text-center font-bold text-[15px] text-white active:scale-[0.98] transition-transform"
                         style={{ background: '#0D0D0D' }}
                       >
-                        Chat👀
+                        {t.chatBtn || 'Chat 👀'}
                       </button>
                     </>
                   ) : (
@@ -1561,7 +1555,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                         className="flex items-center gap-1.5 text-[#ADADAD] text-[13px] mb-4 active:opacity-60"
                       >
                         <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7" stroke="#ADADAD" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        Back
+                        {t.back || 'Retour'}
                       </button>
                       {textContent && (
                         <div className="w-full rounded-[20px] px-4 py-3.5 mb-4" style={{ background: '#F7F7F9' }}>
@@ -1575,24 +1569,24 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                           onClick={() => { setReplyMode('text'); setSelectedGif(null); setShowGifPicker(false) }}
                           className="flex-1 py-2.5 rounded-full text-[14px] font-semibold transition-all"
                           style={{ background: replyMode === 'text' ? '#0D0D0D' : '#F2F2F2', color: replyMode === 'text' ? '#FFF' : '#888' }}
-                        >Text</button>
+                        >{t.text || 'Texte'}</button>
                         <button
                           onClick={() => { setReplyMode('gif'); setShowGifPicker(true) }}
                           className="flex-1 py-2.5 rounded-full text-[14px] font-semibold transition-all"
                           style={{ background: replyMode === 'gif' ? '#0D0D0D' : '#F2F2F2', color: replyMode === 'gif' ? '#FFF' : '#888' }}
-                        >GIF 🎬</button>
+                        >{t.gif || 'GIF'} 🎬</button>
                         <button
                           onClick={() => { setReplyMode('photo') }}
                           className="flex-1 py-2.5 rounded-full text-[14px] font-semibold transition-all"
                           style={{ background: replyMode === 'photo' ? '#0D0D0D' : '#F2F2F2', color: replyMode === 'photo' ? '#FFF' : '#888' }}
-                        >Photo 📷</button>
+                        >{t.photoMode || 'Photo 📷'}</button>
                       </div>
 
                       {replyMode === 'text' ? (
                         <>
                           <textarea
                             value={replyText} onChange={e => setReplyText(e.target.value)}
-                            placeholder="Write your reply…" autoFocus rows={4}
+                            placeholder={t.typeReply || 'Écris ta réponse…'} autoFocus rows={4}
                             disabled={replySending}
                             className="w-full rounded-[20px] bg-[#F7F7F9] px-4 py-3.5 text-[16px] text-[#0D0D0D] outline-none resize-none mb-3 disabled:opacity-60"
                             style={{ fontFamily: 'inherit' }}
@@ -1605,14 +1599,14 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                             <button
                               onClick={() => { setSelectedGif(null); setGifCardBlob(null); setShowGifPicker(true) }}
                               className="w-full py-2.5 rounded-full bg-[#F2F2F2] text-[#555] text-[14px] font-semibold mb-3 active:scale-95 transition-transform"
-                            >Change GIF</button>
+                            >{t.changeGif || 'Changer le GIF'}</button>
                           </>
                         ) : (
                           <button
                             onClick={() => setShowGifPicker(true)}
                             className="w-full py-4 rounded-[20px] mb-3 text-[15px] font-semibold text-[#555] active:scale-95 transition-transform"
                             style={{ background: '#F7F7F9' }}
-                          >🎬 Pick a GIF</button>
+                          >{t.pickAGif || '🎬 Choisir un GIF'}</button>
                         )
                       ) : replyMode === 'photo' ? (
                         selectedPhoto ? (
@@ -1621,13 +1615,13 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                             <button
                               onClick={() => { setSelectedPhoto(null); setPhotoPreview(null); setPhotoCardBlob(null) }}
                               className="w-full py-2.5 rounded-full bg-[#F2F2F2] text-[#555] text-[14px] font-semibold mb-3 active:scale-95 transition-transform"
-                            >Change Photo</button>
+                            >{t.changePhoto || 'Changer de photo'}</button>
                           </>
                         ) : (
                           <label className="w-full py-4 rounded-[20px] mb-3 text-[15px] font-semibold text-[#555] active:scale-95 transition-transform flex items-center justify-center cursor-pointer"
                             style={{ background: '#F7F7F9' }}
                           >
-                            📷 Pick a Photo
+                            {t.pickAPhoto || '📷 Choisir une photo'}
                             <input
                               type="file"
                               accept="image/*"
@@ -1666,7 +1660,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                           >
                             {replySending || preparing
                               ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                              : replyMode === 'gif' ? t.shareGifReply : replyMode === 'photo' ? 'Share Photo Reply' : t.shareReply
+                              : replyMode === 'gif' ? t.shareGifReply : replyMode === 'photo' ? (t.sharePhotoReply || 'Partager la réponse photo') : t.shareReply
                             }
                           </button>
                         )
@@ -1681,37 +1675,37 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                 <div className="px-5 pt-3 pb-6 slide-from-right">
                   <button onClick={() => setShowInsights(false)} className="flex items-center gap-1.5 text-[#ADADAD] text-[13px] mb-5 active:opacity-60">
                     <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7" stroke="#ADADAD" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    Back to message
+                    {t.backToMessage || 'Retour au message'}
                   </button>
 
-                  <p className="text-[21px] font-extrabold text-[#0D0D0D] tracking-tight mb-1">Sender Insights</p>
-                  <p className="text-[13px] text-[#ADADAD] mb-5">Approximate information based on network data</p>
+                  <p className="text-[21px] font-extrabold text-[#0D0D0D] tracking-tight mb-1">{t.senderInsights || "Infos sur l'expéditeur"}</p>
+                  <p className="text-[13px] text-[#ADADAD] mb-5">{t.approximateInfo || 'Informations approximatives basées sur les données réseau'}</p>
 
                   <div className="flex flex-col gap-2.5 mb-4">
                     {/* Location */}
                     <div className="rounded-[22px] px-4 py-4" style={{ background: '#F7F7F9' }}>
-                      <p className="text-[10px] font-semibold text-[#ADADAD] uppercase tracking-widest mb-2">Location</p>
+                      <p className="text-[10px] font-semibold text-[#ADADAD] uppercase tracking-widest mb-2">{t.location || 'Localisation'}</p>
                       <p className="text-[17px] font-bold text-[#0D0D0D]">
-                        {[selectedMsg.city, selectedMsg.country].filter(Boolean).join(', ') || 'Unknown'}
+                        {[selectedMsg.city, selectedMsg.country].filter(Boolean).join(', ') || (t.unknown || 'Inconnu')}
                       </p>
                       {selectedMsg.region && <p className="text-[12px] text-[#ADADAD] mt-0.5">{selectedMsg.region}</p>}
                     </div>
 
                     {/* IP */}
                     <div className="rounded-[22px] px-4 py-4" style={{ background: '#F7F7F9' }}>
-                      <p className="text-[10px] font-semibold text-[#ADADAD] uppercase tracking-widest mb-1.5">IP Address</p>
+                      <p className="text-[10px] font-semibold text-[#ADADAD] uppercase tracking-widest mb-1.5">{t.ipAddress || 'Adresse IP'}</p>
                       <p className="text-[16px] font-mono font-bold text-[#0D0D0D]">
                         {selectedMsg.ip_address
                           ? selectedMsg.ip_address.split('.').slice(0, 3).join('.') + '.*'
-                          : 'Not available'}
+                          : (t.notAvailable || 'Indisponible')}
                       </p>
                     </div>
 
                     {/* Device */}
                     {(selectedMsg.phone_type || selectedMsg.browser_name) && (
                       <div className="rounded-[22px] px-4 py-4" style={{ background: '#F7F7F9' }}>
-                        <p className="text-[10px] font-semibold text-[#ADADAD] uppercase tracking-widest mb-1.5">Device</p>
-                        <p className="text-[16px] font-bold text-[#0D0D0D]">{selectedMsg.phone_type ?? 'Unknown'}</p>
+                        <p className="text-[10px] font-semibold text-[#ADADAD] uppercase tracking-widest mb-1.5">{t.device || 'Appareil'}</p>
+                        <p className="text-[16px] font-bold text-[#0D0D0D]">{selectedMsg.phone_type ?? (t.unknown || 'Inconnu')}</p>
                         {selectedMsg.browser_name && (
                           <p className="text-[12px] text-[#ADADAD] mt-0.5">{selectedMsg.browser_name}</p>
                         )}
@@ -1720,7 +1714,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
 
                     {/* Message count */}
                     <div className="rounded-[22px] px-4 py-4" style={{ background: '#F7F7F9' }}>
-                      <p className="text-[10px] font-semibold text-[#ADADAD] uppercase tracking-widest mb-1.5">Messages from this sender</p>
+                      <p className="text-[10px] font-semibold text-[#ADADAD] uppercase tracking-widest mb-1.5">{t.messagesFromThisSender || 'Messages de cet expéditeur'}</p>
                       <p className="text-[26px] font-extrabold text-[#0D0D0D]">
                         {loadingInsights ? '—' : senderCount !== null ? senderCount : '—'}
                       </p>
@@ -1737,12 +1731,12 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                     </div>
                   ) : (
                     <div className="w-full rounded-[22px] mb-5 flex items-center justify-center border border-[#EBEBEB]" style={{ height: 80 }}>
-                      <p className="text-[13px] text-[#ADADAD]">Location map not available</p>
+                      <p className="text-[13px] text-[#ADADAD]">{t.locationMapNotAvailable || 'Carte de localisation indisponible'}</p>
                     </div>
                   )}
 
                   <button onClick={() => isPro ? startConversation() : setShowProScreen(true)} className="w-full py-[15px] rounded-full bg-[#0D0D0D] text-white font-bold text-[15px] active:scale-95 transition-transform">
-                    Chat👀
+                    {t.chatBtn || 'Chat 👀'}
                   </button>
                 </div>
               )}
@@ -1756,12 +1750,12 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                     <div className="px-5 pt-2 pb-3 border-b border-[#F0F0F0] flex-shrink-0">
                       <button onClick={() => setShowConv(false)} className="flex items-center gap-1.5 text-[#ADADAD] text-[13px] py-1 active:opacity-60 mb-1">
                         <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7" stroke="#ADADAD" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        Back
+                        {t.back || 'Retour'}
                       </button>
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-[16px] font-bold text-[#0D0D0D]">Anonymous sender</p>
-                          <p className="text-[11px] text-[#ADADAD]">Private conversation</p>
+                          <p className="text-[16px] font-bold text-[#0D0D0D]">{t.anonymousSender || 'Expéditeur anonyme'}</p>
+                          <p className="text-[11px] text-[#ADADAD]">{t.privateConversation || 'Conversation privée'}</p>
                         </div>
                         <div className="w-2 h-2 rounded-full bg-[#2AC642]" />
                       </div>
@@ -1769,7 +1763,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
 
                     <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-1.5">
                       {convMsgs.length === 0 && (
-                        <p className="text-[14px] text-[#ADADAD] text-center mt-8">Start the conversation</p>
+                        <p className="text-[14px] text-[#ADADAD] text-center mt-8">{t.startTheConversation || 'Commencer la conversation'}</p>
                       )}
                       {convMsgs.map((m, i) => {
                         const isMine = m.sender_id === myId
@@ -1790,8 +1784,8 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                             {(isLastMine || (i === convMsgs.length - 1 && !isMine)) && (
                               <div className={`flex items-center gap-1 mt-0.5 px-1 ${isMine ? 'flex-row-reverse' : ''}`}>
                                 <span className="text-[10px] text-[#C8C8C8]">{timeAgo(m.created_at)}</span>
-                                {isMine && m.id === lastReadSentId && <span className="text-[10px] text-[#2AC642] font-medium">Read</span>}
-                                {isMine && m.id !== lastReadSentId && isLastMine && <span className="text-[10px] text-[#C8C8C8]">Sent</span>}
+                                {isMine && m.id === lastReadSentId && <span className="text-[10px] text-[#2AC642] font-medium">{t.readIndicator || 'Lu'}</span>}
+                                {isMine && m.id !== lastReadSentId && isLastMine && <span className="text-[10px] text-[#C8C8C8]">{t.sentIndicator || 'Envoyé'}</span>}
                               </div>
                             )}
                           </div>
@@ -1820,7 +1814,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                         <input
                           value={convInput} onChange={e => setConvInput(e.target.value)}
                           onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendConvMsg() } }}
-                          placeholder="Message…" maxLength={500}
+                          placeholder={t.messagePlaceholder || 'Message…'} maxLength={500}
                           className="flex-1 rounded-full bg-[#F5F5F5] px-4 py-3 text-[15px] text-[#0D0D0D] outline-none"
                           style={{ fontFamily: 'inherit' }}
                         />
