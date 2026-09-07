@@ -8,6 +8,7 @@ import { getT, useTranslation } from '@/lib/i18n'
 import InsightsMap from './InsightsMap'
 import GifPicker, { GifResult } from './GifPicker'
 import TBHProScreen from './TBHProScreen'
+import { extractPhotoUrls } from '@/lib/chatImages'
 
 type Message = {
   message_id: string
@@ -944,6 +945,8 @@ type ConvMsg = {
   sender_id: string
   content: string | null
   gif_url?: string | null
+  image_url?: string | null
+  photos?: string[] | string | null
   created_at: string
   is_read: boolean
 }
@@ -1114,7 +1117,13 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
     const ch = supabaseClient.channel(`conv-msg-${cid}`)
     ch
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversation_messages', filter: `conversation_id=eq.${cid}` }, payload => {
-        const m = payload.new as ConvMsg
+        const raw = payload.new as any
+        const parsedPhotos = extractPhotoUrls(raw.photos, raw.image_url)
+        const m: ConvMsg = {
+          ...raw,
+          photos: parsedPhotos,
+          image_url: raw.image_url || (parsedPhotos.length > 0 ? parsedPhotos[0] : null),
+        }
         setConvMsgs(prev => prev.find(x => x.id === m.id) ? prev : [...prev, m])
         setTimeout(() => convBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
         if (userIdRef.current && m.sender_id !== userIdRef.current) {
@@ -1309,7 +1318,15 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
       setConvId(conversation.id)
       const mRes = await apiFetch(`/api/conversations/${conversation.id}/messages`)
       const { messages: ms } = await mRes.json()
-      setConvMsgs(ms ?? [])
+      const fetched: ConvMsg[] = (ms ?? []).map((msg: any) => {
+        const parsedPhotos = extractPhotoUrls(msg.photos, msg.image_url)
+        return {
+          ...msg,
+          photos: parsedPhotos,
+          image_url: msg.image_url || (parsedPhotos.length > 0 ? parsedPhotos[0] : null),
+        }
+      })
+      setConvMsgs(fetched)
       apiFetch(`/api/conversations/${conversation.id}/read`, { method: 'POST' }).catch(() => {})
       subscribeConv(conversation.id)
       setShowConv(true)
@@ -1768,10 +1785,34 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                       {convMsgs.map((m, i) => {
                         const isMine = m.sender_id === myId
                         const isLastMine = isMine && convMsgs.slice(i + 1).every(n => n.sender_id !== myId)
+                        const photoUrls = extractPhotoUrls(m.photos, m.image_url)
                         return (
                           <div key={m.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
                             {m.gif_url ? (
                               <img src={m.gif_url} alt="GIF" className="max-w-[220px] rounded-[16px] block" style={{ border: isMine ? '2px solid rgba(255,107,107,0.3)' : '2px solid #E8E8E8' }} />
+                            ) : photoUrls.length > 0 ? (
+                              <div className="flex max-w-[220px] flex-col gap-2">
+                                {m.content && (
+                                  <div
+                                    className="px-4 py-3"
+                                    style={{
+                                      background: isMine ? '#0D0D0D' : '#F2F2F2',
+                                      borderRadius: isMine ? '20px 20px 5px 20px' : '20px 20px 20px 5px',
+                                    }}
+                                  >
+                                    <p style={{ color: isMine ? '#FFF' : '#0D0D0D', fontSize: '15px', lineHeight: '1.4' }}>{m.content}</p>
+                                  </div>
+                                )}
+                                {photoUrls.map((photoUrl) => (
+                                  <img
+                                    key={`${m.id}-${photoUrl}`}
+                                    src={photoUrl}
+                                    alt="Photo"
+                                    className="max-w-[220px] rounded-[16px] block object-cover"
+                                    style={{ border: isMine ? '2px solid rgba(255,107,107,0.3)' : '2px solid #E8E8E8' }}
+                                  />
+                                ))}
+                              </div>
                             ) : (
                               <div className="max-w-[78%] px-4 py-3"
                                 style={{

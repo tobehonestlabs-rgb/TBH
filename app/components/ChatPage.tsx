@@ -8,6 +8,7 @@ import { formatMessageTime, formatGroupLabel, groupMessagesByDate } from '@/lib/
 import GifPicker, { GifResult } from './GifPicker'
 import ImageEditor from './ImageEditor'
 import { useTranslation } from '@/lib/i18n'
+import { extractPhotoUrls } from '@/lib/chatImages'
 
 type Conversation = {
   id: string
@@ -248,7 +249,13 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
         table: 'conversation_messages',
         filter: `conversation_id=eq.${conv.id}`,
       }, payload => {
-        const newMsg = payload.new as ConvMsg
+        const rawMsg = payload.new as any
+        const parsedPhotos = extractPhotoUrls(rawMsg.photos, rawMsg.image_url)
+        const newMsg: ConvMsg = {
+          ...rawMsg,
+          photos: parsedPhotos,
+          image_url: rawMsg.image_url || (parsedPhotos.length > 0 ? parsedPhotos[0] : null),
+        }
         setMsgs(prev => {
           if (prev.find(m => m.id === newMsg.id)) return prev
           // mark for animation
@@ -287,7 +294,14 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
       try {
         const res = await apiFetch(`/api/conversations/${selectedRef.current.id}/messages`)
         const data = await res.json()
-        const fetched: ConvMsg[] = data.messages ?? []
+        const fetched: ConvMsg[] = (data.messages ?? []).map((m: any) => {
+          const parsedPhotos = extractPhotoUrls(m.photos, m.image_url)
+          return {
+            ...m,
+            photos: parsedPhotos,
+            image_url: m.image_url || (parsedPhotos.length > 0 ? parsedPhotos[0] : null),
+          }
+        })
         setMsgs(prev => {
           const existingIds = new Set(prev.map(m => m.id))
           const newOnes = fetched.filter(m => !existingIds.has(m.id))
@@ -464,11 +478,21 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
 
       const r = await apiFetch(`/api/conversations/${selected.id}/messages`, {
         method: 'POST',
-        body: JSON.stringify({ content: input.trim() || '', photos: [imageUrl] }),
+        body: JSON.stringify({
+          content: input.trim() || '',
+          image_url: imageUrl,
+          photos: [imageUrl],
+        }),
       })
       const { message } = await r.json()
       if (message) {
-        setMsgs(prev => prev.find(m => m.id === message.id) ? prev : [...prev, message])
+        const parsedPhotos = extractPhotoUrls(message.photos, message.image_url)
+        const normalizedMessage: ConvMsg = {
+          ...message,
+          photos: parsedPhotos,
+          image_url: message.image_url || (parsedPhotos.length > 0 ? parsedPhotos[0] : null),
+        }
+        setMsgs(prev => prev.find(m => m.id === normalizedMessage.id) ? prev : [...prev, normalizedMessage])
         setConvs(prev => prev.map(c => c.id === selected.id
           ? { ...c, last_message: '📷 Photo', last_message_at: new Date().toISOString() }
           : c))
@@ -717,13 +741,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                   {group.items.map((m, i) => {
                     const isMine = m.sender_id === myUserId
                     const isLastMine = isMine && group.items.slice(i + 1).every(n => n.sender_id !== myUserId)
-                    const photoUrls = Array.isArray(m.photos)
-                      ? m.photos.filter(Boolean)
-                      : typeof m.photos === 'string' && m.photos
-                        ? [m.photos]
-                        : m.image_url
-                          ? [m.image_url]
-                          : []
+                    const photoUrls = extractPhotoUrls(m.photos, m.image_url)
 
                     return (
                       <div key={m.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} ${animatingIds.has(m.id) ? 'msg-appear' : ''}`}>
