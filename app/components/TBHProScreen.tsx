@@ -1,17 +1,14 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
 import { apiFetch } from '@/lib/api'
+import { useTranslation } from '@/lib/i18n'
 
 const PREMIUM_PRICE_XOF = 625
 const PREMIUM_PRICE_DISCOUNTED_XOF = 525 // 400 for first 400 users, 525 for others
-const FEATURES = [
-  { emoji: '👁️', label: 'Sender insights', sub: 'See who sent you a message' },
-  { emoji: '💬', label: 'Private conversations', sub: 'Reply privately to any message' },
-]
 
 type Props = {
   onClose: () => void
@@ -19,6 +16,7 @@ type Props = {
 }
 
 export default function TBHProScreen({ onClose, onSuccess }: Props) {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
@@ -82,10 +80,13 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
             👑
           </div>
           <p className="text-white font-black text-[24px] tracking-tight">TBH Pro</p>
-          <p className="text-white/40 text-[13px] mt-1">One‑time unlock, forever</p>
+          <p className="text-white/40 text-[13px] mt-1">{t.cancelAnytime || 'Déblocage unique, à vie'}</p>
         </div>
         <div className="flex flex-col gap-2.5 mb-7">
-          {FEATURES.map(f => (
+          {[
+            { emoji: '👁️', label: t.senderInsights || "Infos sur l'expéditeur", sub: t.seeWhoSentIt || 'Découvre qui a envoyé ce message' },
+            { emoji: '💬', label: t.privateConversation || 'Conversation privée', sub: t.replyPrivately || 'Répondre en privé à n’importe quel message' },
+          ].map(f => (
             <div
               key={f.label}
               className="flex items-center gap-4 px-4 py-3.5 rounded-[18px]"
@@ -121,7 +122,7 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
           {loading ? (
             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
           ) : (
-            `Unlock TBH Pro — ${PREMIUM_PRICE_XOF.toLocaleString()} FCFA `
+            `${t.unlockWithPro || 'Débloquer TBH Pro'} — ${PREMIUM_PRICE_XOF.toLocaleString()} FCFA`
           )}
         </button>
         <p className="text-white/25 text-[11px] text-center mb-3">
@@ -131,7 +132,7 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
           onClick={onClose}
           className="w-full py-3 text-white/30 text-[13px] font-semibold active:opacity-70 transition-opacity"
         >
-          Not now
+          {t.notNow || 'Plus tard'}
         </button>
       </div>
     </div>,

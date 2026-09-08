@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
+import { useTranslation } from '@/lib/i18n'
 
 type Message = {
   message_id: string
@@ -712,6 +713,7 @@ export default function ReadMessageScreen() {
   const router = useRouter()
   const params = useParams()
   const messageId = params?.id as string
+  const { t } = useTranslation()
 
   const [message, setMessage] = useState<Message | null>(null)
   const [loading, setLoading] = useState(true)
@@ -879,8 +881,8 @@ export default function ReadMessageScreen() {
   if (!message) {
     return (
       <main className="min-h-screen bg-black flex flex-col items-center justify-center gap-3">
-        <p className="text-[18px] font-bold text-[#888]">Message not found</p>
-        <button onClick={() => router.back()} className="text-sm underline text-[#666]">Go back</button>
+        <p className="text-[18px] font-bold text-[#888]">{t.messageNotFound || 'Message introuvable'}</p>
+        <button onClick={() => router.back()} className="text-sm underline text-[#666]">{t.goBack || 'Retour'}</button>
       </main>
     )
   }
@@ -912,6 +914,7 @@ export default function ReadMessageScreen() {
         <div className="flex items-center px-4 pt-12 pb-4">
           <button
             onClick={() => router.back()}
+            aria-label={t.back || 'Retour'}
             className="w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition-transform"
             style={{ background: 'rgba(255,255,255,0.12)' }}
           >
@@ -926,19 +929,15 @@ export default function ReadMessageScreen() {
         {/* UI : card preview avec bandeau noir */}
         <div className="px-5 mb-6">
           <div className="rounded-[28px] overflow-hidden bg-white shadow-[0_24px_60px_rgba(0,0,0,0.45),0_8px_20px_rgba(0,0,0,0.25)]">
-            <div className="bg-[#111111] px-5 py-4 text-center">
-              <span className="inline-flex items-center rounded-full bg-white/10 px-4 py-2 text-[12px] font-bold text-white/75">
-                🔒&nbsp; Anonymous message
+            {/* Task 1: Black banner with specified text */}
+            <div className="bg-[#111111] px-5 py-3.5 text-center">
+              <span className="text-[14px] font-bold leading-snug text-white">
+                Envoie moi un message anonyme et on chat anonymement
               </span>
             </div>
 
-            <div className="bg-white px-6 py-6 min-h-[120px]">
-              <div className="mb-5 rounded-[14px] bg-[#111111] px-4 py-3 text-center">
-                <span className="text-[13px] font-bold leading-tight text-white">
-                  Envoie moi un message anonyme et on chat anonymement!!
-                </span>
-              </div>
-
+            {/* Task 2: White box without inner black box, clean spacing */}
+            <div className="bg-white px-6 py-6 min-h-[140px] flex flex-col justify-center items-center">
               {isImageMessage && imageUrl && (
                 <div className="w-full mb-4">
                   <div
@@ -960,8 +959,8 @@ export default function ReadMessageScreen() {
                       />
                     </div>
                     <div className="flex-1 text-left">
-                      <p className="font-semibold text-[15px] text-black">Photo</p>
-                      <p className="text-[11px] text-black/45">Tap to view fullscreen</p>
+                      <p className="font-semibold text-[15px] text-black">{t.photo || 'Photo'}</p>
+                      <p className="text-[11px] text-black/45">{t.photoTapFullscreen || 'Appuie pour agrandir'}</p>
                     </div>
                     <button
                       onClick={e => { e.stopPropagation(); setImageBlurred(!imageBlurred) }}
@@ -996,7 +995,7 @@ export default function ReadMessageScreen() {
                   {textContent}
                 </p>
               ) : (
-                <p className="text-black/40 text-center italic">No message content</p>
+                <p className="text-black/40 text-center italic">{t.noMessageContent || 'Aucun contenu de message'}</p>
               )}
             </div>
           </div>
@@ -1011,7 +1010,7 @@ export default function ReadMessageScreen() {
               className="flex-1 py-4 rounded-[32px] font-bold text-[15px] text-white active:scale-95 transition-transform"
               style={{ background: 'rgba(255,255,255,0.12)' }}
             >
-              Reply
+              {t.reply || 'Répondre'}
             </button>
             <button
               onClick={handleShareMessage}
@@ -1021,7 +1020,7 @@ export default function ReadMessageScreen() {
             >
               {(sharing || cardGenerating)
                 ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                : 'Share'
+                : (t.share || 'Partager')
               }
             </button>
           </div>
@@ -1079,9 +1078,9 @@ export default function ReadMessageScreen() {
                 <div className="w-10 h-[4px] rounded-full" style={{ background: 'rgba(255,255,255,0.25)' }} />
               </div>
               <div className="px-5">
-                <p className="text-center font-bold text-[16px] text-white mb-1">Reply publicly</p>
+                <p className="text-center font-bold text-[16px] text-white mb-1">{t.replyPublicly || 'Répondre publiquement'}</p>
                 <p className="text-center text-[12px] mb-5" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                  Your reply will be shared as a story card
+                  {t.replyPubliclySub || 'Ta réponse sera partagée sous forme de story'}
                 </p>
                 <div className="rounded-[14px] p-3 mb-4" style={{ background: 'rgba(255,255,255,0.08)' }}>
                   <p className="text-[13px] line-clamp-2" style={{ color: 'rgba(255,255,255,0.6)' }}>
@@ -1092,7 +1091,7 @@ export default function ReadMessageScreen() {
                   <textarea
                     value={replyText}
                     onChange={e => setReplyText(e.target.value)}
-                    placeholder="Your reply..."
+                    placeholder={t.yourReplyPlaceholder || 'Ta réponse…'}
                     rows={3}
                     disabled={replySending}
                     className="flex-1 rounded-[16px] px-4 py-3 text-[16px] text-white outline-none resize-none disabled:opacity-60"
@@ -1110,13 +1109,13 @@ export default function ReadMessageScreen() {
                   >
                     {replySending
                       ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      : <span style={{ fontSize: '13px', fontWeight: '800', color: 'white' }}>Go</span>
+                      : <span style={{ fontSize: '13px', fontWeight: '800', color: 'white' }}>{t.sendReplyGo || 'Envoyer'}</span>
                     }
                   </button>
                 </div>
                 {replySending && (
                   <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', marginTop: '8px', textAlign: 'center' }}>
-                    Preparing and sharing...
+                    {t.preparingAndSharing || 'Préparation et partage en cours…'}
                   </p>
                 )}
               </div>

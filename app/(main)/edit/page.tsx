@@ -3,9 +3,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
+import { useTranslation } from '@/lib/i18n'
 
 export default function EditProfilePage() {
   const router = useRouter()
+  const { t } = useTranslation()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [userId, setUserId] = useState('')
@@ -49,7 +51,7 @@ export default function EditProfilePage() {
   }
 
   const handleSave = async () => {
-    if (username.trim().length < 2) { setError('Username must be at least 2 characters.'); return }
+    if (username.trim().length < 2) { setError(t.usernameTooShort || "Le nom d'utilisateur doit contenir au moins 2 caractères."); return }
     setError(null)
     setSaving(true)
     try {
@@ -71,7 +73,7 @@ export default function EditProfilePage() {
       setSuccess(true)
       setTimeout(() => router.push('/home'), 1100)
     } catch (e: any) {
-      setError(e?.message ?? 'Something went wrong.')
+      setError(e?.message ?? (t.serverError || 'Une erreur est survenue.'))
     } finally {
       setSaving(false)
     }
@@ -105,7 +107,7 @@ export default function EditProfilePage() {
             <path d="M15 18l-6-6 6-6" stroke="#0D0D0D" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
-        <h1 className="text-[22px] font-extrabold text-[#0D0D0D] tracking-tight">Edit profile</h1>
+        <h1 className="text-[22px] font-extrabold text-[#0D0D0D] tracking-tight">{t.editProfileTitle || 'Modifier le profil'}</h1>
       </div>
 
       <div className="flex flex-col px-5 gap-4 pb-16 pt-3">
@@ -158,7 +160,7 @@ export default function EditProfilePage() {
               <p className="text-white font-extrabold text-[18px] tracking-tight truncate">
                 @{username || '...'}
               </p>
-              <p className="text-white/40 text-[12px] mt-0.5">Tap photo to change</p>
+              <p className="text-white/40 text-[12px] mt-0.5">{t.tapPhotoToChange || 'Toucher pour changer la photo'}</p>
               <div
                 className="mt-2 self-start inline-block px-3 py-1 rounded-full text-[11px] font-semibold text-white/60"
                 style={{ background: 'rgba(255,255,255,0.08)' }}
@@ -174,7 +176,7 @@ export default function EditProfilePage() {
         {/* ── Username field ── */}
         <div className="bg-white rounded-[20px] px-4 py-1" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
           <div className="flex items-center justify-between py-3 border-b border-[#F0F0F0]">
-            <span className="text-[12px] font-semibold text-[#AAA] uppercase tracking-wider">Username</span>
+            <span className="text-[12px] font-semibold text-[#AAA] uppercase tracking-wider">{t.usernameLabel || "Nom d'utilisateur"}</span>
             <span className={`text-[11px] font-medium ${username.length > 25 ? 'text-[#FF3B30]' : 'text-[#CCC]'}`}>
               {username.length}/30
             </span>
@@ -215,7 +217,7 @@ export default function EditProfilePage() {
           >
             {saving ? (
               <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : hasChanges ? 'Save changes' : 'No changes to save'}
+            ) : hasChanges ? (t.saveChanges || 'Enregistrer les modifications') : (t.noChangesToSave || 'Aucune modification')}
           </button>
         </div>
 
@@ -237,7 +239,7 @@ export default function EditProfilePage() {
               <path d="M9 12l2 2 4-4" stroke="#22C55E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
               <circle cx="12" cy="12" r="10" stroke="#22C55E" strokeWidth="2"/>
             </svg>
-            <span className="text-[#22C55E] font-semibold text-[14px]">Saved! Redirecting…</span>
+            <span className="text-[#22C55E] font-semibold text-[14px]">{t.savedRedirecting || 'Enregistré ! Redirection…'}</span>
           </div>
         )}
       </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { createClient } from '@supabase/supabase-js'
+import { extractPhotoUrls } from '@/lib/chatImages'
 
 // --------------------------------------------------------------------
 // GET : Récupère les messages d'une conversation
@@ -44,7 +45,16 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ messages: data ?? [] })
+    const messages = (data ?? []).map((msg: any) => {
+      const parsedPhotos = extractPhotoUrls(msg.photos, msg.image_url)
+      return {
+        ...msg,
+        photos: parsedPhotos,
+        image_url: msg.image_url || (parsedPhotos.length > 0 ? parsedPhotos[0] : null),
+      }
+    })
+
+    return NextResponse.json({ messages })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
@@ -81,12 +91,12 @@ export async function POST(
 
     const { content, gif_url, image_url, photos } = await req.json()
 
+    const extractedPhotos = extractPhotoUrls(photos, image_url)
     const hasText = content?.trim()?.length > 0
     const hasGif = !!gif_url
-    const hasImageUrl = !!image_url
-    const hasPhotos = photos && Array.isArray(photos) && photos.length > 0
+    const hasPhotos = extractedPhotos.length > 0
 
-    if (!hasText && !hasGif && !hasImageUrl && !hasPhotos) {
+    if (!hasText && !hasGif && !hasPhotos) {
       return NextResponse.json({ error: 'Empty message' }, { status: 400 })
     }
 
@@ -97,8 +107,10 @@ export async function POST(
     }
 
     if (hasGif) insertData.gif_url = gif_url
-    if (hasPhotos) insertData.photos = photos
-    else if (hasImageUrl) insertData.image_url = image_url
+    if (hasPhotos) {
+      insertData.photos = extractedPhotos
+      insertData.image_url = extractedPhotos[0]
+    }
 
     const { data, error } = await supabaseAdmin
       .from('conversation_messages')
@@ -114,7 +126,7 @@ export async function POST(
     let lastMessageText = '📷 Photo'
     if (hasText) lastMessageText = content.trim()
     else if (hasGif) lastMessageText = '🎬 GIF'
-    else if (hasPhotos || hasImageUrl) lastMessageText = '📷 Photo'
+    else if (hasPhotos) lastMessageText = '📷 Photo'
 
     await supabaseAdmin
       .from('conversations')
@@ -124,7 +136,14 @@ export async function POST(
       })
       .eq('id', id)
 
-    return NextResponse.json({ message: data })
+    const parsedPhotos = extractPhotoUrls(data?.photos, data?.image_url)
+    const normalizedMessage = data ? {
+      ...data,
+      photos: parsedPhotos,
+      image_url: data.image_url || (parsedPhotos.length > 0 ? parsedPhotos[0] : null),
+    } : data
+
+    return NextResponse.json({ message: normalizedMessage })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

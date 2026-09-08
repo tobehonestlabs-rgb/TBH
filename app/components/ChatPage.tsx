@@ -7,6 +7,8 @@ import { apiFetch } from '@/lib/api'
 import { formatMessageTime, formatGroupLabel, groupMessagesByDate } from '@/lib/chatUtils'
 import GifPicker, { GifResult } from './GifPicker'
 import ImageEditor from './ImageEditor'
+import { useTranslation } from '@/lib/i18n'
+import { extractPhotoUrls } from '@/lib/chatImages'
 
 type Conversation = {
   id: string
@@ -69,6 +71,7 @@ function saveLastSeen(n: Record<string, number>) {
 }
 
 export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: boolean) => void }) {
+  const { t } = useTranslation()
   const [convs, setConvs]           = useState<Conversation[]>([])
   const [loading, setLoading]       = useState(true)
   const [myUserId, setMyUserId]     = useState<string | null>(null)
@@ -246,7 +249,13 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
         table: 'conversation_messages',
         filter: `conversation_id=eq.${conv.id}`,
       }, payload => {
-        const newMsg = payload.new as ConvMsg
+        const rawMsg = payload.new as any
+        const parsedPhotos = extractPhotoUrls(rawMsg.photos, rawMsg.image_url)
+        const newMsg: ConvMsg = {
+          ...rawMsg,
+          photos: parsedPhotos,
+          image_url: rawMsg.image_url || (parsedPhotos.length > 0 ? parsedPhotos[0] : null),
+        }
         setMsgs(prev => {
           if (prev.find(m => m.id === newMsg.id)) return prev
           // mark for animation
@@ -285,7 +294,14 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
       try {
         const res = await apiFetch(`/api/conversations/${selectedRef.current.id}/messages`)
         const data = await res.json()
-        const fetched: ConvMsg[] = data.messages ?? []
+        const fetched: ConvMsg[] = (data.messages ?? []).map((m: any) => {
+          const parsedPhotos = extractPhotoUrls(m.photos, m.image_url)
+          return {
+            ...m,
+            photos: parsedPhotos,
+            image_url: m.image_url || (parsedPhotos.length > 0 ? parsedPhotos[0] : null),
+          }
+        })
         setMsgs(prev => {
           const existingIds = new Set(prev.map(m => m.id))
           const newOnes = fetched.filter(m => !existingIds.has(m.id))
@@ -462,11 +478,21 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
 
       const r = await apiFetch(`/api/conversations/${selected.id}/messages`, {
         method: 'POST',
-        body: JSON.stringify({ content: input.trim() || '', photos: [imageUrl] }),
+        body: JSON.stringify({
+          content: input.trim() || '',
+          image_url: imageUrl,
+          photos: [imageUrl],
+        }),
       })
       const { message } = await r.json()
       if (message) {
-        setMsgs(prev => prev.find(m => m.id === message.id) ? prev : [...prev, message])
+        const parsedPhotos = extractPhotoUrls(message.photos, message.image_url)
+        const normalizedMessage: ConvMsg = {
+          ...message,
+          photos: parsedPhotos,
+          image_url: message.image_url || (parsedPhotos.length > 0 ? parsedPhotos[0] : null),
+        }
+        setMsgs(prev => prev.find(m => m.id === normalizedMessage.id) ? prev : [...prev, normalizedMessage])
         setConvs(prev => prev.map(c => c.id === selected.id
           ? { ...c, last_message: '📷 Photo', last_message_at: new Date().toISOString() }
           : c))
@@ -502,9 +528,9 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="#ADADAD" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </div>
-        <p className="text-[18px] font-bold text-[#0D0D0D]">No conversations yet</p>
+        <p className="text-[18px] font-bold text-[#0D0D0D]">{t.noConversationsYet || 'Pas encore de conversations'}</p>
         <p className="text-[14px] text-[#888] leading-relaxed max-w-[260px]">
-          Open a message and tap "Start a conversation" to reply privately
+          {t.openAMessage || 'Ouvre un message et appuie sur "Commencer une conversation" pour répondre en privé'}
         </p>
       </div>
     )
@@ -560,7 +586,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                   </p>
                 </div>
                 <p className={`text-[12px] truncate ${isUnread ? 'text-[#555]' : 'text-[#ADADAD]'}`}>
-                  {conv.last_message ?? 'No messages yet'}
+                  {conv.last_message ?? (t.noMessagesYet || 'Pas encore de messages')}
                 </p>
               </div>
 
@@ -603,23 +629,23 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
             <div className="flex justify-center mb-4">
               <div className="w-10 h-1 rounded-full bg-[#DDD]" />
             </div>
-            <p className="text-[18px] font-bold text-[#0D0D0D] mb-4">Rename conversation</p>
+            <p className="text-[18px] font-bold text-[#0D0D0D] mb-4">{t.renameConversation || 'Renommer la conversation'}</p>
             <input
               autoFocus
               value={renameValue}
               onChange={e => setRenameValue(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') commitRename() }}
-              placeholder="Enter a name…"
+              placeholder={t.enterAName || 'Entrez un nom…'}
               maxLength={60}
               className="w-full rounded-[14px] bg-[#F5F5F7] px-4 py-3.5 text-[15px] text-[#0D0D0D] outline-none mb-3"
               style={{ fontFamily: 'inherit' }}
             />
             <div className="flex gap-2">
               <button onClick={() => setRenameConvId(null)} className="flex-1 py-3.5 rounded-[14px] bg-[#F2F2F7] text-[#0D0D0D] font-semibold text-[15px] active:scale-95 transition-transform">
-                Cancel
+                {t.cancel || 'Annuler'}
               </button>
               <button onClick={commitRename} className="flex-1 py-3.5 rounded-[14px] bg-[#0D0D0D] text-white font-bold text-[15px] active:scale-95 transition-transform">
-                Save
+                {t.save || 'Enregistrer'}
               </button>
             </div>
           </div>
@@ -661,7 +687,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
             </button>
             <div className="flex-1 min-w-0">
               <p className="text-[16px] font-bold text-[#0D0D0D] truncate">{convDisplayName(selected)}</p>
-              <p className="text-[11px] text-[#ADADAD]">End-to-end private conversation</p>
+              <p className="text-[11px] text-[#ADADAD]">{t.endToEndPrivate || 'Conversation privée de bout en bout'}</p>
             </div>
             {/* Rename button */}
             <button
@@ -702,7 +728,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
               </div>
             ) : msgs.length === 0 ? (
               <div className="flex-1 flex items-center justify-center pt-16">
-                <p className="text-[14px] text-[#ADADAD] text-center">No messages yet. Say hello!</p>
+                <p className="text-[14px] text-[#ADADAD] text-center">{t.noMessagesYetSayHello || 'Pas encore de messages. Dis bonjour !'}</p>
               </div>
             ) : (
               groupedMessages.map(group => (
@@ -715,13 +741,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                   {group.items.map((m, i) => {
                     const isMine = m.sender_id === myUserId
                     const isLastMine = isMine && group.items.slice(i + 1).every(n => n.sender_id !== myUserId)
-                    const photoUrls = Array.isArray(m.photos)
-                      ? m.photos.filter(Boolean)
-                      : typeof m.photos === 'string' && m.photos
-                        ? [m.photos]
-                        : m.image_url
-                          ? [m.image_url]
-                          : []
+                    const photoUrls = extractPhotoUrls(m.photos, m.image_url)
 
                     return (
                       <div key={m.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} ${animatingIds.has(m.id) ? 'msg-appear' : ''}`}>
@@ -769,10 +789,10 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                         <div className={`flex items-center gap-1 mt-0.5 px-1 ${isMine ? 'flex-row-reverse' : ''}`}>
                           <span className="text-[10px] text-[#C8C8C8]">{formatMessageTime(m.created_at)}</span>
                           {isMine && m.id === lastReadSentId && (
-                            <span className="text-[10px] text-[#2AC642] font-medium">Read</span>
+                            <span className="text-[10px] text-[#2AC642] font-medium">{t.read || 'Lu'}</span>
                           )}
                           {isMine && m.id !== lastReadSentId && isLastMine && (
-                            <span className="text-[10px] text-[#C8C8C8]">Sent</span>
+                            <span className="text-[10px] text-[#C8C8C8]">{t.sent || 'Envoyé'}</span>
                           )}
                         </div>
                       </div>
@@ -786,7 +806,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
 
             {portalTarget && showImageFull && fullImageUrl && createPortal(
               <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.9)' }} onClick={() => setShowImageFull(false)}>
-                <button onClick={() => setShowImageFull(false)} style={{ position: 'absolute', top: 20, right: 20, zIndex: 60, background: 'rgba(255,255,255,0.06)', borderRadius: '999px', padding: '8px' }}>Close</button>
+                <button onClick={() => setShowImageFull(false)} style={{ position: 'absolute', top: 20, right: 20, zIndex: 60, background: 'rgba(255,255,255,0.06)', borderRadius: '999px', padding: '8px' }}>{t.cancel || 'Fermer'}</button>
                 <img src={fullImageUrl} alt="Fullscreen" style={{ maxWidth: '95%', maxHeight: '95%', objectFit: 'contain', borderRadius: 12 }} />
               </div>,
               portalTarget,
@@ -857,7 +877,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                     }
                   } 
                 }}
-                placeholder="Message…"
+                placeholder={t.messagePlaceholder || 'Message…'}
                 maxLength={500}
                 className="flex-1 rounded-full bg-[#F5F5F5] px-4 py-3 text-[15px] text-[#0D0D0D] outline-none"
                 style={{ fontFamily: 'inherit' }}

@@ -1,3 +1,5 @@
+import { useState, useEffect, useCallback } from 'react'
+
 export type T = {
   beforeSend: string
   prohibited: string
@@ -108,6 +110,106 @@ export type T = {
   text: string
   pickAGif: string
   changeGif: string
+  // Navigation & Tabs
+  tabPlay?: string
+  tabMessages?: string
+  tabChat?: string
+  // ReadMessageScreen
+  messageNotFound?: string
+  goBack?: string
+  anonymousMessageBanner?: string
+  photoTapFullscreen?: string
+  noMessageContent?: string
+  replyPublicly?: string
+  replyPubliclySub?: string
+  yourReplyPlaceholder?: string
+  sendReplyGo?: string
+  preparingAndSharing?: string
+  shareFailed?: string
+  // TBHProScreen / Insights
+  unlockWithPro?: string
+  seeWhoSentIt?: string
+  subscribeNow?: string
+  proFeature1?: string
+  proFeature2?: string
+  proFeature3?: string
+  pricePerWeek?: string
+  cancelAnytime?: string
+  // Onboarding
+  chooseUsername?: string
+  usernamePlaceholder?: string
+  continueBtn?: string
+  usernameTaken?: string
+  // Notification / InAppBrowser
+  openInExternalBrowser?: string
+  enableNotifications?: string
+  neverMissMessage?: string
+  allow?: string
+  notNow?: string
+  // Additional SharePage
+  step1CopyLink?: string
+  step2ShareStory?: string
+  step2ShareStorySub?: string
+  cardPromptDefault?: string
+  tapToChangeText?: string
+  // Added for app-wide French localization
+  addToHomeScreen?: string
+  addToHomeScreenDesc?: string
+  add?: string
+  justNow?: string
+  openInBrowser?: string
+  openInBrowserDesc?: string
+  openInBrowserStep1Ios?: string
+  openInBrowserStep2Ios?: string
+  openInBrowserStep1Android?: string
+  openInBrowserStep2Android?: string
+  copyLinkManual?: string
+  linkCopied?: string
+  blurPhotoWhenSharing?: string
+  hidesInExportedCard?: string
+  whoSentThisBtn?: string
+  chatBtn?: string
+  photoMode?: string
+  sharePhotoReply?: string
+  changePhoto?: string
+  pickAPhoto?: string
+  startTheConversation?: string
+  readIndicator?: string
+  sentIndicator?: string
+  report?: string
+  editProfileTitle?: string
+  tapPhotoToChange?: string
+  usernameLabel?: string
+  saveChanges?: string
+  noChangesToSave?: string
+  savedRedirecting?: string
+  usernameTooShort?: string
+  howToShareTitle?: string
+  goViralTitle?: string
+  howToShareSub?: string
+  guideStep1Title?: string
+  guideStep1Desc?: string
+  guideStep2Title?: string
+  guideStep2Desc?: string
+  guideStep3Title?: string
+  guideStep3Desc?: string
+  imReadyBtn?: string
+  anonymousMessagingIsLive?: string
+  backToTBH?: string
+  searchGifsPlaceholder?: string
+  noGifsFound?: string
+  drawTool?: string
+  censorTool?: string
+  cropTool?: string
+  undoBtn?: string
+  doneBtn?: string
+  resetBtn?: string
+  applyCropBtn?: string
+  editPhotoTitle?: string
+  oneTimeUnlockForever?: string
+  offlineTitle?: string
+  offlineDesc?: string
+  retryBtn?: string
 }
 
 const en: T = {
@@ -220,6 +322,106 @@ const en: T = {
   text: 'Text',
   pickAGif: '🎬 Pick a GIF',
   changeGif: 'Change GIF',
+  // Navigation & Tabs
+  tabPlay: 'Play',
+  tabMessages: 'Messages',
+  tabChat: 'Chat',
+  // ReadMessageScreen
+  messageNotFound: 'Message not found',
+  goBack: 'Go back',
+  anonymousMessageBanner: 'Envoie moi un message anonyme et on chat anonymement',
+  photoTapFullscreen: 'Tap to view fullscreen',
+  noMessageContent: 'No message content',
+  replyPublicly: 'Reply publicly',
+  replyPubliclySub: 'Your reply will be shared as a story card',
+  yourReplyPlaceholder: 'Your reply...',
+  sendReplyGo: 'Go',
+  preparingAndSharing: 'Preparing and sharing...',
+  shareFailed: 'Share failed',
+  // TBHProScreen / Insights
+  unlockWithPro: 'Unlock with TBH Pro',
+  seeWhoSentIt: 'See who sent it',
+  subscribeNow: 'Subscribe now',
+  proFeature1: 'Reveals approximate location & device',
+  proFeature2: 'Track clues and network data',
+  proFeature3: 'Unlimited message insights',
+  pricePerWeek: 'per week',
+  cancelAnytime: 'Cancel anytime',
+  // Onboarding
+  chooseUsername: 'Choose your username',
+  usernamePlaceholder: 'username',
+  continueBtn: 'Continue',
+  usernameTaken: 'Username already taken',
+  // Notification / InAppBrowser
+  openInExternalBrowser: 'Open in external browser for the best experience',
+  enableNotifications: 'Enable notifications',
+  neverMissMessage: 'Never miss a message',
+  allow: 'Allow',
+  notNow: 'Not now',
+  // Additional SharePage
+  step1CopyLink: 'Step 1: Copy your link',
+  step2ShareStory: 'Step 2: Share on your story',
+  step2ShareStorySub: 'Paste your link on Instagram, Snapchat or TikTok',
+  cardPromptDefault: 'send me anonymous messages!',
+  tapToChangeText: 'Tap to change text',
+  // Added for app-wide French localization
+  addToHomeScreen: 'Add to Home Screen',
+  addToHomeScreenDesc: 'Add TBH to your home screen for easier access to messages.',
+  add: 'Add',
+  justNow: 'now',
+  openInBrowser: 'Open in external browser',
+  openInBrowserDesc: "browser doesn't support sign-in. Open this page in external browser to continue.",
+  openInBrowserStep1Ios: 'Tap {menu} in the top-right corner',
+  openInBrowserStep2Ios: 'Select "Open in Safari"',
+  openInBrowserStep1Android: 'Tap the menu (⋮) in the top-right corner',
+  openInBrowserStep2Android: 'Select "Open in Chrome"',
+  copyLinkManual: 'Copy link to open manually',
+  linkCopied: 'Link copied!',
+  blurPhotoWhenSharing: 'Blur photo when sharing',
+  hidesInExportedCard: 'Hides it in the exported card',
+  whoSentThisBtn: 'Who sent this👀',
+  chatBtn: 'Chat👀',
+  photoMode: 'Photo 📷',
+  sharePhotoReply: 'Share Photo Reply',
+  changePhoto: 'Change Photo',
+  pickAPhoto: '📷 Pick a Photo',
+  startTheConversation: 'Start the conversation',
+  readIndicator: 'Read',
+  sentIndicator: 'Sent',
+  report: 'Report',
+  editProfileTitle: 'Edit profile',
+  tapPhotoToChange: 'Tap photo to change',
+  usernameLabel: 'Username',
+  saveChanges: 'Save changes',
+  noChangesToSave: 'No changes to save',
+  savedRedirecting: 'Saved! Redirecting…',
+  usernameTooShort: 'Username must be at least 2 characters.',
+  howToShareTitle: 'HOW TO SHARE',
+  goViralTitle: 'GO VIRAL.',
+  howToShareSub: 'How to share your TBH link correctly:',
+  guideStep1Title: 'COPY YOUR LINK',
+  guideStep1Desc: "Your unique TBH link is the key. It's already waiting in your clipboard.",
+  guideStep2Title: 'PICK YOUR VIBE',
+  guideStep2Desc: 'Open Instagram or Snapchat. Capture or upload the card you just saved.',
+  guideStep3Title: 'STICK THE LINK',
+  guideStep3Desc: "Use the 'Link' sticker (IG) or 'Paperclip' (Snap). Paste your link and place it over the card.",
+  imReadyBtn: "I'M READY",
+  anonymousMessagingIsLive: 'Anonymous messaging is live.',
+  backToTBH: 'BACK TO TBH',
+  searchGifsPlaceholder: 'Search GIFs…',
+  noGifsFound: 'No GIFs found',
+  drawTool: 'Draw',
+  censorTool: 'Censor',
+  cropTool: 'Crop',
+  undoBtn: 'Undo',
+  doneBtn: 'Done',
+  resetBtn: 'Reset',
+  applyCropBtn: 'Apply Crop',
+  editPhotoTitle: 'Edit photo',
+  oneTimeUnlockForever: 'One-time unlock, forever',
+  offlineTitle: "You're offline",
+  offlineDesc: 'Check your connection and try again.',
+  retryBtn: 'Retry',
 }
 
 const fr: T = {
@@ -332,6 +534,106 @@ const fr: T = {
   text: 'Texte',
   pickAGif: '🎬 Choisir un GIF',
   changeGif: 'Changer le GIF',
+  // Navigation & Tabs
+  tabPlay: 'Partager',
+  tabMessages: 'Messages',
+  tabChat: 'Chat',
+  // ReadMessageScreen
+  messageNotFound: 'Message introuvable',
+  goBack: 'Retour',
+  anonymousMessageBanner: 'Envoie moi un message anonyme et on chat anonymement',
+  photoTapFullscreen: 'Appuie pour agrandir',
+  noMessageContent: 'Aucun contenu de message',
+  replyPublicly: 'Répondre publiquement',
+  replyPubliclySub: 'Ta réponse sera partagée sous forme de story',
+  yourReplyPlaceholder: 'Ta réponse…',
+  sendReplyGo: 'Envoyer',
+  preparingAndSharing: 'Préparation et partage en cours…',
+  shareFailed: 'Échec du partage',
+  // TBHProScreen / Insights
+  unlockWithPro: 'Débloquer avec TBH Pro',
+  seeWhoSentIt: 'Découvre qui a envoyé ce message',
+  subscribeNow: "S'abonner maintenant",
+  proFeature1: 'Révèle la localisation approximative et l’appareil',
+  proFeature2: 'Indices exclusifs et données réseau',
+  proFeature3: 'Indices illimités sur tous les messages',
+  pricePerWeek: 'par semaine',
+  cancelAnytime: 'Sans engagement, annule à tout moment',
+  // Onboarding
+  chooseUsername: "Choisis ton nom d'utilisateur",
+  usernamePlaceholder: 'pseudo',
+  continueBtn: 'Continuer',
+  usernameTaken: 'Ce pseudo est déjà pris',
+  // Notification / InAppBrowser
+  openInExternalBrowser: 'Ouvre dans ton navigateur pour une meilleure expérience',
+  enableNotifications: 'Activer les notifications',
+  neverMissMessage: 'Ne manque aucun message',
+  allow: 'Autoriser',
+  notNow: 'Plus tard',
+  // Additional SharePage
+  step1CopyLink: 'Étape 1 : Copie ton lien',
+  step2ShareStory: 'Étape 2 : Partage sur ta story',
+  step2ShareStorySub: 'Colle ton lien sur Instagram, Snapchat ou TikTok',
+  cardPromptDefault: 'envoie-moi des messages anonymes !',
+  tapToChangeText: 'Appuie pour modifier le texte',
+  // Added for app-wide French localization
+  addToHomeScreen: "Ajouter à l'écran d'accueil",
+  addToHomeScreenDesc: 'Ajoutez TBH à votre écran d\'accueil pour accéder facilement à vos messages.',
+  add: 'Ajouter',
+  justNow: 'maintenant',
+  openInBrowser: 'Ouvrir dans le navigateur',
+  openInBrowserDesc: "ne prend pas en charge la connexion. Ouvrez cette page dans le navigateur externe pour continuer.",
+  openInBrowserStep1Ios: 'Appuyez sur {menu} dans le coin supérieur droit',
+  openInBrowserStep2Ios: 'Sélectionnez « Ouvrir dans Safari »',
+  openInBrowserStep1Android: 'Appuyez sur le menu (⋮) dans le coin supérieur droit',
+  openInBrowserStep2Android: 'Sélectionnez « Ouvrir dans Chrome »',
+  copyLinkManual: 'Copier le lien pour ouvrir manuellement',
+  linkCopied: 'Lien copié !',
+  blurPhotoWhenSharing: 'Flouter la photo lors du partage',
+  hidesInExportedCard: 'La masque dans la carte exportée',
+  whoSentThisBtn: 'Qui a envoyé ça 👀',
+  chatBtn: 'Chat 👀',
+  photoMode: 'Photo 📷',
+  sharePhotoReply: 'Partager la réponse photo',
+  changePhoto: 'Changer de photo',
+  pickAPhoto: '📷 Choisir une photo',
+  startTheConversation: 'Commencer la conversation',
+  readIndicator: 'Lu',
+  sentIndicator: 'Envoyé',
+  report: 'Signaler',
+  editProfileTitle: 'Modifier le profil',
+  tapPhotoToChange: 'Toucher pour changer la photo',
+  usernameLabel: "Nom d'utilisateur",
+  saveChanges: 'Enregistrer les modifications',
+  noChangesToSave: 'Aucune modification',
+  savedRedirecting: 'Enregistré ! Redirection…',
+  usernameTooShort: "Le nom d'utilisateur doit contenir au moins 2 caractères.",
+  howToShareTitle: 'COMMENT PARTAGER',
+  goViralTitle: 'DEVIENS VIRAL.',
+  howToShareSub: 'Comment partager ton lien TBH correctement :',
+  guideStep1Title: 'COPIE TON LIEN',
+  guideStep1Desc: "Ton lien TBH unique est la clé. Il attend déjà dans ton presse-papier.",
+  guideStep2Title: 'CHOISIS TON STYLE',
+  guideStep2Desc: 'Ouvre Instagram ou Snapchat. Prends une photo ou importe la carte enregistrée.',
+  guideStep3Title: 'COLLE LE LIEN',
+  guideStep3Desc: "Utilise le sticker « Lien » (IG) ou « Trombone » (Snap). Colle ton lien sur la carte.",
+  imReadyBtn: 'JE SUIS PRÊT',
+  anonymousMessagingIsLive: 'La messagerie anonyme est active.',
+  backToTBH: 'RETOUR À TBH',
+  searchGifsPlaceholder: 'Rechercher des GIF…',
+  noGifsFound: 'Aucun GIF trouvé',
+  drawTool: 'Dessiner',
+  censorTool: 'Flouter',
+  cropTool: 'Recadrer',
+  undoBtn: 'Annuler',
+  doneBtn: 'Terminé',
+  resetBtn: 'Réinitialiser',
+  applyCropBtn: 'Appliquer le recadrage',
+  editPhotoTitle: 'Modifier la photo',
+  oneTimeUnlockForever: 'Déblocage unique, pour toujours',
+  offlineTitle: 'Tu es hors ligne',
+  offlineDesc: 'Vérifie ta connexion et réessaie.',
+  retryBtn: 'Réessayer',
 }
 
 const es: T = {
@@ -444,6 +746,48 @@ const es: T = {
   text: 'Texto',
   pickAGif: '🎬 Elegir un GIF',
   changeGif: 'Cambiar GIF',
+  // Navigation & Tabs
+  tabPlay: 'Jugar',
+  tabMessages: 'Mensajes',
+  tabChat: 'Chat',
+  // ReadMessageScreen
+  messageNotFound: 'Mensaje no encontrado',
+  goBack: 'Volver',
+  anonymousMessageBanner: 'Envoie moi un message anonyme et on chat anonymement',
+  photoTapFullscreen: 'Toca para ver en pantalla completa',
+  noMessageContent: 'Sin contenido de mensaje',
+  replyPublicly: 'Responder públicamente',
+  replyPubliclySub: 'Tu respuesta se compartirá como una historia',
+  yourReplyPlaceholder: 'Tu respuesta…',
+  sendReplyGo: 'Enviar',
+  preparingAndSharing: 'Preparando y compartiendo…',
+  shareFailed: 'Error al compartir',
+  // TBHProScreen / Insights
+  unlockWithPro: 'Desbloquear con TBH Pro',
+  seeWhoSentIt: 'Descubre quién lo envió',
+  subscribeNow: 'Suscribirme ahora',
+  proFeature1: 'Revela la ubicación aproximada y el dispositivo',
+  proFeature2: 'Pistas y datos de red exclusivos',
+  proFeature3: 'Pistas ilimitadas en todos los mensajes',
+  pricePerWeek: 'por semana',
+  cancelAnytime: 'Cancela cuando quieras',
+  // Onboarding
+  chooseUsername: 'Elige tu nombre de usuario',
+  usernamePlaceholder: 'usuario',
+  continueBtn: 'Continuar',
+  usernameTaken: 'Este nombre de usuario ya está en uso',
+  // Notification / InAppBrowser
+  openInExternalBrowser: 'Abre en tu navegador externo para la mejor experiencia',
+  enableNotifications: 'Activar notificaciones',
+  neverMissMessage: 'No te pierdas ningún mensaje',
+  allow: 'Permitir',
+  notNow: 'Ahora no',
+  // Additional SharePage
+  step1CopyLink: 'Paso 1: Copia tu enlace',
+  step2ShareStory: 'Paso 2: Comparte en tu historia',
+  step2ShareStorySub: 'Pega tu enlace en Instagram, Snapchat o TikTok',
+  cardPromptDefault: '¡envíame mensajes anónimos!',
+  tapToChangeText: 'Toca para cambiar el texto',
 }
 
 const pt: T = {
@@ -1568,13 +1912,177 @@ const ko: T = {
 
 export type SupportedLocale = 'en' | 'fr' | 'es'
 
+/** ISO-3166-1 alpha-2 codes of French-speaking countries and territories (including Côte d'Ivoire) */
+export const FRENCH_SPEAKING_COUNTRIES = new Set([
+  'CI', // Côte d'Ivoire / Ivory Coast
+  'FR', // France
+  'SN', // Senegal
+  'CM', // Cameroon
+  'CD', // DR Congo
+  'CG', // Republic of the Congo
+  'ML', // Mali
+  'GN', // Guinea
+  'BF', // Burkina Faso
+  'NE', // Niger
+  'BJ', // Benin
+  'TG', // Togo
+  'GA', // Gabon
+  'TD', // Chad
+  'MG', // Madagascar
+  'BE', // Belgium
+  'CH', // Switzerland
+  'CA', // Canada
+  'LU', // Luxembourg
+  'MC', // Monaco
+  'HT', // Haiti
+  'RW', // Rwanda
+  'BI', // Burundi
+  'DJ', // Djibouti
+  'KM', // Comoros
+  'CF', // Central African Republic
+  'MR', // Mauritania
+  'VU', // Vanuatu
+  'SC', // Seychelles
+  'GQ', // Equatorial Guinea
+  'GP', // Guadeloupe
+  'MQ', // Martinique
+  'GF', // French Guiana
+  'RE', // Réunion
+  'YT', // Mayotte
+  'NC', // New Caledonia
+  'PF', // French Polynesia
+])
+
+export const FRENCH_SPEAKING_TIMEZONES = new Set([
+  'africa/abidjan',
+  'europe/paris',
+  'europe/brussels',
+  'europe/zurich',
+  'europe/monaco',
+  'europe/luxembourg',
+  'africa/dakar',
+  'africa/douala',
+  'africa/kinshasa',
+  'africa/brazzaville',
+  'africa/bamako',
+  'africa/conakry',
+  'africa/ouagadougou',
+  'africa/niamey',
+  'africa/porto-novo',
+  'africa/lome',
+  'africa/libreville',
+  'africa/ndjamena',
+  'africa/bangui',
+  'africa/nouakchott',
+  'africa/kigali',
+  'africa/bujumbura',
+  'africa/djibouti',
+  'indian/antananarivo',
+  'indian/reunion',
+  'indian/mayotte',
+  'america/port-au-prince',
+  'america/cayenne',
+  'america/guadeloupe',
+  'america/martinique',
+  'pacific/noumea',
+  'pacific/tahiti',
+])
+
+export function isFrenchSpeakingCountry(code?: string | null): boolean {
+  if (!code) return false
+  return FRENCH_SPEAKING_COUNTRIES.has(code.trim().toUpperCase())
+}
+
+export function isFrenchSpeakingTimezone(tz?: string | null): boolean {
+  if (!tz) return false
+  const lower = tz.trim().toLowerCase()
+  if (FRENCH_SPEAKING_TIMEZONES.has(lower)) return true
+  if (lower === 'africa/abidjan' || lower === 'europe/paris' || lower === 'america/montreal') return true
+  return false
+}
+
+export function detectUserLocale(): SupportedLocale {
+  if (typeof window === 'undefined') return 'en'
+
+  // 1. Explicit user selection stored in localStorage
+  const storedLocale = window.localStorage.getItem('tbh-locale')
+  if (storedLocale === 'fr' || storedLocale === 'es' || storedLocale === 'en') {
+    return storedLocale
+  }
+
+  // 2. Cached country from /api/geo
+  const storedCountry = window.localStorage.getItem('tbh-country')
+  if (storedCountry && isFrenchSpeakingCountry(storedCountry)) {
+    return 'fr'
+  }
+
+  // 3. Instant client-side timezone check (e.g. Africa/Abidjan for Côte d'Ivoire)
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+    if (isFrenchSpeakingTimezone(tz)) {
+      return 'fr'
+    }
+  } catch {}
+
+  // 4. Browser language preferences (navigator.languages / navigator.language)
+  try {
+    const langs = window.navigator.languages?.length ? window.navigator.languages : [window.navigator.language]
+    for (const l of langs) {
+      if (!l) continue
+      const lower = l.toLowerCase().replace('_', '-')
+      if (lower.startsWith('fr')) return 'fr'
+      if (lower.startsWith('es')) return 'es'
+      const parts = lower.split('-')
+      if (parts[1] && isFrenchSpeakingCountry(parts[1])) return 'fr'
+    }
+  } catch {}
+
+  return 'en'
+}
+
+let geoInitPromise: Promise<void> | null = null
+
+export function initGeoLocale(): Promise<void> {
+  if (typeof window === 'undefined') return Promise.resolve()
+  if (geoInitPromise) return geoInitPromise
+
+  geoInitPromise = (async () => {
+    try {
+      const userManual = window.localStorage.getItem('tbh-locale-manual')
+      if (userManual) return
+
+      const res = await fetch('/api/geo').catch(() => null)
+      if (!res || !res.ok) return
+      const data = await res.json().catch(() => null)
+      const country = data?.country
+      if (!country || typeof country !== 'string') return
+
+      window.localStorage.setItem('tbh-country', country.toUpperCase())
+
+      if (isFrenchSpeakingCountry(country)) {
+        const current = window.localStorage.getItem('tbh-locale')
+        if (current !== 'fr') {
+          window.localStorage.setItem('tbh-locale', 'fr')
+          window.dispatchEvent(new CustomEvent('tbh-locale-changed', { detail: 'fr' }))
+        }
+      }
+    } catch {}
+  })()
+
+  return geoInitPromise
+}
+
 export function normalizeLocale(value?: string | null): SupportedLocale {
-  const raw = (value ?? (typeof navigator !== 'undefined' ? navigator.language : 'en') ?? 'en')
-    .toLowerCase()
-    .replace('_', '-')
+  if (!value) return detectUserLocale()
+  const raw = value.toLowerCase().replace('_', '-')
 
   if (raw.startsWith('fr')) return 'fr'
   if (raw.startsWith('es')) return 'es'
+
+  const parts = raw.split('-')
+  if (parts[1] && isFrenchSpeakingCountry(parts[1])) return 'fr'
+  if (isFrenchSpeakingCountry(raw)) return 'fr'
+
   return 'en'
 }
 
@@ -1582,12 +2090,14 @@ export function getStoredLocale(): SupportedLocale {
   if (typeof window === 'undefined') return 'en'
   const stored = window.localStorage.getItem('tbh-locale')
   if (stored === 'fr' || stored === 'es' || stored === 'en') return stored
-  return normalizeLocale(window.navigator?.language ?? 'en')
+  return detectUserLocale()
 }
 
 export function setStoredLocale(locale: SupportedLocale) {
   if (typeof window === 'undefined') return
   window.localStorage.setItem('tbh-locale', locale)
+  window.localStorage.setItem('tbh-locale-manual', 'true')
+  window.dispatchEvent(new CustomEvent('tbh-locale-changed', { detail: locale }))
 }
 
 export function getT(locale?: string | null): T {
@@ -1595,4 +2105,28 @@ export function getT(locale?: string | null): T {
   if (target === 'fr') return fr
   if (target === 'es') return es
   return en
+}
+
+export function useTranslation() {
+  const [locale, setLocaleState] = useState<SupportedLocale>(() => getStoredLocale())
+
+  useEffect(() => {
+    initGeoLocale()
+
+    const onLocaleChange = (e: any) => {
+      const next = (e?.detail as SupportedLocale) || getStoredLocale()
+      setLocaleState(next)
+    }
+    window.addEventListener('tbh-locale-changed', onLocaleChange)
+    return () => window.removeEventListener('tbh-locale-changed', onLocaleChange)
+  }, [])
+
+  const setLocale = useCallback((newLocale: SupportedLocale) => {
+    setStoredLocale(newLocale)
+    setLocaleState(newLocale)
+  }, [])
+
+  const t = getT(locale)
+
+  return { t, locale, setLocale }
 }

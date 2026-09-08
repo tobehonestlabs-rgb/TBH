@@ -9,16 +9,18 @@ import MessagesPage from '@/app/components/MessagesPages'
 import ChatPage from '@/app/components/ChatPage'
 import NotificationSetup from '@/app/components/NotificationSetup'
 import { UserProfile } from '@/types'
+import { useTranslation } from '@/lib/i18n'
  
 export default function HomePage() {
   const router = useRouter()
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState(0)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [hasUnread, setHasUnread] = useState(false)
   const [hasUnreadChat, setHasUnreadChat] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
  
-  const tabs = ['Play', 'Messages', 'Chat']
+  const tabs = [t.tabPlay || 'Partager', t.tabMessages || 'Messages', t.tabChat || 'Chat']
  
   useEffect(() => {
     const loadProfile = async () => {

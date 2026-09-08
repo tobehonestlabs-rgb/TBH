@@ -3,13 +3,16 @@
 import React from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { useTranslation } from '@/lib/i18n'
 
 export default function HowToSharePage() {
+  const { t } = useTranslation()
+
   const steps = [
     {
       id: 1,
-      title: "COPY YOUR LINK",
-      desc: "Your unique TBH link is the key. It's already waiting in your clipboard.",
+      title: t.guideStep1Title || 'COPIE TON LIEN',
+      desc: t.guideStep1Desc || "Ton lien TBH unique est la clé. Il attend déjà dans ton presse-papier.",
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
@@ -18,8 +21,8 @@ export default function HowToSharePage() {
     },
     {
       id: 2,
-      title: "PICK YOUR VIBE",
-      desc: "Open Instagram or Snapchat. Capture or upload the card you just saved.",
+      title: t.guideStep2Title || 'CHOISIS TON STYLE',
+      desc: t.guideStep2Desc || 'Ouvre Instagram ou Snapchat. Prends une photo ou importe la carte enregistrée.',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002-2z" />
@@ -28,8 +31,8 @@ export default function HowToSharePage() {
     },
     {
       id: 3,
-      title: "STICK THE LINK",
-      desc: "Use the 'Link' sticker (IG) or 'Paperclip' (Snap). Paste your link and place it over the card.",
+      title: t.guideStep3Title || 'COLLE LE LIEN',
+      desc: t.guideStep3Desc || "Utilise le sticker « Lien » (IG) ou « Trombone » (Snap). Colle ton lien sur la carte.",
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
@@ -55,8 +58,8 @@ export default function HowToSharePage() {
       </div>
 
       <div className="w-full max-w-md relative z-10">
-        <h1 className="text-5xl font-black tracking-tighter italic mb-2">GO VIRAL.</h1>
-        <p className="text-gray-400 font-bold mb-12 tracking-tight">How to share your TBH link correctly:</p>
+        <h1 className="text-5xl font-black tracking-tighter italic mb-2">{t.goViralTitle || 'DEVIENS VIRAL.'}</h1>
+        <p className="text-gray-400 font-bold mb-12 tracking-tight">{t.howToShareSub || 'Comment partager ton lien TBH correctement :'}</p>
 
         {/* Steps */}
         <div className="space-y-10">
@@ -79,12 +82,12 @@ export default function HowToSharePage() {
         <div className="mt-16 pt-8 border-t border-white/10">
           <Link href="/home" className="block w-full">
             <button className="w-full h-16 bg-white text-black rounded-2xl font-black text-sm tracking-[0.2em] hover:bg-orange-500 hover:text-white transition-all active:scale-95 shadow-xl">
-              I'M READY
+              {t.imReadyBtn || "JE SUIS PRÊT"}
             </button>
           </Link>
           
           <p className="mt-6 text-center text-xs text-gray-600 font-bold uppercase tracking-widest">
-            Anonymous messaging is live.
+            {t.anonymousMessagingIsLive || 'La messagerie anonyme est active.'}
           </p>
         </div>
       </div>

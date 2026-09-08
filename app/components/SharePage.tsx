@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { UserProfile } from '@/types'
 import Link from 'next/link'
 import { supabaseClient } from '@/lib/supabaseClient'
+import { useTranslation } from '@/lib/i18n'
 
 type Props = { profile: UserProfile | null }
 
@@ -569,6 +570,7 @@ async function generateShareGif(
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function SharePage({ profile }: Props) {
+  const { t } = useTranslation()
   const [copied, setCopied]               = useState(false)
   const [promptText, setPromptText]       = useState('Send me an anonymous photo/message')
   const [editingPrompt, setEditingPrompt] = useState(false)
@@ -795,7 +797,7 @@ export default function SharePage({ profile }: Props) {
           <p className="text-[13px] font-extrabold text-[#0D0D0D] tracking-tight">{selectedCard.title}</p>
           <p className="text-[11px] text-[#888] mt-0.5">{selectedCard.subtitle}</p>
         </div>
-        <span className="text-[11px] font-semibold text-[#AAA]">Change</span>
+        <span className="text-[11px] font-semibold text-[#AAA]">{t.change || 'Changer'}</span>
         <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
           <path d="M9 18l6-6-6-6" stroke="#ADADAD" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
@@ -815,7 +817,7 @@ export default function SharePage({ profile }: Props) {
           </div>
         </div>
         <p className="text-[11px] font-semibold text-[#555]">
-          The more you share, the more messages you receive from your friends
+          {t.theMoreYouShare || 'Plus tu partages, plus tu reçois de messages de tes amis'}
         </p>
       </div>
 
@@ -829,7 +831,7 @@ export default function SharePage({ profile }: Props) {
           <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="white" strokeWidth="2" strokeLinecap="round"/>
           <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="white" strokeWidth="2" strokeLinecap="round"/>
         </svg>
-        {copied ? 'Copied!' : 'Copy my link'}
+        {copied ? (t.copied || 'Copié !') : (t.copyMyLink || 'Copier mon lien')}
       </button>
 
       {/* ── Share button → opens format + color sheet ── */}
@@ -849,7 +851,7 @@ export default function SharePage({ profile }: Props) {
             <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
               <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            Share my link
+            {t.shareMyLink || 'Partager mon lien'}
           </>
         )}
       </button>
@@ -891,9 +893,9 @@ export default function SharePage({ profile }: Props) {
       <Link href="/guide" className="self-center">
         <button className="flex items-center gap-1.5 py-1 text-[13px] font-bold text-gray-400 hover:text-black active:scale-95 transition-all">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            <circle cx="12" cy="10" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
           </svg>
-          How to post my link?
+          {t.howToPostMyLink || 'Comment publier mon lien ?'}
         </button>
       </Link>
 
@@ -923,8 +925,8 @@ export default function SharePage({ profile }: Props) {
                 {/* ── Step 1: Format picker ── */}
                 {sheetStep === 'format' && (
                   <div className="slide-from-left pb-2">
-                    <p className="text-white text-center text-[20px] font-extrabold px-6 pt-3">Share Format</p>
-                    <p className="text-[#777] text-center text-[12px] mt-1 mb-5 px-6">Choose how to share your card</p>
+                    <p className="text-white text-center text-[20px] font-extrabold px-6 pt-3">{t.shareFormat || 'Format de partage'}</p>
+                    <p className="text-[#777] text-center text-[12px] mt-1 mb-5 px-6">{t.chooseHowToShare || 'Choisis comment partager ta carte'}</p>
                     <div className="flex gap-3 px-5 mb-5">
                       <button
                         onClick={() => { setShareMode('image'); setSheetStep('color') }}
@@ -939,8 +941,8 @@ export default function SharePage({ profile }: Props) {
                           <circle cx="8.5" cy="8.5" r="1.5" fill="white"/>
                           <path d="M21 15l-5-5L5 21" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
-                        <span className="text-white font-bold text-[14px]">Image</span>
-                        <span className="text-[#555] text-[11px]">Static PNG</span>
+                        <span className="text-white font-bold text-[14px]">{t.image || 'Image'}</span>
+                        <span className="text-[#555] text-[11px]">{t.staticPng || 'PNG statique'}</span>
                       </button>
                       <button
                         onClick={() => { setShareMode('gif'); setSheetStep('color') }}
@@ -955,8 +957,8 @@ export default function SharePage({ profile }: Props) {
                           <path d="M12 10v4M10 12h4" stroke="white" strokeWidth="1.6" strokeLinecap="round"/>
                           <path d="M7 10v1.5a.5.5 0 0 0 .5.5H9M17 10v4h-2" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
-                        <span className="text-white font-bold text-[14px]">GIF</span>
-                        <span className="text-[#555] text-[11px]">4s animated</span>
+                        <span className="text-white font-bold text-[14px]">{t.gif || 'GIF'}</span>
+                        <span className="text-[#555] text-[11px]">{t.animated || 'Animé 4s'}</span>
                       </button>
                     </div>
                   </div>
@@ -976,7 +978,7 @@ export default function SharePage({ profile }: Props) {
                         </svg>
                       </button>
                       <p className="text-white text-[20px] font-extrabold flex-1">
-                        {shareMode === 'gif' ? 'GIF Color' : 'Card Color'}
+                        {shareMode === 'gif' ? 'GIF Color' : (t.cardColor || 'Couleur de la carte')}
                       </p>
                       <span className="text-[11px] px-2.5 py-0.5 rounded-full font-bold" style={{ background: 'rgba(255,255,255,0.08)', color: shareMode === 'gif' ? '#FFD60A' : 'rgba(255,255,255,0.5)' }}>
                         {shareMode === 'gif' ? 'GIF' : 'PNG'}
@@ -1064,7 +1066,7 @@ export default function SharePage({ profile }: Props) {
                         <svg width="17" height="17" fill="none" viewBox="0 0 24 24">
                           <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
-                        {shareMode === 'gif' ? 'Generate & Share GIF' : 'Share this card'}
+                        {shareMode === 'gif' ? (t.shareGifReply || 'Partager la réponse GIF') : (t.share || 'Partager')}
                       </button>
                     </div>
                   </div>
@@ -1082,8 +1084,8 @@ export default function SharePage({ profile }: Props) {
           <div className="absolute inset-0 backdrop-enter" style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }} onClick={() => setEditingPrompt(false)} />
           <div className="dialog-enter relative w-[320px] bg-white rounded-[24px] p-6 flex flex-col gap-4 shadow-2xl">
             <div className="flex flex-col gap-1">
-              <p className="text-center text-[17px] font-bold text-[#0D0D0D]">Edit your message</p>
-              <p className="text-center text-[12px] text-[#888]">This shows on your share card</p>
+              <p className="text-center text-[17px] font-bold text-[#0D0D0D]">{t.editYourMessage || 'Modifier ton message'}</p>
+              <p className="text-center text-[12px] text-[#888]">{t.showsOnYourShareCard || 'Ceci apparaît sur ta carte de partage'}</p>
             </div>
             <textarea
               autoFocus
@@ -1095,8 +1097,8 @@ export default function SharePage({ profile }: Props) {
             />
             <p className="text-right text-[11px] text-[#AAA] -mt-2">{tempPrompt.length}/120</p>
             <div className="flex gap-2">
-              <button onClick={() => setEditingPrompt(false)} className="flex-1 h-[44px] rounded-[14px] bg-[#F2F2F7] text-[#666] text-[14px] font-semibold active:scale-95 transition-transform">Cancel</button>
-              <button onClick={() => { setPromptText(tempPrompt); setEditingPrompt(false) }} className="flex-1 h-[44px] rounded-[14px] bg-[#0D0D0D] text-white text-[14px] font-bold active:scale-95 transition-transform">Save</button>
+              <button onClick={() => setEditingPrompt(false)} className="flex-1 h-[44px] rounded-[14px] bg-[#F2F2F7] text-[#666] text-[14px] font-semibold active:scale-95 transition-transform">{t.cancel || 'Annuler'}</button>
+              <button onClick={() => { setPromptText(tempPrompt); setEditingPrompt(false) }} className="flex-1 h-[44px] rounded-[14px] bg-[#0D0D0D] text-white text-[14px] font-bold active:scale-95 transition-transform">{t.save || 'Enregistrer'}</button>
             </div>
           </div>
         </div>,
@@ -1111,8 +1113,8 @@ export default function SharePage({ profile }: Props) {
             <div className="relative z-10 overflow-y-auto" style={{ maxHeight: '80vh' }}>
               <div className="flex justify-center pt-3 pb-2"><div className="w-10 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.15)' }} /></div>
               <div className="px-5 pb-2">
-                <p className="text-white text-[21px] font-extrabold tracking-tight">Choose your game</p>
-                <p className="text-[#555] text-[12px] mt-0.5">Each game changes what appears on your share card</p>
+                <p className="text-white text-[21px] font-extrabold tracking-tight">{t.chooseYourGame || 'Choisis ton jeu'}</p>
+                <p className="text-[#555] text-[12px] mt-0.5">{t.eachGameChanges || 'Chaque jeu change ce qui apparaît sur ta carte de partage'}</p>
               </div>
               <div className="flex flex-col gap-2 px-5 pb-10 pt-2">
                 {ALL_CARD_TYPES.map(game => {
@@ -1158,21 +1160,21 @@ export default function SharePage({ profile }: Props) {
               <div className="w-10 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.15)' }} />
             </div>
             <div className="mb-5">
-              <p className="text-white font-extrabold text-[18px]">{shareReady.isGif ? 'GIF ready!' : 'Image ready!'}</p>
-              <p className="text-[#555] text-[12px] mt-0.5">Tap below — then pick your app from the share menu</p>
+              <p className="text-white font-extrabold text-[18px]">{shareReady.isGif ? (t.gifReady || 'GIF prêt !') : (t.imageReady || 'Image prête !')}</p>
+              <p className="text-[#555] text-[12px] mt-0.5">{t.tapToShare || 'Appuie ci-dessous — puis choisis ton app dans le menu de partage'}</p>
             </div>
             <button
               onClick={handleShareReady}
               className="w-full py-[17px] rounded-full font-extrabold text-[17px] active:scale-95 transition-transform mb-3"
               style={{ background: '#ffffff', color: '#0D0D0D' }}
             >
-              Share image + link
+              {t.shareImageAndLink || 'Partager image + lien'}
             </button>
             <button
               onClick={() => setShareReady(null)}
               className="w-full py-3 text-[#555] text-[14px] font-semibold active:opacity-70 transition-opacity"
             >
-              Cancel
+              {t.cancel || 'Annuler'}
             </button>
           </div>
         </div>,

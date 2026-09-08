@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
 import { apiFetch } from '@/lib/api'
+import { useTranslation } from '@/lib/i18n'
 
 export default function PaymentChoicePage() {
+  const { t } = useTranslation()
   const router = useRouter()
   const [loading, setLoading] = useState<'card' | 'wave' | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -65,7 +67,7 @@ export default function PaymentChoicePage() {
             👑
           </div>
           <h1 className="text-2xl font-bold">TBH Pro</h1>
-          <p className="text-white/40 text-sm">One‑time unlock, forever</p>
+          <p className="text-white/40 text-sm">{t.oneTimeUnlockForever || 'Déblocage unique, pour toujours'}</p>
           <p className="text-white/60 text-sm mt-2">Choisissez votre moyen de paiement</p>
         </div>
 

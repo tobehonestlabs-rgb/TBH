@@ -398,9 +398,9 @@ const LandingPage: React.FC = () => {
   return (
     <>
       <style>{`
-        /* ─── POLICE OUTFIT FORCÉE PARTOUT ─── */
+        /* ─── POLICE OUTFIT FORCÉE, SANS FALLBACK ─── */
         * {
-          font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif !important;
+          font-family: 'Outfit' !important;
         }
 
         body {
@@ -409,7 +409,7 @@ const LandingPage: React.FC = () => {
           min-height: 100vh;
         }
 
-        /* ─── RÉINITIALISATION POUR ÉVITER LES FUITES ─── */
+        /* ─── RÉINITIALISATION POUR TOUS LES ÉLÉMENTS TEXTUELS ─── */
         input,
         textarea,
         button,
@@ -427,7 +427,7 @@ const LandingPage: React.FC = () => {
         li,
         label,
         ::placeholder {
-          font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif !important;
+          font-family: 'Outfit' !important;
         }
 
         .navbar-fixed {
@@ -1207,7 +1207,7 @@ const LandingPage: React.FC = () => {
             height: 240px;
           }
           .slider-svg {
-            width: clamp(120px, 30vw, 200px) !important;
+            width: clamp(140px, 35vw, 240px) !important;
           }
           .messagerie-text {
             font-size: clamp(2rem, 5vw, 3rem);
@@ -1258,42 +1258,42 @@ const LandingPage: React.FC = () => {
           .svg-1 {
             top: 4%;
             left: 2%;
-            width: clamp(140px, 35vw, 240px);
+            width: clamp(160px, 40vw, 280px);
           }
           .svg-2 {
             top: 24%;
             left: 6%;
-            width: clamp(110px, 28vw, 190px);
+            width: clamp(130px, 32vw, 220px);
           }
           .svg-3 {
             top: 6%;
             right: 2%;
-            width: clamp(130px, 32vw, 220px);
+            width: clamp(150px, 38vw, 260px);
           }
           .svg-4 {
             top: 26%;
             right: 6%;
-            width: clamp(100px, 25vw, 170px);
+            width: clamp(120px, 30vw, 200px);
           }
           .svg-5 {
             top: 4%;
             left: 2%;
-            width: clamp(130px, 32vw, 220px);
+            width: clamp(150px, 38vw, 260px);
           }
           .svg-7 {
             top: 50%;
             left: 4%;
-            width: clamp(110px, 28vw, 190px);
+            width: clamp(130px, 32vw, 220px);
           }
           .svg-6 {
             top: 6%;
             right: 2%;
-            width: clamp(130px, 32vw, 220px);
+            width: clamp(150px, 38vw, 260px);
           }
           .svg-8 {
             top: 50%;
             right: 4%;
-            width: clamp(110px, 28vw, 190px);
+            width: clamp(130px, 32vw, 220px);
           }
 
           .game-ideas-item {
@@ -1392,7 +1392,7 @@ const LandingPage: React.FC = () => {
             height: 200px;
           }
           .slider-svg {
-            width: clamp(100px, 25vw, 170px) !important;
+            width: clamp(120px, 30vw, 200px) !important;
           }
           .messagerie-text {
             font-size: clamp(1.6rem, 4.5vw, 2.6rem);
@@ -1455,28 +1455,28 @@ const LandingPage: React.FC = () => {
           }
 
           .svg-1 {
-            width: clamp(100px, 28vw, 180px);
+            width: clamp(120px, 32vw, 200px);
           }
           .svg-2 {
-            width: clamp(80px, 22vw, 140px);
+            width: clamp(100px, 26vw, 160px);
           }
           .svg-3 {
-            width: clamp(90px, 26vw, 160px);
+            width: clamp(110px, 30vw, 180px);
           }
           .svg-4 {
-            width: clamp(70px, 20vw, 120px);
+            width: clamp(90px, 24vw, 140px);
           }
           .svg-5 {
-            width: clamp(90px, 26vw, 160px);
+            width: clamp(110px, 30vw, 180px);
           }
           .svg-7 {
-            width: clamp(80px, 22vw, 140px);
+            width: clamp(100px, 26vw, 160px);
           }
           .svg-6 {
-            width: clamp(90px, 26vw, 160px);
+            width: clamp(110px, 30vw, 180px);
           }
           .svg-8 {
-            width: clamp(80px, 22vw, 140px);
+            width: clamp(100px, 26vw, 160px);
           }
         }
       `}</style>
