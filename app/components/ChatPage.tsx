@@ -105,6 +105,15 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const bottomRef    = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
+
+  const scrollToBottom = useCallback((smooth = true) => {
+    if (!messagesContainerRef.current) return
+    messagesContainerRef.current.scrollTo({
+      top: messagesContainerRef.current.scrollHeight,
+      behavior: smooth ? 'smooth' : 'auto',
+    })
+  }, [])
   const channelRef   = useRef<ReturnType<typeof supabaseClient.channel> | null>(null)
   const pollRef      = useRef<ReturnType<typeof setInterval> | null>(null)
   const listPollRef  = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -236,7 +245,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
     const loaded: ConvMsg[] = d.messages ?? []
     setMsgs(loaded)
     setLoadingMsgs(false)
-    setTimeout(() => bottomRef.current?.scrollIntoView(), 50)
+    setTimeout(() => scrollToBottom(false), 50)
 
     // Mark incoming messages as read
     apiFetch(`/api/conversations/${conv.id}/read`, { method: 'POST' }).catch(() => {})
@@ -268,7 +277,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
           })
           return [...prev, newMsg]
         })
-        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+        setTimeout(() => scrollToBottom(true), 50)
         setMyUserId(uid => {
           if (uid && newMsg.sender_id !== uid) {
             apiFetch(`/api/conversations/${conv.id}/read`, { method: 'POST' }).catch(() => {})
@@ -315,7 +324,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
             setTimeout(() => setAnimatingIds(cur => { const s = new Set(cur); newOnes.forEach(n => s.delete(n.id)); return s }), 800)
             return next
           })
-          setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+          setTimeout(() => scrollToBottom(true), 50)
           return [...prev, ...newOnes]
         })
       } catch {}
@@ -381,7 +390,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
         setConvs(prev => prev.map(c => c.id === selected.id
           ? { ...c, last_message: text || 'Message', last_message_at: new Date().toISOString() }
           : c))
-        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+        setTimeout(() => scrollToBottom(true), 50)
       }
     } catch {}
     setSending(false)
@@ -402,7 +411,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
         setConvs(prev => prev.map(c => c.id === selected.id
           ? { ...c, last_message: '🎬 GIF', last_message_at: new Date().toISOString() }
           : c))
-        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+        setTimeout(() => scrollToBottom(true), 50)
       }
     } catch {}
     setSending(false)
@@ -498,7 +507,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
         setConvs(prev => prev.map(c => c.id === selected.id
           ? { ...c, last_message: '📷 Photo', last_message_at: new Date().toISOString() }
           : c))
-        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+        setTimeout(() => scrollToBottom(true), 50)
       }
 
       setSelectedImage(null)
@@ -679,9 +688,9 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
 
       {/* Conversation thread — portaled */}
       {selected && portalTarget && createPortal(
-        <div className="fixed inset-0 z-50 flex flex-col bg-white relative overflow-hidden" style={{ borderRadius: '32px 32px 0 0' }}>
-          {/* Header */}
-          <div className="flex items-center gap-3 px-5 pt-5 pb-3 border-b border-[#F2F2F2] flex-shrink-0 z-10 bg-white">
+        <div className="absolute inset-0 z-50 overflow-hidden bg-white" style={{ borderRadius: '32px 32px 0 0' }}>
+          {/* Layer 2: Fixed Top Bar (Header) */}
+          <div className="absolute top-0 left-0 right-0 z-30 flex items-center gap-3 px-5 pt-5 pb-3 border-b border-[#F2F2F2]/90 bg-white/92 backdrop-blur-md">
             <button onClick={closeConv} className="w-8 h-8 rounded-full bg-[#F5F5F5] flex items-center justify-center active:scale-90 transition-transform flex-shrink-0">
               <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
                 <path d="M19 12H5M12 5l-7 7 7 7" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -689,7 +698,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
             </button>
             <div className="flex-1 min-w-0">
               <p className="text-[16px] font-bold text-[#0D0D0D] truncate">{convDisplayName(selected)}</p>
-              <p className="text-[11px] text-[#ADADAD]">{t.endToEndPrivate || 'Conversation privée de bout en bout'}</p>
+              <p className="text-[11px] text-[#ADADAD] truncate">{t.endToEndPrivate || 'Conversation privée de bout en bout'}</p>
             </div>
             {/* 3-dots Options Menu */}
             <div className="relative flex-shrink-0">
@@ -707,8 +716,8 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
 
               {showMenu && (
                 <>
-                  <div className="fixed inset-0 z-30" onClick={() => setShowMenu(false)} />
-                  <div className="absolute right-0 top-10 z-40 w-52 rounded-[18px] bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.06)] border border-[#EFEFEF] py-1.5 overflow-hidden">
+                  <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
+                  <div className="absolute right-0 top-10 z-50 w-52 rounded-[18px] bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.06)] border border-[#EFEFEF] py-1.5 overflow-hidden">
                     <button
                       onClick={() => { setShowMenu(false); openRename(selected); }}
                       className="w-full px-4 py-3 text-left text-[14px] font-medium text-[#1C1C1E] hover:bg-[#F7F7F8] active:bg-[#EEEEF0] flex items-center gap-2.5 transition-colors"
@@ -734,8 +743,8 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
             </div>
           </div>
 
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-28 flex flex-col">
+          {/* Layer 1: Messages Stream (Full Screen Scrollable Area) */}
+          <div ref={messagesContainerRef} className="absolute inset-0 z-10 overflow-y-auto px-4 pt-20 pb-28 flex flex-col">
             <style>{`
               .msg-appear { animation: msgEnter 420ms cubic-bezier(.2,.9,.2,1); }
               @keyframes msgEnter {
@@ -870,8 +879,8 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
             portalTarget,
           )}
 
-          {/* Floating Input Pill Bar */}
-          <div className="absolute bottom-0 left-0 right-0 z-20 pointer-events-none bg-gradient-to-t from-white via-white/85 to-transparent pt-6 pb-6 px-4">
+          {/* Layer 3: Floating Input Pill Bar */}
+          <div className="absolute bottom-0 left-0 right-0 z-30 pointer-events-none bg-gradient-to-t from-white via-white/85 to-transparent pt-6 pb-6 px-4">
             {showGifPicker && (
               <div className="relative h-0 mb-[316px] pointer-events-auto">
                 <GifPicker
