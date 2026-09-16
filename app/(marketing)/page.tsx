@@ -398,9 +398,19 @@ const LandingPage: React.FC = () => {
   return (
     <>
       <style>{`
-        /* ─── POLICE OUTFIT FORCÉE, SANS FALLBACK ─── */
-        * {
-          font-family: 'Outfit' !important;
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap');
+
+        /* ─── POLICE OUTFIT FORCÉE SUR TOUTE LA LANDING PAGE ─── */
+        :root {
+          font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        html,
+        body,
+        *,
+        *::before,
+        *::after {
+          font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
         }
 
         body {
@@ -427,7 +437,7 @@ const LandingPage: React.FC = () => {
         li,
         label,
         ::placeholder {
-          font-family: 'Outfit' !important;
+          font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
         }
 
         .navbar-fixed {
