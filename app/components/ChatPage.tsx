@@ -98,9 +98,10 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
   const [showImageEditor, setShowImageEditor] = useState(false)
   const origFileRef = useRef<File | null>(null)
 
-  // Rename modal
+  // Rename modal & options menu
   const [renameConvId, setRenameConvId]   = useState<string | null>(null)
   const [renameValue, setRenameValue]     = useState('')
+  const [showMenu, setShowMenu]           = useState(false)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const bottomRef    = useRef<HTMLDivElement>(null)
@@ -328,6 +329,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
     setSelected(null)
     setMsgs([])
     setShowGifPicker(false)
+    setShowMenu(false)
     // Refresh list on close to pick up any new last_message_at
     fetchConvs()
   }
@@ -677,9 +679,9 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
 
       {/* Conversation thread — portaled */}
       {selected && portalTarget && createPortal(
-        <div className="fixed inset-0 z-50 flex flex-col bg-white" style={{ borderRadius: '32px 32px 0 0' }}>
+        <div className="fixed inset-0 z-50 flex flex-col bg-white relative overflow-hidden" style={{ borderRadius: '32px 32px 0 0' }}>
           {/* Header */}
-          <div className="flex items-center gap-3 px-5 pt-5 pb-3 border-b border-[#F2F2F2] flex-shrink-0">
+          <div className="flex items-center gap-3 px-5 pt-5 pb-3 border-b border-[#F2F2F2] flex-shrink-0 z-10 bg-white">
             <button onClick={closeConv} className="w-8 h-8 rounded-full bg-[#F5F5F5] flex items-center justify-center active:scale-90 transition-transform flex-shrink-0">
               <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
                 <path d="M19 12H5M12 5l-7 7 7 7" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -689,31 +691,51 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
               <p className="text-[16px] font-bold text-[#0D0D0D] truncate">{convDisplayName(selected)}</p>
               <p className="text-[11px] text-[#ADADAD]">{t.endToEndPrivate || 'Conversation privée de bout en bout'}</p>
             </div>
-            {/* Rename button */}
-            <button
-              onClick={() => openRename(selected)}
-              className="w-8 h-8 rounded-full bg-[#F5F5F5] flex items-center justify-center active:scale-90 transition-transform flex-shrink-0"
-            >
-              <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
-                <path d="M12 20h9" stroke="#555" strokeWidth="2" strokeLinecap="round"/>
-                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
-            <button
-              onClick={() => deleteConversation(selected.id)}
-              className="w-8 h-8 rounded-full bg-[#F5F5F5] flex items-center justify-center active:scale-90 transition-transform flex-shrink-0 ml-2"
-              title="Delete conversation"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#CC5757" strokeWidth="1.6">
-                <path d="M3 6h18" />
-                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                <path d="M10 11v6M14 11v6M9 6V4h6v2" />
-              </svg>
-            </button>
+            {/* 3-dots Options Menu */}
+            <div className="relative flex-shrink-0">
+              <button
+                onClick={() => setShowMenu(p => !p)}
+                className="w-8 h-8 rounded-full bg-[#F5F5F5] hover:bg-[#EBEBEB] flex items-center justify-center active:scale-90 transition-transform"
+                title="Options"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="1.75" fill="#444" />
+                  <circle cx="18" cy="12" r="1.75" fill="#444" />
+                  <circle cx="6" cy="12" r="1.75" fill="#444" />
+                </svg>
+              </button>
+
+              {showMenu && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setShowMenu(false)} />
+                  <div className="absolute right-0 top-10 z-40 w-52 rounded-[18px] bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.06)] border border-[#EFEFEF] py-1.5 overflow-hidden">
+                    <button
+                      onClick={() => { setShowMenu(false); openRename(selected); }}
+                      className="w-full px-4 py-3 text-left text-[14px] font-medium text-[#1C1C1E] hover:bg-[#F7F7F8] active:bg-[#EEEEF0] flex items-center gap-2.5 transition-colors"
+                    >
+                      <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      {t.renameConversation || 'Renommer la conversation'}
+                    </button>
+                    <div className="h-[1px] bg-[#F2F2F4] mx-3" />
+                    <button
+                      onClick={() => { setShowMenu(false); deleteConversation(selected.id); }}
+                      className="w-full px-4 py-3 text-left text-[14px] font-medium text-[#FF3B30] hover:bg-[#FFF2F2] active:bg-[#FFE5E5] flex items-center gap-2.5 transition-colors"
+                    >
+                      <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#FF3B30" strokeWidth="2">
+                        <path d="M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6M9 6V4h6v2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      Supprimer la conversation
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-5 flex flex-col gap-1.5">
+          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-28 flex flex-col">
             <style>{`
               .msg-appear { animation: msgEnter 420ms cubic-bezier(.2,.9,.2,1); }
               @keyframes msgEnter {
@@ -732,31 +754,62 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
               </div>
             ) : (
               groupedMessages.map(group => (
-                <div key={group.key} className="flex flex-col gap-1.5">
+                <div key={group.key} className="flex flex-col">
                   {group.label && (
-                    <div className="mx-auto my-2 rounded-full bg-[#0D0D0D] px-3 py-1.5 text-[10px] font-semibold text-white tracking-[0.08em] uppercase">
+                    <div className="mx-auto my-3.5 text-[11px] font-semibold text-[#8E8E93] tracking-wide uppercase select-none text-center">
                       {group.label}
                     </div>
                   )}
                   {group.items.map((m, i) => {
                     const isMine = m.sender_id === myUserId
+                    const prevMsg = group.items[i - 1]
+                    const nextMsg = group.items[i + 1]
+                    const isPrevSame = prevMsg && prevMsg.sender_id === m.sender_id
+                    const isNextSame = nextMsg && nextMsg.sender_id === m.sender_id
                     const isLastMine = isMine && group.items.slice(i + 1).every(n => n.sender_id !== myUserId)
                     const photoUrls = extractPhotoUrls(m.photos, m.image_url)
 
+                    const bubbleRadius = isMine
+                      ? !isPrevSame && !isNextSame
+                        ? '20px 20px 4px 20px'
+                        : !isPrevSame && isNextSame
+                          ? '20px 20px 6px 20px'
+                          : isPrevSame && isNextSame
+                            ? '20px 6px 6px 20px'
+                            : '20px 6px 4px 20px'
+                      : !isPrevSame && !isNextSame
+                        ? '20px 20px 20px 4px'
+                        : !isPrevSame && isNextSame
+                          ? '20px 20px 20px 6px'
+                          : isPrevSame && isNextSame
+                            ? '6px 20px 20px 6px'
+                            : '6px 20px 20px 4px'
+
                     return (
-                      <div key={m.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} ${animatingIds.has(m.id) ? 'msg-appear' : ''}`}>
+                      <div
+                        key={m.id}
+                        className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} ${isPrevSame ? 'mt-1' : 'mt-2.5'} ${animatingIds.has(m.id) ? 'msg-appear' : ''}`}
+                      >
                         {m.gif_url ? (
-                          <img src={`/api/gif-proxy?url=${encodeURIComponent(m.gif_url)}`} alt="GIF" className="max-w-[220px] rounded-[16px] block" style={{ border: isMine ? '2px solid rgba(100,80,200,0.3)' : '2px solid #E8E8E8' }} />
+                          <img
+                            src={`/api/gif-proxy?url=${encodeURIComponent(m.gif_url)}`}
+                            alt="GIF"
+                            className="max-w-[220px] block"
+                            style={{
+                              borderRadius: bubbleRadius,
+                              border: isMine ? '2px solid rgba(100,80,200,0.3)' : '2px solid #E8E8E8',
+                            }}
+                          />
                         ) : photoUrls.length > 0 ? (
-                          <div className="flex max-w-[220px] flex-col gap-2">
+                          <div className="flex max-w-[240px] flex-col gap-2">
                             {m.content && (
                               <div
-                                className="px-4 py-3"
+                                className="px-4 py-3 shadow-sm"
                                 style={{
                                   background: isMine
                                     ? 'linear-gradient(145deg, #0D0D0D 0%, #1C1C2E 55%, #2D1B69 100%)'
-                                    : '#F2F2F2',
-                                  borderRadius: isMine ? '20px 20px 5px 20px' : '20px 20px 20px 5px',
+                                    : '#F2F2F4',
+                                  borderRadius: bubbleRadius,
                                 }}
                               >
                                 <p style={{ color: isMine ? '#FFFFFF' : '#0D0D0D', fontSize: '15px', lineHeight: '1.4' }}>{m.content}</p>
@@ -767,34 +820,39 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                                 key={`${m.id}-${photoUrl}`}
                                 src={photoUrl}
                                 alt="Photo"
-                                className="max-w-[220px] rounded-[16px] block object-cover cursor-pointer"
-                                style={{ border: isMine ? '2px solid rgba(100,80,200,0.3)' : '2px solid #E8E8E8' }}
+                                className="max-w-[240px] block object-cover cursor-pointer shadow-sm"
+                                style={{
+                                  borderRadius: bubbleRadius,
+                                  border: isMine ? '2px solid rgba(100,80,200,0.3)' : '2px solid #E8E8E8',
+                                }}
                                 onClick={() => openFullImage(photoUrl)}
                               />
                             ))}
                           </div>
                         ) : m.content ? (
                           <div
-                            className="max-w-[78%] px-4 py-3"
+                            className="max-w-[78%] px-4 py-2.5 shadow-sm"
                             style={{
                               background: isMine
                                 ? 'linear-gradient(145deg, #0D0D0D 0%, #1C1C2E 55%, #2D1B69 100%)'
-                                : '#F2F2F2',
-                              borderRadius: isMine ? '20px 20px 5px 20px' : '20px 20px 20px 5px',
+                                : '#F2F2F4',
+                              borderRadius: bubbleRadius,
                             }}
                           >
                             <p style={{ color: isMine ? '#FFFFFF' : '#0D0D0D', fontSize: '15px', lineHeight: '1.4' }}>{m.content}</p>
                           </div>
                         ) : null}
-                        <div className={`flex items-center gap-1 mt-0.5 px-1 ${isMine ? 'flex-row-reverse' : ''}`}>
-                          <span className="text-[10px] text-[#C8C8C8]">{formatMessageTime(m.created_at)}</span>
-                          {isMine && m.id === lastReadSentId && (
-                            <span className="text-[10px] text-[#2AC642] font-medium">{t.read || 'Lu'}</span>
-                          )}
-                          {isMine && m.id !== lastReadSentId && isLastMine && (
-                            <span className="text-[10px] text-[#C8C8C8]">{t.sent || 'Envoyé'}</span>
-                          )}
-                        </div>
+                        {(!isNextSame || isLastMine) && (
+                          <div className={`flex items-center gap-1 mt-1 px-1 ${isMine ? 'flex-row-reverse' : ''}`}>
+                            <span className="text-[10px] text-[#A0A0A5]">{formatMessageTime(m.created_at)}</span>
+                            {isMine && m.id === lastReadSentId && (
+                              <span className="text-[10px] text-[#2AC642] font-medium">{t.read || 'Lu'}</span>
+                            )}
+                            {isMine && m.id !== lastReadSentId && isLastMine && (
+                              <span className="text-[10px] text-[#A0A0A5]">{t.sent || 'Envoyé'}</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )
                   })}
@@ -804,18 +862,18 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
             <div ref={bottomRef} />
           </div>
 
-            {portalTarget && showImageFull && fullImageUrl && createPortal(
-              <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.9)' }} onClick={() => setShowImageFull(false)}>
-                <button onClick={() => setShowImageFull(false)} style={{ position: 'absolute', top: 20, right: 20, zIndex: 60, background: 'rgba(255,255,255,0.06)', borderRadius: '999px', padding: '8px' }}>{t.cancel || 'Fermer'}</button>
-                <img src={fullImageUrl} alt="Fullscreen" style={{ maxWidth: '95%', maxHeight: '95%', objectFit: 'contain', borderRadius: 12 }} />
-              </div>,
-              portalTarget,
-            )}
+          {portalTarget && showImageFull && fullImageUrl && createPortal(
+            <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.9)' }} onClick={() => setShowImageFull(false)}>
+              <button onClick={() => setShowImageFull(false)} style={{ position: 'absolute', top: 20, right: 20, zIndex: 60, background: 'rgba(255,255,255,0.06)', borderRadius: '999px', padding: '8px' }}>{t.cancel || 'Fermer'}</button>
+              <img src={fullImageUrl} alt="Fullscreen" style={{ maxWidth: '95%', maxHeight: '95%', objectFit: 'contain', borderRadius: 12 }} />
+            </div>,
+            portalTarget,
+          )}
 
-          {/* Input */}
-          <div className="px-4 pb-8 pt-3 border-t border-[#F2F2F2] flex-shrink-0">
+          {/* Floating Input Pill Bar */}
+          <div className="absolute bottom-0 left-0 right-0 z-20 pointer-events-none bg-gradient-to-t from-white via-white/85 to-transparent pt-6 pb-6 px-4">
             {showGifPicker && (
-              <div className="relative h-0 mb-[316px]">
+              <div className="relative h-0 mb-[316px] pointer-events-auto">
                 <GifPicker
                   onSelect={gif => sendGif(gif)}
                   onClose={() => setShowGifPicker(false)}
@@ -824,38 +882,33 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
             )}
             
             {/* Image preview */}
-              {imagePreview && (
-              <div className="mb-3 relative">
+            {imagePreview && (
+              <div className="mb-3 relative pointer-events-auto max-w-sm mx-auto">
                 <img
                   src={imagePreview}
                   alt="Preview"
-                  className="w-full max-h-[200px] object-contain rounded-[16px]"
+                  className="w-full max-h-[160px] object-contain rounded-[18px] bg-black/5"
                   onClick={() => setShowImageEditor(true)}
                 />
                 <button
                   onClick={() => { setSelectedImage(null); setImagePreview(null) }}
-                  className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center active:scale-90 transition-transform"
+                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-transform"
                 >
-                  <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
-                    <path d="M18 6L6 18M6 6l12 12" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                    <path d="M18 6L6 18M6 6l12 12" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
                   </svg>
                 </button>
               </div>
             )}
             
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowGifPicker(p => !p)}
-                className="w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition-transform flex-shrink-0 text-[18px]"
-                style={{ background: showGifPicker ? '#0D0D0D' : '#F5F5F5' }}
+            {/* The Unified Pill Bar */}
+            <div className="pointer-events-auto flex items-center rounded-full bg-[#F2F2F5] px-2 py-1.5 gap-1.5 shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-[#E8E8EC]">
+              {/* Photo / Camera button */}
+              <label
+                className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform cursor-pointer flex-shrink-0 hover:bg-black/[0.04]"
+                title={t.photo || 'Photo'}
               >
-                <span style={{ filter: showGifPicker ? 'brightness(0) invert(1)' : 'none' }}>🎬</span>
-              </button>
-              
-              <label className="w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition-transform flex-shrink-0 cursor-pointer text-[18px]"
-                style={{ background: '#F5F5F5' }}
-              >
-                <span>📷</span>
+                <img src="/assets/camera.svg" alt="Photo" className="w-5 h-5 opacity-70" />
                 <input
                   type="file"
                   accept="image/*"
@@ -863,13 +916,29 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                   className="hidden"
                 />
               </label>
-              
+
+              {/* GIF button */}
+              <button
+                type="button"
+                onClick={() => setShowGifPicker(p => !p)}
+                className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform flex-shrink-0 hover:bg-black/[0.04]"
+                title="GIF"
+                style={{ background: showGifPicker ? '#0D0D0D' : 'transparent' }}
+              >
+                <img
+                  src="/assets/image.svg"
+                  alt="GIF"
+                  className={`w-5 h-5 ${showGifPicker ? 'invert brightness-0' : 'opacity-70'}`}
+                />
+              </button>
+
+              {/* Text input */}
               <input
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => { 
                   if (e.key === 'Enter') { 
-                    e.preventDefault(); 
+                    e.preventDefault() 
                     if (imagePreview) {
                       sendImage()
                     } else if (input.trim()) {
@@ -879,10 +948,13 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                 }}
                 placeholder={t.messagePlaceholder || 'Message…'}
                 maxLength={500}
-                className="flex-1 rounded-full bg-[#F5F5F5] px-4 py-3 text-[15px] text-[#0D0D0D] outline-none"
+                className="flex-1 bg-transparent px-2.5 py-2 text-[15px] text-[#0D0D0D] placeholder-[#8E8E93] outline-none min-w-0"
                 style={{ fontFamily: 'inherit' }}
               />
+
+              {/* Send button */}
               <button
+                type="button"
                 onClick={() => {
                   if (imagePreview) {
                     sendImage()
@@ -891,14 +963,14 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                   }
                 }}
                 disabled={sending || (!input.trim() && !imagePreview)}
-                className="w-10 h-10 rounded-full bg-[#0D0D0D] flex items-center justify-center active:scale-90 transition-transform disabled:opacity-30 flex-shrink-0"
+                className="w-9 h-9 rounded-full bg-[#0D0D0D] flex items-center justify-center active:scale-90 transition-transform disabled:opacity-20 flex-shrink-0"
+                title="Envoyer"
               >
-                {sending
-                  ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  : <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
-                      <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                }
+                {sending ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <img src="/assets/send.svg" alt="Send" className="w-4 h-4 invert ml-0.5" />
+                )}
               </button>
             </div>
           </div>
