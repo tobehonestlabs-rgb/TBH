@@ -72,6 +72,11 @@ function saveLastSeen(n: Record<string, number>) {
   try { localStorage.setItem(LS_LASTSEEN, JSON.stringify(n)) } catch {}
 }
 
+function cleanReplyPreview(text?: string | null): string {
+  if (!text) return ''
+  return text.replace(/^[📷🎬🔙↪]\s*/, '').trim()
+}
+
 function MessageBubbleRow({
   m,
   isMine,
@@ -126,6 +131,16 @@ function MessageBubbleRow({
     setDragOffset(0)
   }
 
+  const scrollToRepliedMessage = (replyId?: string | null) => {
+    if (!replyId) return
+    const target = document.getElementById(`msg-${replyId}`)
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      target.classList.add('opacity-50')
+      setTimeout(() => target.classList.remove('opacity-50'), 600)
+    }
+  }
+
   const photoUrls = extractPhotoUrls(m.photos, m.image_url)
 
   return (
@@ -169,60 +184,96 @@ function MessageBubbleRow({
 
       {/* Media: GIF */}
       {m.gif_url ? (
-        <div className="flex flex-col">
+        <div
+          className="max-w-[240px] shadow-sm overflow-hidden flex flex-col transition-all"
+          style={{
+            background: isMine
+              ? 'linear-gradient(145deg, #000000 0%, #303030 100%)'
+              : '#F2F2F4',
+            borderRadius: bubbleRadius,
+            border: isMine ? '1.5px solid rgba(255,255,255,0.12)' : '1px solid #E8E8E8',
+          }}
+        >
           {m.reply_to_content && (
             <div
-              onClick={() => {
-                if (m.reply_to_id) {
-                  document.getElementById(`msg-${m.reply_to_id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                }
-              }}
-              className={`mb-1 px-3 py-1.5 rounded-[12px] text-[12px] cursor-pointer flex flex-col gap-0.5 border-l-2 max-w-[220px] ${
-                isMine ? 'bg-[#303030] text-white/90 border-white/70' : 'bg-[#E5E5EA] text-[#0D0D0D] border-[#0D0D0D]'
+              onClick={() => scrollToRepliedMessage(m.reply_to_id)}
+              className={`px-3.5 pt-2 pb-2 cursor-pointer transition-colors border-b select-none ${
+                isMine
+                  ? 'bg-white/[0.08] hover:bg-white/[0.14] border-white/15'
+                  : 'bg-black/[0.05] hover:bg-black/[0.08] border-black/[0.08]'
               }`}
             >
-              <span className="font-semibold text-[10px] opacity-75">↪ Réponse</span>
-              <span className="truncate opacity-95 text-[11px]">{m.reply_to_content}</span>
+              <div className="flex items-center gap-1.5 mb-1">
+                <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" className={isMine ? 'text-white/70 shrink-0' : 'text-[#8E8E93] shrink-0'}>
+                  <path d="M9 14l-5-5 5-5M4 9h10a5 5 0 0 1 5 5v3" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span className={`text-[10px] font-bold uppercase tracking-wider ${isMine ? 'text-white/70' : 'text-[#6E6E73]'}`}>
+                  Réponse
+                </span>
+              </div>
+              <p
+                className={`text-[12px] leading-snug line-clamp-2 ${isMine ? 'text-white/90' : 'text-[#1C1C1E]'}`}
+                style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+              >
+                {cleanReplyPreview(m.reply_to_content)}
+              </p>
             </div>
           )}
           <img
             src={`/api/gif-proxy?url=${encodeURIComponent(m.gif_url)}`}
             alt="GIF"
-            className="max-w-[220px] block"
-            style={{
-              borderRadius: bubbleRadius,
-              border: isMine ? '1.5px solid rgba(255,255,255,0.12)' : '1px solid #E8E8E8',
-            }}
+            className="w-full block"
           />
         </div>
       ) : photoUrls.length > 0 ? (
-        <div className="flex max-w-[240px] flex-col gap-2">
+        <div
+          className="max-w-[260px] shadow-sm overflow-hidden flex flex-col transition-all"
+          style={{
+            background: isMine
+              ? 'linear-gradient(145deg, #000000 0%, #303030 100%)'
+              : '#F2F2F4',
+            borderRadius: bubbleRadius,
+            border: isMine ? '1.5px solid rgba(255,255,255,0.12)' : '1px solid #E8E8E8',
+          }}
+        >
           {m.reply_to_content && (
             <div
-              onClick={() => {
-                if (m.reply_to_id) {
-                  document.getElementById(`msg-${m.reply_to_id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                }
-              }}
-              className={`mb-1 px-3 py-1.5 rounded-[12px] text-[12px] cursor-pointer flex flex-col gap-0.5 border-l-2 max-w-[240px] ${
-                isMine ? 'bg-[#303030] text-white/90 border-white/70' : 'bg-[#E5E5EA] text-[#0D0D0D] border-[#0D0D0D]'
+              onClick={() => scrollToRepliedMessage(m.reply_to_id)}
+              className={`px-3.5 pt-2 pb-2 cursor-pointer transition-colors border-b select-none ${
+                isMine
+                  ? 'bg-white/[0.08] hover:bg-white/[0.14] border-white/15'
+                  : 'bg-black/[0.05] hover:bg-black/[0.08] border-black/[0.08]'
               }`}
             >
-              <span className="font-semibold text-[10px] opacity-75">↪ Réponse</span>
-              <span className="truncate opacity-95 text-[11px]">{m.reply_to_content}</span>
+              <div className="flex items-center gap-1.5 mb-1">
+                <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" className={isMine ? 'text-white/70 shrink-0' : 'text-[#8E8E93] shrink-0'}>
+                  <path d="M9 14l-5-5 5-5M4 9h10a5 5 0 0 1 5 5v3" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span className={`text-[10px] font-bold uppercase tracking-wider ${isMine ? 'text-white/70' : 'text-[#6E6E73]'}`}>
+                  Réponse
+                </span>
+              </div>
+              <p
+                className={`text-[12px] leading-snug line-clamp-2 ${isMine ? 'text-white/90' : 'text-[#1C1C1E]'}`}
+                style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+              >
+                {cleanReplyPreview(m.reply_to_content)}
+              </p>
             </div>
           )}
           {m.content && (
-            <div
-              className="px-4 py-3 shadow-sm"
-              style={{
-                background: isMine
-                  ? 'linear-gradient(145deg, #000000 0%, #303030 100%)'
-                  : '#F2F2F4',
-                borderRadius: bubbleRadius,
-              }}
-            >
-              <p style={{ color: isMine ? '#FFFFFF' : '#0D0D0D', fontSize: '15px', lineHeight: '1.4' }}>{m.content}</p>
+            <div className="px-4 py-2.5">
+              <p
+                style={{
+                  color: isMine ? '#FFFFFF' : '#0D0D0D',
+                  fontSize: '15px',
+                  lineHeight: '1.45',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                }}
+              >
+                {m.content}
+              </p>
             </div>
           )}
           {photoUrls.map((photoUrl) => (
@@ -230,44 +281,86 @@ function MessageBubbleRow({
               key={`${m.id}-${photoUrl}`}
               src={photoUrl}
               alt="Photo"
-              className="max-w-[240px] block object-cover cursor-pointer shadow-sm"
-              style={{
-                borderRadius: bubbleRadius,
-                border: isMine ? '1.5px solid rgba(255,255,255,0.12)' : '1px solid #E8E8E8',
-              }}
+              className="w-full block object-cover cursor-pointer"
               onClick={() => onOpenFull(photoUrl)}
             />
           ))}
         </div>
       ) : m.content ? (
-        <div
-          className="max-w-[78%] px-4 py-2.5 shadow-sm"
-          style={{
-            background: isMine
-              ? 'linear-gradient(145deg, #000000 0%, #303030 100%)'
-              : '#F2F2F4',
-            borderRadius: bubbleRadius,
-          }}
-        >
-          {m.reply_to_content && (
+        m.reply_to_content ? (
+          /* 1 Single box divided into two compartments: upper = referenced message, lower = sent message */
+          <div
+            className="max-w-[82%] sm:max-w-[75%] min-w-[150px] shadow-sm overflow-hidden flex flex-col transition-all"
+            style={{
+              background: isMine
+                ? 'linear-gradient(145deg, #000000 0%, #303030 100%)'
+                : '#F2F2F4',
+              borderRadius: bubbleRadius,
+            }}
+          >
+            {/* Compartiment supérieur : message auquel on répond */}
             <div
-              onClick={() => {
-                if (m.reply_to_id) {
-                  document.getElementById(`msg-${m.reply_to_id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                }
-              }}
-              className={`mb-1.5 px-2.5 py-1 rounded-[10px] text-[12px] cursor-pointer flex flex-col gap-0.5 border-l-2 ${
+              onClick={() => scrollToRepliedMessage(m.reply_to_id)}
+              className={`px-3.5 pt-2 pb-2 cursor-pointer transition-colors border-b select-none ${
                 isMine
-                  ? 'bg-white/10 text-white/90 border-white/70 hover:bg-white/15'
-                  : 'bg-black/5 text-[#0D0D0D] border-[#0D0D0D] hover:bg-black/10'
+                  ? 'bg-white/[0.08] hover:bg-white/[0.14] border-white/15'
+                  : 'bg-black/[0.05] hover:bg-black/[0.08] border-black/[0.08]'
               }`}
             >
-              <span className="font-semibold text-[10px] opacity-75">↪ Réponse</span>
-              <span className="truncate opacity-95 text-[11px]">{m.reply_to_content}</span>
+              <div className="flex items-center gap-1.5 mb-1">
+                <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" className={isMine ? 'text-white/70 shrink-0' : 'text-[#8E8E93] shrink-0'}>
+                  <path d="M9 14l-5-5 5-5M4 9h10a5 5 0 0 1 5 5v3" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span className={`text-[10px] font-bold uppercase tracking-wider ${isMine ? 'text-white/70' : 'text-[#6E6E73]'}`}>
+                  Réponse
+                </span>
+              </div>
+              <p
+                className={`text-[12px] leading-snug line-clamp-2 ${isMine ? 'text-white/90' : 'text-[#1C1C1E]'}`}
+                style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+              >
+                {cleanReplyPreview(m.reply_to_content)}
+              </p>
             </div>
-          )}
-          <p style={{ color: isMine ? '#FFFFFF' : '#0D0D0D', fontSize: '15px', lineHeight: '1.4' }}>{m.content}</p>
-        </div>
+
+            {/* Compartiment inférieur : message envoyé */}
+            <div className="px-4 py-2.5">
+              <p
+                style={{
+                  color: isMine ? '#FFFFFF' : '#0D0D0D',
+                  fontSize: '15px',
+                  lineHeight: '1.45',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                }}
+              >
+                {m.content}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div
+            className="max-w-[82%] sm:max-w-[75%] px-4 py-2.5 shadow-sm transition-all"
+            style={{
+              background: isMine
+                ? 'linear-gradient(145deg, #000000 0%, #303030 100%)'
+                : '#F2F2F4',
+              borderRadius: bubbleRadius,
+            }}
+          >
+            <p
+              style={{
+                color: isMine ? '#FFFFFF' : '#0D0D0D',
+                fontSize: '15px',
+                lineHeight: '1.45',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+              }}
+            >
+              {m.content}
+            </p>
+          </div>
+        )
       ) : null}
 
       {/* Message status (time, read, sent) */}
@@ -720,7 +813,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
         body: JSON.stringify({
           content: text,
           reply_to_id: currentReply?.id || null,
-          reply_to_content: currentReply ? (currentReply.content || (currentReply.photos?.length ? '📷 Photo' : currentReply.gif_url ? '🎬 GIF' : 'Message')) : null,
+          reply_to_content: currentReply ? (currentReply.content || (currentReply.photos?.length ? 'Photo' : currentReply.gif_url ? 'GIF' : 'Message')) : null,
         }),
       })
       const { message } = await r.json()
@@ -754,14 +847,14 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
         body: JSON.stringify({
           gif_url: gif.url,
           reply_to_id: currentReply?.id || null,
-          reply_to_content: currentReply ? (currentReply.content || (currentReply.photos?.length ? '📷 Photo' : currentReply.gif_url ? '🎬 GIF' : 'Message')) : null,
+          reply_to_content: currentReply ? (currentReply.content || (currentReply.photos?.length ? 'Photo' : currentReply.gif_url ? 'GIF' : 'Message')) : null,
         }),
       })
       const { message } = await r.json()
       if (message) {
         setMsgs(prev => prev.find(m => m.id === message.id) ? prev : [...prev, message])
         setConvs(prev => prev.map(c => c.id === selected.id
-          ? { ...c, last_message: '🎬 GIF', last_message_at: new Date().toISOString() }
+          ? { ...c, last_message: 'GIF', last_message_at: new Date().toISOString() }
           : c))
         setTimeout(() => scrollToBottom(true), 50)
         channelRef.current?.send({
@@ -859,7 +952,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
           image_url: imageUrl,
           photos: [imageUrl],
           reply_to_id: currentReply?.id || null,
-          reply_to_content: currentReply ? (currentReply.content || (currentReply.photos?.length ? '📷 Photo' : currentReply.gif_url ? '🎬 GIF' : 'Message')) : null,
+          reply_to_content: currentReply ? (currentReply.content || (currentReply.photos?.length ? 'Photo' : currentReply.gif_url ? 'GIF' : 'Message')) : null,
         }),
       })
       const { message } = await r.json()
@@ -872,7 +965,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
         }
         setMsgs(prev => prev.find(m => m.id === normalizedMessage.id) ? prev : [...prev, normalizedMessage])
         setConvs(prev => prev.map(c => c.id === selected.id
-          ? { ...c, last_message: '📷 Photo', last_message_at: new Date().toISOString() }
+          ? { ...c, last_message: 'Photo', last_message_at: new Date().toISOString() }
           : c))
         setTimeout(() => scrollToBottom(true), 50)
         channelRef.current?.send({
@@ -1251,7 +1344,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                       Réponse à {replyingTo.sender_id === myUserId ? 'vous-même' : 'ce message'}
                     </p>
                     <p className="text-[#8E8E93] truncate">
-                      {replyingTo.content || (replyingTo.photos?.length ? '📷 Photo' : replyingTo.gif_url ? '🎬 GIF' : 'Message')}
+                      {replyingTo.content || (replyingTo.photos?.length ? 'Photo' : replyingTo.gif_url ? 'GIF' : 'Message')}
                     </p>
                   </div>
                 </div>
