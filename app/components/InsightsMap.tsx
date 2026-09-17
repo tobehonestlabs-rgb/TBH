@@ -89,7 +89,7 @@ export default function InsightsMap({ latitude, longitude, city, country, region
     container: HTMLDivElement,
     interactive: boolean,
     zoomLevel = 11
-  ) => {
+  ): Promise<any> => {
     // 1. Try Mapbox GL if token exists
     if (token && token.trim().length > 0) {
       try {
@@ -258,8 +258,13 @@ export default function InsightsMap({ latitude, longitude, city, country, region
       fullscreenMapRef.current = map
       // Trigger resize after animation
       setTimeout(() => {
-        map?.resize?.()
-        map?.invalidateSize?.()
+        const mapAny = map as any
+        if (typeof mapAny?.resize === 'function') {
+          mapAny.resize()
+        }
+        if (typeof mapAny?.invalidateSize === 'function') {
+          mapAny.invalidateSize()
+        }
       }, 100)
     })
 
@@ -281,18 +286,25 @@ export default function InsightsMap({ latitude, longitude, city, country, region
 
   // Fullscreen zoom in / zoom out / center controls
   const handleZoomIn = () => {
-    fullscreenMapRef.current?.zoomIn?.()
+    const map = fullscreenMapRef.current as any
+    if (typeof map?.zoomIn === 'function') {
+      map.zoomIn()
+    }
   }
 
   const handleZoomOut = () => {
-    fullscreenMapRef.current?.zoomOut?.()
+    const map = fullscreenMapRef.current as any
+    if (typeof map?.zoomOut === 'function') {
+      map.zoomOut()
+    }
   }
 
   const handleCenter = () => {
-    if (fullscreenMapRef.current?.flyTo) {
-      fullscreenMapRef.current.flyTo({ center: [longitude, latitude], zoom: 13, speed: 1.2 })
-    } else if (fullscreenMapRef.current?.setView) {
-      fullscreenMapRef.current.setView([latitude, longitude], 13)
+    const map = fullscreenMapRef.current as any
+    if (typeof map?.flyTo === 'function') {
+      map.flyTo({ center: [longitude, latitude], zoom: 13, speed: 1.2 })
+    } else if (typeof map?.setView === 'function') {
+      map.setView([latitude, longitude], 13)
     }
   }
 
