@@ -125,10 +125,10 @@ export async function POST(
     }
 
     // Mettre à jour la conversation
-    let lastMessageText = '📷 Photo'
+    let lastMessageText = 'Photo'
     if (hasText) lastMessageText = content.trim()
-    else if (hasGif) lastMessageText = '🎬 GIF'
-    else if (hasPhotos) lastMessageText = '📷 Photo'
+    else if (hasGif) lastMessageText = 'GIF'
+    else if (hasPhotos) lastMessageText = 'Photo'
 
     await supabaseAdmin
       .from('conversations')
