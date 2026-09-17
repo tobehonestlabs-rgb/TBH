@@ -89,7 +89,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized: invalid token' }, { status: 401 })
     }
 
-    const { content, gif_url, image_url, photos } = await req.json()
+    const { content, gif_url, image_url, photos, reply_to_id, reply_to_content } = await req.json()
 
     const extractedPhotos = extractPhotoUrls(photos, image_url)
     const hasText = content?.trim()?.length > 0
@@ -106,6 +106,8 @@ export async function POST(
       content: content?.trim() || '',
     }
 
+    if (reply_to_id) insertData.reply_to_id = reply_to_id
+    if (reply_to_content) insertData.reply_to_content = reply_to_content
     if (hasGif) insertData.gif_url = gif_url
     if (hasPhotos) {
       insertData.photos = extractedPhotos
