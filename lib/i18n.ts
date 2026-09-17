@@ -103,6 +103,7 @@ export type T = {
   device: string
   messagesFromThisSender: string
   locationMapNotAvailable: string
+  tapToFullscreen?: string
   anonymousSender: string
   privateConversation: string
   startConversation: string
@@ -315,6 +316,7 @@ const en: T = {
   device: 'Device',
   messagesFromThisSender: 'Messages from this sender',
   locationMapNotAvailable: 'Location map not available',
+  tapToFullscreen: 'Tap to fullscreen',
   anonymousSender: 'Anonymous sender',
   privateConversation: 'Private conversation',
   startConversation: 'Start a conversation',
@@ -527,6 +529,7 @@ const fr: T = {
   device: 'Appareil',
   messagesFromThisSender: 'Messages de cet expéditeur',
   locationMapNotAvailable: 'Carte de localisation indisponible',
+  tapToFullscreen: 'Appuyez pour le plein écran',
   anonymousSender: 'Expéditeur anonyme',
   privateConversation: 'Conversation privée',
   startConversation: 'Commencer une conversation',
@@ -739,6 +742,7 @@ const es: T = {
   device: 'Dispositivo',
   messagesFromThisSender: 'Mensajes de este remitente',
   locationMapNotAvailable: 'Mapa de ubicación no disponible',
+  tapToFullscreen: 'Toca para pantalla completa',
   anonymousSender: 'Remitente anónimo',
   privateConversation: 'Conversación privada',
   startConversation: 'Iniciar una conversación',

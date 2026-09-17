@@ -30,6 +30,8 @@ type ConvMsg = {
   photos?: string[] | string | null
   created_at: string
   is_read: boolean
+  reply_to_id?: string | null
+  reply_to_content?: string | null
 }
 
 function timeAgo(iso: string): string {
@@ -70,6 +72,220 @@ function saveLastSeen(n: Record<string, number>) {
   try { localStorage.setItem(LS_LASTSEEN, JSON.stringify(n)) } catch {}
 }
 
+function MessageBubbleRow({
+  m,
+  isMine,
+  isPrevSame,
+  isNextSame,
+  isLastMine,
+  bubbleRadius,
+  lastReadSentId,
+  onReply,
+  onOpenFull,
+  isAnimated,
+  t,
+}: {
+  m: ConvMsg
+  isMine: boolean
+  isPrevSame: boolean
+  isNextSame: boolean
+  isLastMine: boolean
+  bubbleRadius: string
+  lastReadSentId?: string
+  onReply: (m: ConvMsg) => void
+  onOpenFull: (url: string) => void
+  isAnimated: boolean
+  t: any
+}) {
+  const [dragOffset, setDragOffset] = useState(0)
+  const touchStartX = useRef(0)
+  const isDragging = useRef(false)
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+    isDragging.current = true
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging.current) return
+    const deltaX = e.touches[0].clientX - touchStartX.current
+    if (deltaX > 0) {
+      setDragOffset(Math.min(deltaX * 0.55, 65))
+    } else {
+      setDragOffset(0)
+    }
+  }
+
+  const handleTouchEnd = () => {
+    if (!isDragging.current) return
+    isDragging.current = false
+    if (dragOffset >= 40) {
+      try { navigator.vibrate?.(20) } catch {}
+      onReply(m)
+    }
+    setDragOffset(0)
+  }
+
+  const photoUrls = extractPhotoUrls(m.photos, m.image_url)
+
+  return (
+    <div
+      id={`msg-${m.id}`}
+      className={`relative group flex flex-col ${isMine ? 'items-end' : 'items-start'} ${isPrevSame ? 'mt-1' : 'mt-2.5'} ${isAnimated ? 'msg-appear' : ''}`}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      style={{
+        transform: dragOffset > 0 ? `translateX(${dragOffset}px)` : 'none',
+        transition: isDragging.current ? 'none' : 'transform 200ms cubic-bezier(0.2, 0.9, 0.2, 1)',
+      }}
+    >
+      {/* Swipe Reply Icon (slides from the left when dragged) */}
+      <div
+        className="absolute left-[-36px] top-1/2 -translate-y-1/2 pointer-events-none transition-opacity"
+        style={{
+          opacity: Math.min(dragOffset / 35, 1),
+          transform: `translateY(-50%) scale(${Math.min(dragOffset / 35, 1)})`,
+        }}
+      >
+        <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${dragOffset >= 40 ? 'bg-[#0D0D0D] text-white' : 'bg-[#E5E5EA] text-[#8E8E93]'}`}>
+          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+            <path d="M9 14l-5-5 5-5M4 9h10a5 5 0 0 1 5 5v3" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+      </div>
+
+      {/* Desktop Hover Reply Button */}
+      <button
+        type="button"
+        onClick={() => onReply(m)}
+        className={`hidden group-hover:flex absolute top-1/2 -translate-y-1/2 ${isMine ? 'left-[-30px]' : 'right-[-30px]'} w-6 h-6 rounded-full bg-black/10 hover:bg-black/20 text-[#0D0D0D] items-center justify-center transition-transform active:scale-90 z-20`}
+        title="Répondre"
+      >
+        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+          <path d="M9 14l-5-5 5-5M4 9h10a5 5 0 0 1 5 5v3" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+
+      {/* Media: GIF */}
+      {m.gif_url ? (
+        <div className="flex flex-col">
+          {m.reply_to_content && (
+            <div
+              onClick={() => {
+                if (m.reply_to_id) {
+                  document.getElementById(`msg-${m.reply_to_id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                }
+              }}
+              className={`mb-1 px-3 py-1.5 rounded-[12px] text-[12px] cursor-pointer flex flex-col gap-0.5 border-l-2 max-w-[220px] ${
+                isMine ? 'bg-[#303030] text-white/90 border-white/70' : 'bg-[#E5E5EA] text-[#0D0D0D] border-[#0D0D0D]'
+              }`}
+            >
+              <span className="font-semibold text-[10px] opacity-75">↪ Réponse</span>
+              <span className="truncate opacity-95 text-[11px]">{m.reply_to_content}</span>
+            </div>
+          )}
+          <img
+            src={`/api/gif-proxy?url=${encodeURIComponent(m.gif_url)}`}
+            alt="GIF"
+            className="max-w-[220px] block"
+            style={{
+              borderRadius: bubbleRadius,
+              border: isMine ? '1.5px solid rgba(255,255,255,0.12)' : '1px solid #E8E8E8',
+            }}
+          />
+        </div>
+      ) : photoUrls.length > 0 ? (
+        <div className="flex max-w-[240px] flex-col gap-2">
+          {m.reply_to_content && (
+            <div
+              onClick={() => {
+                if (m.reply_to_id) {
+                  document.getElementById(`msg-${m.reply_to_id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                }
+              }}
+              className={`mb-1 px-3 py-1.5 rounded-[12px] text-[12px] cursor-pointer flex flex-col gap-0.5 border-l-2 max-w-[240px] ${
+                isMine ? 'bg-[#303030] text-white/90 border-white/70' : 'bg-[#E5E5EA] text-[#0D0D0D] border-[#0D0D0D]'
+              }`}
+            >
+              <span className="font-semibold text-[10px] opacity-75">↪ Réponse</span>
+              <span className="truncate opacity-95 text-[11px]">{m.reply_to_content}</span>
+            </div>
+          )}
+          {m.content && (
+            <div
+              className="px-4 py-3 shadow-sm"
+              style={{
+                background: isMine
+                  ? 'linear-gradient(145deg, #000000 0%, #303030 100%)'
+                  : '#F2F2F4',
+                borderRadius: bubbleRadius,
+              }}
+            >
+              <p style={{ color: isMine ? '#FFFFFF' : '#0D0D0D', fontSize: '15px', lineHeight: '1.4' }}>{m.content}</p>
+            </div>
+          )}
+          {photoUrls.map((photoUrl) => (
+            <img
+              key={`${m.id}-${photoUrl}`}
+              src={photoUrl}
+              alt="Photo"
+              className="max-w-[240px] block object-cover cursor-pointer shadow-sm"
+              style={{
+                borderRadius: bubbleRadius,
+                border: isMine ? '1.5px solid rgba(255,255,255,0.12)' : '1px solid #E8E8E8',
+              }}
+              onClick={() => onOpenFull(photoUrl)}
+            />
+          ))}
+        </div>
+      ) : m.content ? (
+        <div
+          className="max-w-[78%] px-4 py-2.5 shadow-sm"
+          style={{
+            background: isMine
+              ? 'linear-gradient(145deg, #000000 0%, #303030 100%)'
+              : '#F2F2F4',
+            borderRadius: bubbleRadius,
+          }}
+        >
+          {m.reply_to_content && (
+            <div
+              onClick={() => {
+                if (m.reply_to_id) {
+                  document.getElementById(`msg-${m.reply_to_id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                }
+              }}
+              className={`mb-1.5 px-2.5 py-1 rounded-[10px] text-[12px] cursor-pointer flex flex-col gap-0.5 border-l-2 ${
+                isMine
+                  ? 'bg-white/10 text-white/90 border-white/70 hover:bg-white/15'
+                  : 'bg-black/5 text-[#0D0D0D] border-[#0D0D0D] hover:bg-black/10'
+              }`}
+            >
+              <span className="font-semibold text-[10px] opacity-75">↪ Réponse</span>
+              <span className="truncate opacity-95 text-[11px]">{m.reply_to_content}</span>
+            </div>
+          )}
+          <p style={{ color: isMine ? '#FFFFFF' : '#0D0D0D', fontSize: '15px', lineHeight: '1.4' }}>{m.content}</p>
+        </div>
+      ) : null}
+
+      {/* Message status (time, read, sent) */}
+      {(!isNextSame || isLastMine) && (
+        <div className={`flex items-center gap-1 mt-1 px-1 ${isMine ? 'flex-row-reverse' : ''}`}>
+          <span className="text-[10px] text-[#A0A0A5]">{formatMessageTime(m.created_at)}</span>
+          {isMine && m.id === lastReadSentId && (
+            <span className="text-[10px] text-[#2AC642] font-medium">{t.read || 'Lu'}</span>
+          )}
+          {isMine && m.id !== lastReadSentId && isLastMine && (
+            <span className="text-[10px] text-[#A0A0A5]">{t.sent || 'Envoyé'}</span>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: boolean) => void }) {
   const { t } = useTranslation()
   const [convs, setConvs]           = useState<Conversation[]>([])
@@ -103,6 +319,62 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
   const [renameValue, setRenameValue]     = useState('')
   const [showMenu, setShowMenu]           = useState(false)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Reply state
+  const [replyingTo, setReplyingTo]       = useState<ConvMsg | null>(null)
+
+  // Typing indicator
+  const [peerTyping, setPeerTyping]       = useState(false)
+  const peerTypingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const myTypingTimeoutRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isTypingBroadcasted  = useRef(false)
+
+  // Auto-expanding textarea
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  const adjustTextareaHeight = () => {
+    if (!textareaRef.current) return
+    textareaRef.current.style.height = 'auto'
+    textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value
+    setInput(val)
+    adjustTextareaHeight()
+
+    if (channelRef.current && myUserId) {
+      if (!isTypingBroadcasted.current) {
+        isTypingBroadcasted.current = true
+        channelRef.current.send({
+          type: 'broadcast',
+          event: 'typing',
+          payload: { isTyping: true, userId: myUserId },
+        }).catch(() => {})
+      }
+      if (myTypingTimeoutRef.current) clearTimeout(myTypingTimeoutRef.current)
+      myTypingTimeoutRef.current = setTimeout(() => {
+        isTypingBroadcasted.current = false
+        channelRef.current?.send({
+          type: 'broadcast',
+          event: 'typing',
+          payload: { isTyping: false, userId: myUserId },
+        }).catch(() => {})
+      }, 2000)
+    }
+  }
+
+  const clearTyping = () => {
+    if (myTypingTimeoutRef.current) clearTimeout(myTypingTimeoutRef.current)
+    if (isTypingBroadcasted.current && channelRef.current && myUserId) {
+      isTypingBroadcasted.current = false
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'typing',
+        payload: { isTyping: false, userId: myUserId },
+      }).catch(() => {})
+    }
+  }
 
   const bottomRef    = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
@@ -250,8 +522,60 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
     // Mark incoming messages as read
     apiFetch(`/api/conversations/${conv.id}/read`, { method: 'POST' }).catch(() => {})
 
-    // Realtime subscription
-    const ch = supabaseClient.channel(`conv-${conv.id}`)
+    // Realtime subscription (Broadcast + Postgres Changes)
+    const ch = supabaseClient.channel(`conv-${conv.id}`, {
+      config: { broadcast: { self: false } },
+    })
+
+    // 1. Instant WebSocket broadcast for new messages (< 50ms)
+    ch.on('broadcast', { event: 'new_message' }, payload => {
+      const rawMsg = payload.payload?.message as any
+      if (!rawMsg) return
+      const parsedPhotos = extractPhotoUrls(rawMsg.photos, rawMsg.image_url)
+      const newMsg: ConvMsg = {
+        ...rawMsg,
+        photos: parsedPhotos,
+        image_url: rawMsg.image_url || (parsedPhotos.length > 0 ? parsedPhotos[0] : null),
+      }
+      setMsgs(prev => {
+        if (prev.find(m => m.id === newMsg.id)) return prev
+        setAnimatingIds(ids => {
+          const next = new Set(ids)
+          next.add(newMsg.id)
+          setTimeout(() => setAnimatingIds(cur => { const s = new Set(cur); s.delete(newMsg.id); return s }), 800)
+          return next
+        })
+        return [...prev, newMsg]
+      })
+      setPeerTyping(false)
+      setTimeout(() => scrollToBottom(true), 50)
+      setMyUserId(uid => {
+        if (uid && newMsg.sender_id !== uid) {
+          apiFetch(`/api/conversations/${conv.id}/read`, { method: 'POST' }).catch(() => {})
+        }
+        return uid
+      })
+    })
+
+    // 2. Instant WebSocket broadcast for typing indicator
+    ch.on('broadcast', { event: 'typing' }, payload => {
+      const { isTyping, userId } = payload.payload || {}
+      setMyUserId(uid => {
+        if (userId && userId !== uid) {
+          setPeerTyping(!!isTyping)
+          if (peerTypingTimeoutRef.current) clearTimeout(peerTypingTimeoutRef.current)
+          if (isTyping) {
+            setTimeout(() => scrollToBottom(true), 50)
+            peerTypingTimeoutRef.current = setTimeout(() => {
+              setPeerTyping(false)
+            }, 4000)
+          }
+        }
+        return uid
+      })
+    })
+
+    // 3. Postgres changes (database truth)
     ch
       .on('postgres_changes', {
         event: 'INSERT',
@@ -277,6 +601,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
           })
           return [...prev, newMsg]
         })
+        setPeerTyping(false)
         setTimeout(() => scrollToBottom(true), 50)
         setMyUserId(uid => {
           if (uid && newMsg.sender_id !== uid) {
@@ -332,6 +657,10 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
   }
 
   const closeConv = () => {
+    clearTyping()
+    if (peerTypingTimeoutRef.current) clearTimeout(peerTypingTimeoutRef.current)
+    setPeerTyping(false)
+    setReplyingTo(null)
     if (channelRef.current) { supabaseClient.removeChannel(channelRef.current).catch(() => {}); channelRef.current = null }
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
     selectedRef.current = null
@@ -378,11 +707,21 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
   const send = async () => {
     if (!input.trim() || !selected || sending) return
     setSending(true)
-    const text = input.trim(); setInput('')
+    const text = input.trim()
+    const currentReply = replyingTo
+    setInput('')
+    if (textareaRef.current) textareaRef.current.style.height = 'auto'
+    setReplyingTo(null)
+    clearTyping()
+
     try {
       const r = await apiFetch(`/api/conversations/${selected.id}/messages`, {
         method: 'POST',
-        body: JSON.stringify({ content: text }),
+        body: JSON.stringify({
+          content: text,
+          reply_to_id: currentReply?.id || null,
+          reply_to_content: currentReply ? (currentReply.content || (currentReply.photos?.length ? '📷 Photo' : currentReply.gif_url ? '🎬 GIF' : 'Message')) : null,
+        }),
       })
       const { message } = await r.json()
       if (message) {
@@ -391,6 +730,11 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
           ? { ...c, last_message: text || 'Message', last_message_at: new Date().toISOString() }
           : c))
         setTimeout(() => scrollToBottom(true), 50)
+        channelRef.current?.send({
+          type: 'broadcast',
+          event: 'new_message',
+          payload: { message },
+        }).catch(() => {})
       }
     } catch {}
     setSending(false)
@@ -399,11 +743,19 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
   const sendGif = async (gif: GifResult) => {
     if (!selected || sending) return
     setSending(true)
+    const currentReply = replyingTo
     setShowGifPicker(false)
+    setReplyingTo(null)
+    clearTyping()
+
     try {
       const r = await apiFetch(`/api/conversations/${selected.id}/messages`, {
         method: 'POST',
-        body: JSON.stringify({ gif_url: gif.url }),
+        body: JSON.stringify({
+          gif_url: gif.url,
+          reply_to_id: currentReply?.id || null,
+          reply_to_content: currentReply ? (currentReply.content || (currentReply.photos?.length ? '📷 Photo' : currentReply.gif_url ? '🎬 GIF' : 'Message')) : null,
+        }),
       })
       const { message } = await r.json()
       if (message) {
@@ -412,6 +764,11 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
           ? { ...c, last_message: '🎬 GIF', last_message_at: new Date().toISOString() }
           : c))
         setTimeout(() => scrollToBottom(true), 50)
+        channelRef.current?.send({
+          type: 'broadcast',
+          event: 'new_message',
+          payload: { message },
+        }).catch(() => {})
       }
     } catch {}
     setSending(false)
@@ -479,6 +836,10 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
     if (!selectedImage || !selected || sending) return
 
     setSending(true)
+    const currentReply = replyingTo
+    setReplyingTo(null)
+    clearTyping()
+
     try {
       const imageUrl = await uploadImage(selectedImage)
       if (!imageUrl) {
@@ -487,12 +848,18 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
         return
       }
 
+      const text = input.trim()
+      setInput('')
+      if (textareaRef.current) textareaRef.current.style.height = 'auto'
+
       const r = await apiFetch(`/api/conversations/${selected.id}/messages`, {
         method: 'POST',
         body: JSON.stringify({
-          content: input.trim() || '',
+          content: text || '',
           image_url: imageUrl,
           photos: [imageUrl],
+          reply_to_id: currentReply?.id || null,
+          reply_to_content: currentReply ? (currentReply.content || (currentReply.photos?.length ? '📷 Photo' : currentReply.gif_url ? '🎬 GIF' : 'Message')) : null,
         }),
       })
       const { message } = await r.json()
@@ -508,11 +875,15 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
           ? { ...c, last_message: '📷 Photo', last_message_at: new Date().toISOString() }
           : c))
         setTimeout(() => scrollToBottom(true), 50)
+        channelRef.current?.send({
+          type: 'broadcast',
+          event: 'new_message',
+          payload: { message: normalizedMessage },
+        }).catch(() => {})
       }
 
       setSelectedImage(null)
       setImagePreview(null)
-      setInput('')
     } catch (error) {
       console.error('Send image error:', error)
       alert('Failed to send image')
@@ -795,78 +1166,35 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                             : '6px 20px 20px 4px'
 
                     return (
-                      <div
+                      <MessageBubbleRow
                         key={m.id}
-                        className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} ${isPrevSame ? 'mt-1' : 'mt-2.5'} ${animatingIds.has(m.id) ? 'msg-appear' : ''}`}
-                      >
-                        {m.gif_url ? (
-                          <img
-                            src={`/api/gif-proxy?url=${encodeURIComponent(m.gif_url)}`}
-                            alt="GIF"
-                            className="max-w-[220px] block"
-                            style={{
-                              borderRadius: bubbleRadius,
-                              border: isMine ? '2px solid rgba(100,80,200,0.3)' : '2px solid #E8E8E8',
-                            }}
-                          />
-                        ) : photoUrls.length > 0 ? (
-                          <div className="flex max-w-[240px] flex-col gap-2">
-                            {m.content && (
-                              <div
-                                className="px-4 py-3 shadow-sm"
-                                style={{
-                                  background: isMine
-                                    ? 'linear-gradient(145deg, #0D0D0D 0%, #1C1C2E 55%, #2D1B69 100%)'
-                                    : '#F2F2F4',
-                                  borderRadius: bubbleRadius,
-                                }}
-                              >
-                                <p style={{ color: isMine ? '#FFFFFF' : '#0D0D0D', fontSize: '15px', lineHeight: '1.4' }}>{m.content}</p>
-                              </div>
-                            )}
-                            {photoUrls.map((photoUrl) => (
-                              <img
-                                key={`${m.id}-${photoUrl}`}
-                                src={photoUrl}
-                                alt="Photo"
-                                className="max-w-[240px] block object-cover cursor-pointer shadow-sm"
-                                style={{
-                                  borderRadius: bubbleRadius,
-                                  border: isMine ? '2px solid rgba(100,80,200,0.3)' : '2px solid #E8E8E8',
-                                }}
-                                onClick={() => openFullImage(photoUrl)}
-                              />
-                            ))}
-                          </div>
-                        ) : m.content ? (
-                          <div
-                            className="max-w-[78%] px-4 py-2.5 shadow-sm"
-                            style={{
-                              background: isMine
-                                ? 'linear-gradient(145deg, #0D0D0D 0%, #1C1C2E 55%, #2D1B69 100%)'
-                                : '#F2F2F4',
-                              borderRadius: bubbleRadius,
-                            }}
-                          >
-                            <p style={{ color: isMine ? '#FFFFFF' : '#0D0D0D', fontSize: '15px', lineHeight: '1.4' }}>{m.content}</p>
-                          </div>
-                        ) : null}
-                        {(!isNextSame || isLastMine) && (
-                          <div className={`flex items-center gap-1 mt-1 px-1 ${isMine ? 'flex-row-reverse' : ''}`}>
-                            <span className="text-[10px] text-[#A0A0A5]">{formatMessageTime(m.created_at)}</span>
-                            {isMine && m.id === lastReadSentId && (
-                              <span className="text-[10px] text-[#2AC642] font-medium">{t.read || 'Lu'}</span>
-                            )}
-                            {isMine && m.id !== lastReadSentId && isLastMine && (
-                              <span className="text-[10px] text-[#A0A0A5]">{t.sent || 'Envoyé'}</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                        m={m}
+                        isMine={isMine}
+                        isPrevSame={!!isPrevSame}
+                        isNextSame={!!isNextSame}
+                        isLastMine={!!isLastMine}
+                        bubbleRadius={bubbleRadius}
+                        lastReadSentId={lastReadSentId}
+                        onReply={(msg) => {
+                          setReplyingTo(msg)
+                          textareaRef.current?.focus()
+                        }}
+                        onOpenFull={openFullImage}
+                        isAnimated={animatingIds.has(m.id)}
+                        t={t}
+                      />
                     )
                   })}
                 </div>
               ))
+            )}
+            {/* Typing indicator bubble */}
+            {peerTyping && (
+              <div className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-[18px] bg-[#F2F2F4] w-fit mt-2 animate-pulse shadow-sm self-start">
+                <span className="w-2 h-2 rounded-full bg-[#8E8E93] animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-2 h-2 rounded-full bg-[#8E8E93] animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-2 h-2 rounded-full bg-[#8E8E93] animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
             )}
             <div ref={bottomRef} />
           </div>
@@ -909,12 +1237,41 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                 </button>
               </div>
             )}
+
+            {/* Reply preview */}
+            {replyingTo && (
+              <div className="mb-2 relative pointer-events-auto flex items-center justify-between rounded-[18px] bg-white/95 backdrop-blur-md px-3.5 py-2 border border-[#E8E8EC] shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <div className="w-1 h-8 rounded-full bg-[#0D0D0D] flex-shrink-0" />
+                  <div className="min-w-0 flex-1 text-[13px]">
+                    <p className="font-semibold text-[#0D0D0D] flex items-center gap-1.5 text-[12px]">
+                      <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M9 14l-5-5 5-5M4 9h10a5 5 0 0 1 5 5v3" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      Réponse à {replyingTo.sender_id === myUserId ? 'vous-même' : 'ce message'}
+                    </p>
+                    <p className="text-[#8E8E93] truncate">
+                      {replyingTo.content || (replyingTo.photos?.length ? '📷 Photo' : replyingTo.gif_url ? '🎬 GIF' : 'Message')}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReplyingTo(null)}
+                  className="w-6 h-6 rounded-full bg-black/5 hover:bg-black/10 flex items-center justify-center text-[#8E8E93] hover:text-[#0D0D0D] transition-colors flex-shrink-0 ml-2"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round"/>
+                  </svg>
+                </button>
+              </div>
+            )}
             
-            {/* The Unified Pill Bar */}
-            <div className="pointer-events-auto flex items-center rounded-full bg-[#F2F2F5] px-2 py-1.5 gap-1.5 shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-[#E8E8EC]">
+            {/* The Unified Pill Bar with Auto-expanding Textarea */}
+            <div className="pointer-events-auto flex items-end rounded-[24px] bg-[#F2F2F5] px-2 py-1.5 gap-1.5 shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-[#E8E8EC]">
               {/* Photo / Camera button */}
               <label
-                className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform cursor-pointer flex-shrink-0 hover:bg-black/[0.04]"
+                className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform cursor-pointer flex-shrink-0 hover:bg-black/[0.04] mb-0.5"
                 title={t.photo || 'Photo'}
               >
                 <img src="/assets/camera.svg" alt="Photo" className="w-5 h-5 opacity-70" />
@@ -930,7 +1287,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
               <button
                 type="button"
                 onClick={() => setShowGifPicker(p => !p)}
-                className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform flex-shrink-0 hover:bg-black/[0.04]"
+                className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform flex-shrink-0 hover:bg-black/[0.04] mb-0.5"
                 title="GIF"
                 style={{ background: showGifPicker ? '#0D0D0D' : 'transparent' }}
               >
@@ -941,12 +1298,14 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                 />
               </button>
 
-              {/* Text input */}
-              <input
+              {/* Auto-expanding Textarea */}
+              <textarea
+                ref={textareaRef}
                 value={input}
-                onChange={e => setInput(e.target.value)}
+                rows={1}
+                onChange={handleInputChange}
                 onKeyDown={e => { 
-                  if (e.key === 'Enter') { 
+                  if (e.key === 'Enter' && !e.shiftKey) { 
                     e.preventDefault() 
                     if (imagePreview) {
                       sendImage()
@@ -956,8 +1315,8 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                   } 
                 }}
                 placeholder={t.messagePlaceholder || 'Message…'}
-                maxLength={500}
-                className="flex-1 bg-transparent px-2.5 py-2 text-[15px] text-[#0D0D0D] placeholder-[#8E8E93] outline-none min-w-0"
+                maxLength={1000}
+                className="flex-1 bg-transparent px-2.5 py-2 text-[15px] text-[#0D0D0D] placeholder-[#8E8E93] outline-none min-w-0 resize-none overflow-y-auto leading-[20px] max-h-[120px]"
                 style={{ fontFamily: 'inherit' }}
               />
 
@@ -972,7 +1331,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                   }
                 }}
                 disabled={sending || (!input.trim() && !imagePreview)}
-                className="w-9 h-9 rounded-full bg-[#0D0D0D] flex items-center justify-center active:scale-90 transition-transform disabled:opacity-20 flex-shrink-0"
+                className="w-9 h-9 rounded-full bg-[#0D0D0D] flex items-center justify-center active:scale-90 transition-transform disabled:opacity-20 flex-shrink-0 mb-0.5"
                 title="Envoyer"
               >
                 {sending ? (

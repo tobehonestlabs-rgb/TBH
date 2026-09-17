@@ -1711,10 +1711,8 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                     {/* IP */}
                     <div className="rounded-[22px] px-4 py-4" style={{ background: '#F7F7F9' }}>
                       <p className="text-[10px] font-semibold text-[#ADADAD] uppercase tracking-widest mb-1.5">{t.ipAddress || 'Adresse IP'}</p>
-                      <p className="text-[16px] font-mono font-bold text-[#0D0D0D]">
-                        {selectedMsg.ip_address
-                          ? selectedMsg.ip_address.split('.').slice(0, 3).join('.') + '.*'
-                          : (t.notAvailable || 'Indisponible')}
+                      <p className="text-[16px] font-mono font-bold text-[#0D0D0D] break-all select-all">
+                        {selectedMsg.ip_address || (t.notAvailable || 'Indisponible')}
                       </p>
                     </div>
 
@@ -1744,6 +1742,9 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                       <InsightsMap
                         latitude={parseFloat(selectedMsg.latitude)}
                         longitude={parseFloat(selectedMsg.longitude)}
+                        city={selectedMsg.city ?? undefined}
+                        country={selectedMsg.country ?? undefined}
+                        region={selectedMsg.region ?? undefined}
                       />
                     </div>
                   ) : (
