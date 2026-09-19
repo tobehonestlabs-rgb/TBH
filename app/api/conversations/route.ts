@@ -65,7 +65,25 @@ export async function GET(_req: NextRequest) {
       .order('last_message_at', { ascending: false, nullsFirst: false })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ conversations: data ?? [], userId: user.id })
+
+    // If any conversation has original_message_id, fetch those messages' content
+    const convs = data ?? []
+    const origIds = Array.from(new Set(convs.map((c: any) => c.original_message_id).filter(Boolean)))
+    let origMap: Record<string, string> = {}
+    if (origIds.length > 0) {
+      const { data: msgs } = await supabaseAdmin
+        .from('messages')
+        .select('message_id, content')
+        .in('message_id', origIds)
+      if (msgs) {
+        for (const m of msgs) origMap[m.message_id] = m.content ?? ''
+      }
+    }
+
+    // attach original_message_content to each conversation
+    const enriched = convs.map((c: any) => ({ ...c, original_message_content: origMap[c.original_message_id] ?? null }))
+
+    return NextResponse.json({ conversations: enriched, userId: user.id })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { Analytics } from "@vercel/analytics/next"
-
+import NotificationInitializer from './NotificationInitializer';
 export const metadata: Metadata = {
   title: 'TBH - Receive Anonymous Messages, Voices & Photos',
   description: 'TBH lets you receive anonymous messages, voices, and photos from peers with intuitive hints about the sender. Join over 100M users.',
@@ -45,14 +45,15 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="mobile-web-app-capable" content="yes" />
+        {/* Google Fonts: Outfit */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap" rel="stylesheet" />
         <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-icon-180.png" />
       </head>
       <body>
-        <div id="desktop-bg">
-          <div id="app-shell">
-            {children}
-          </div>
-        </div>
+        {children}
+        <NotificationInitializer /> 
         <Analytics />
       </body>
     </html>
