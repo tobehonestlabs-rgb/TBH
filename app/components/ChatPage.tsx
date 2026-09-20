@@ -19,6 +19,7 @@ type Conversation = {
   original_message_content?: string | null
   participant_1: string | null
   participant_2: string | null
+  last_sender_id?: string | null
 }
 
 type ConvMsg = {
@@ -384,6 +385,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
   const [convs, setConvs]           = useState<Conversation[]>([])
   const [loading, setLoading]       = useState(true)
   const [myUserId, setMyUserId]     = useState<string | null>(null)
+  const myUserIdRef                 = useRef<string | null>(null)
   const [selected, setSelected]     = useState<Conversation | null>(null)
   const [msgs, setMsgs]             = useState<ConvMsg[]>([])
   const [loadingMsgs, setLoadingMsgs] = useState(false)
@@ -503,43 +505,48 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
       const d = await r.json()
       const list: Conversation[] = d.conversations ?? []
       setConvs(list)
-      setMyUserId(d.userId ?? null)
+      const uid = d.userId ?? null
+      setMyUserId(uid)
+      myUserIdRef.current = uid
       return list
     } catch { return [] }
   }, [])
 
-  useEffect(() => {
-    fetchConvs().then(list => {
-      setLoading(false)
-      // Check unread after initial load
-      checkUnread(list, loadLastSeen())
-    })
-
-    // Poll conversation list every 10s to detect new messages
-    listPollRef.current = setInterval(() => {
-      fetchConvs().then(list => {
-        checkUnread(list, loadLastSeen())
-      })
-    }, 3000)
-
-    return () => {
-      if (listPollRef.current) clearInterval(listPollRef.current)
-    }
-  }, [fetchConvs])
-
-  const checkUnread = useCallback((list: Conversation[], seen: Record<string, number>) => {
+  const checkUnread = useCallback((list: Conversation[], seen: Record<string, number>, currentUserId?: string | null) => {
+    const uid = currentUserId ?? myUserIdRef.current
     const hasAny = list.some(c => {
       if (!c.last_message_at) return false
+      // L'utilisateur ne doit pas recevoir de notification s'il a envoyé le dernier message
+      if (uid && c.last_sender_id === uid) return false
       const t = new Date(c.last_message_at).getTime()
       return t > (seen[c.id] ?? 0)
     })
     onUnreadChange?.(hasAny)
   }, [onUnreadChange])
 
-  // Re-check unread whenever convs or lastSeenAt change
   useEffect(() => {
-    checkUnread(convs, lastSeenAt)
-  }, [convs, lastSeenAt, checkUnread])
+    fetchConvs().then(list => {
+      setLoading(false)
+      // Check unread after initial load
+      checkUnread(list, loadLastSeen(), myUserIdRef.current)
+    })
+
+    // Poll conversation list to detect new messages
+    listPollRef.current = setInterval(() => {
+      fetchConvs().then(list => {
+        checkUnread(list, loadLastSeen(), myUserIdRef.current)
+      })
+    }, 3000)
+
+    return () => {
+      if (listPollRef.current) clearInterval(listPollRef.current)
+    }
+  }, [fetchConvs, checkUnread])
+
+  // Re-check unread whenever convs, lastSeenAt, or myUserId change
+  useEffect(() => {
+    checkUnread(convs, lastSeenAt, myUserId)
+  }, [convs, lastSeenAt, myUserId, checkUnread])
 
   const toggleFavorite = (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -818,10 +825,16 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
       })
       const { message } = await r.json()
       if (message) {
+        const now = Date.now()
         setMsgs(prev => prev.find(m => m.id === message.id) ? prev : [...prev, message])
         setConvs(prev => prev.map(c => c.id === selected.id
-          ? { ...c, last_message: text || 'Message', last_message_at: new Date().toISOString() }
+          ? { ...c, last_message: text || 'Message', last_message_at: new Date().toISOString(), last_sender_id: myUserId }
           : c))
+        setLastSeenAt(prev => {
+          const next = { ...prev, [selected.id]: now }
+          saveLastSeen(next)
+          return next
+        })
         setTimeout(() => scrollToBottom(true), 50)
         channelRef.current?.send({
           type: 'broadcast',
@@ -852,10 +865,16 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
       })
       const { message } = await r.json()
       if (message) {
+        const now = Date.now()
         setMsgs(prev => prev.find(m => m.id === message.id) ? prev : [...prev, message])
         setConvs(prev => prev.map(c => c.id === selected.id
-          ? { ...c, last_message: 'GIF', last_message_at: new Date().toISOString() }
+          ? { ...c, last_message: 'GIF', last_message_at: new Date().toISOString(), last_sender_id: myUserId }
           : c))
+        setLastSeenAt(prev => {
+          const next = { ...prev, [selected.id]: now }
+          saveLastSeen(next)
+          return next
+        })
         setTimeout(() => scrollToBottom(true), 50)
         channelRef.current?.send({
           type: 'broadcast',
@@ -963,10 +982,16 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
           photos: parsedPhotos,
           image_url: message.image_url || (parsedPhotos.length > 0 ? parsedPhotos[0] : null),
         }
+        const now = Date.now()
         setMsgs(prev => prev.find(m => m.id === normalizedMessage.id) ? prev : [...prev, normalizedMessage])
         setConvs(prev => prev.map(c => c.id === selected.id
-          ? { ...c, last_message: 'Photo', last_message_at: new Date().toISOString() }
+          ? { ...c, last_message: 'Photo', last_message_at: new Date().toISOString(), last_sender_id: myUserId }
           : c))
+        setLastSeenAt(prev => {
+          const next = { ...prev, [selected.id]: now }
+          saveLastSeen(next)
+          return next
+        })
         setTimeout(() => scrollToBottom(true), 50)
         channelRef.current?.send({
           type: 'broadcast',
@@ -1018,7 +1043,8 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
           const isFav = favorites.has(conv.id)
           const seenTs = lastSeenAt[conv.id] ?? 0
           const lastMsgTs = conv.last_message_at ? new Date(conv.last_message_at).getTime() : 0
-          const isUnread = lastMsgTs > seenTs
+          const isMineLast = myUserId && conv.last_sender_id === myUserId
+          const isUnread = !isMineLast && (lastMsgTs > seenTs)
 
           return (
             <button
@@ -1033,19 +1059,19 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
               onTouchMove={() => {
                 if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null }
               }}
-              className="w-full text-left flex items-center gap-3 px-5 py-[14px] active:bg-[#FAFAFA] transition-colors"
+              className="w-full text-left flex items-center gap-3 px-5 py-[14px] active:bg-[#F2F2F7] active:scale-[0.985] transition-all duration-150 ease-out select-none cursor-pointer"
             >
               {/* Avatar */}
               <div className="relative flex-shrink-0">
-                <div className="w-11 h-11 rounded-full bg-[#F5F5F5] flex items-center justify-center">
-                  <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="#888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <circle cx="12" cy="7" r="4" stroke="#888" strokeWidth="2"/>
-                  </svg>
+                <div className="w-11 h-11 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden">
+                  <img
+                    src="/assets/ChatHeart.svg"
+                    alt=""
+                    width={24}
+                    height={24}
+                    className="w-6 h-6 object-contain pointer-events-none"
+                  />
                 </div>
-                {isUnread && (
-                  <div className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-[#FF3B30] border-2 border-white" />
-                )}
               </div>
 
               {/* Text */}

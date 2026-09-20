@@ -80,8 +80,31 @@ export async function GET(_req: NextRequest) {
       }
     }
 
-    // attach original_message_content to each conversation
-    const enriched = convs.map((c: any) => ({ ...c, original_message_content: origMap[c.original_message_id] ?? null }))
+    // Fetch the last message sender for each conversation to identify who sent the last message
+    let lastSenderMap: Record<string, string> = {}
+    if (convs.length > 0) {
+      const convIds = convs.map((c: any) => c.id)
+      const { data: lastMsgs } = await supabaseAdmin
+        .from('conversation_messages')
+        .select('conversation_id, sender_id, created_at')
+        .in('conversation_id', convIds)
+        .order('created_at', { ascending: false })
+
+      if (lastMsgs) {
+        for (const m of lastMsgs) {
+          if (!lastSenderMap[m.conversation_id]) {
+            lastSenderMap[m.conversation_id] = m.sender_id
+          }
+        }
+      }
+    }
+
+    // attach original_message_content and last_sender_id to each conversation
+    const enriched = convs.map((c: any) => ({
+      ...c,
+      original_message_content: origMap[c.original_message_id] ?? null,
+      last_sender_id: lastSenderMap[c.id] ?? null,
+    }))
 
     return NextResponse.json({ conversations: enriched, userId: user.id })
   } catch (e: any) {
