@@ -1033,7 +1033,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
               onTouchMove={() => {
                 if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null }
               }}
-              className={`w-full text-left flex items-center gap-3 px-5 py-[14px] active:bg-[#FAFAFA] transition-colors ${idx === 0 ? '' : 'border-t border-[#EFEFEF]'}`}
+              className="w-full text-left flex items-center gap-3 px-5 py-[14px] active:bg-[#FAFAFA] transition-colors"
             >
               {/* Avatar */}
               <div className="relative flex-shrink-0">
@@ -1050,12 +1050,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
 
               {/* Text */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  {isFav && (
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="#FF3B30" className="flex-shrink-0">
-                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                    </svg>
-                  )}
+                <div className="flex items-center">
                   <p className={`text-[15px] truncate ${isUnread ? 'font-bold text-[#0D0D0D]' : 'font-semibold text-[#0D0D0D]'}`}>
                     {convDisplayName(conv)}
                   </p>
@@ -1065,30 +1060,41 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                 </p>
               </div>
 
-              {/* Right side: time + heart */}
-              <div className="flex flex-col items-end gap-1 flex-shrink-0">
+              {/* Right side: time + favorite heart */}
+              <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                 {conv.last_message_at && (
-                  <p className={`text-[11px] ${isUnread ? 'text-[#FF3B30] font-semibold' : 'text-[#CCC]'}`}>
+                  <p className={`text-[11px] ${isUnread ? 'text-[#FF3B30] font-semibold' : 'text-[#ADADAD]'}`}>
                     {timeAgo(conv.last_message_at)}
                   </p>
                 )}
                 <button
+                  type="button"
                   onClick={e => toggleFavorite(conv.id, e)}
-                  className="w-6 h-6 flex items-center justify-center active:scale-75 transition-transform"
+                  aria-label={isFav ? (t.removeFromFavorites || 'Retirer des favoris') : (t.addToFavorites || 'Ajouter aux favoris')}
+                  className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ease-out active:scale-125 hover:scale-110 active:rotate-[-8deg] ${
+                    isFav 
+                      ? 'bg-[#FF3358]/10 hover:bg-[#FF3358]/15' 
+                      : 'hover:bg-[#F2F2F7] active:bg-[#EBEBEF]'
+                  }`}
+                  style={{
+                    filter: isFav ? 'drop-shadow(0 2px 6px rgba(255, 75, 100, 0.35))' : 'none'
+                  }}
                 >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill={isFav ? '#FF3B30' : 'none'} stroke={isFav ? '#FF3B30' : '#CCC'} strokeWidth="2">
-                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                  </svg>
-                </button>
-                <button
-                  onClick={e => { e.stopPropagation(); deleteConversation(conv.id) }}
-                  className="w-6 h-6 flex items-center justify-center active:scale-75 transition-transform"
-                  title="Delete"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#CC5757" strokeWidth="1.8">
-                    <path d="M3 6h18" />
-                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                    <path d="M10 11v6M14 11v6M9 6V4h6v2" />
+                  <svg width="20" height="20" viewBox="0 0 24 24" className="transition-transform duration-200">
+                    <defs>
+                      <linearGradient id={`fav-gradient-${conv.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#FF6B7A" />
+                        <stop offset="100%" stopColor="#FF3358" />
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
+                      fill={isFav ? `url(#fav-gradient-${conv.id})` : 'none'}
+                      stroke={isFav ? `url(#fav-gradient-${conv.id})` : '#C7C7CC'}
+                      strokeWidth={isFav ? '1.8' : '2'}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </button>
               </div>

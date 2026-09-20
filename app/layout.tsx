@@ -1,7 +1,14 @@
+import { Outfit } from 'next/font/google'
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { Analytics } from "@vercel/analytics/next"
 import NotificationInitializer from './NotificationInitializer';
+
+const outfit = Outfit({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-outfit',
+})
 export const metadata: Metadata = {
   title: 'TBH - Receive Anonymous Messages, Voices & Photos',
   description: 'TBH lets you receive anonymous messages, voices, and photos from peers with intuitive hints about the sender. Join over 100M users.',
@@ -51,7 +58,7 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap" rel="stylesheet" />
         <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-icon-180.png" />
       </head>
-      <body>
+      <body className={`${outfit.variable} ${outfit.className} font-sans`}>
         {children}
         <NotificationInitializer /> 
         <Analytics />
