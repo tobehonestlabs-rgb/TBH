@@ -4,8 +4,8 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useTranslation } from '@/lib/i18n'
 
 type Props = {
-  latitude: number
-  longitude: number
+  latitude: number | string
+  longitude: number | string
   city?: string
   country?: string
   region?: string
@@ -46,7 +46,13 @@ function createGeoJSONCircle(center: [number, number], radiusInKm: number, point
   }
 }
 
-export default function InsightsMap({ latitude, longitude, city, country, region }: Props) {
+export default function InsightsMap({
+  latitude: rawLat,
+  longitude: rawLon,
+  city,
+  country,
+  region,
+}: Props) {
   const { t } = useTranslation()
   const inlineContainerRef = useRef<HTMLDivElement>(null)
   const fullscreenContainerRef = useRef<HTMLDivElement>(null)
@@ -56,6 +62,9 @@ export default function InsightsMap({ latitude, longitude, city, country, region
   
   const [showFullscreen, setShowFullscreen] = useState(false)
   const [token, setToken] = useState<string | null>(null)
+
+  const latitude = typeof rawLat === 'number' ? rawLat : parseFloat(String(rawLat ?? ''))
+  const longitude = typeof rawLon === 'number' ? rawLon : parseFloat(String(rawLon ?? ''))
 
   // Fetch token once
   useEffect(() => {
@@ -88,8 +97,16 @@ export default function InsightsMap({ latitude, longitude, city, country, region
   const initializeMap = useCallback(async (
     container: HTMLDivElement,
     interactive: boolean,
-    zoomLevel = 11
+    zoomLevel = 12
   ): Promise<any> => {
+    if (isNaN(latitude) || isNaN(longitude)) return null
+
+    // Ensure container is clean and ready
+    if ((container as any)._leaflet_id) {
+      delete (container as any)._leaflet_id
+    }
+    container.innerHTML = ''
+
     // 1. Try Mapbox GL if token exists
     if (token && token.trim().length > 0) {
       try {
@@ -114,26 +131,28 @@ export default function InsightsMap({ latitude, longitude, city, country, region
 
         map.on('load', () => {
           try {
-            const circleGeoJSON = createGeoJSONCircle([longitude, latitude], 2.8)
+            const circleGeoJSON = createGeoJSONCircle([longitude, latitude], 2.4)
 
-            // Circle Area
+            // Circle Area Source
             map.addSource('sender-circle', {
               type: 'geojson',
               data: circleGeoJSON,
             })
 
-            // White glowing fill
+            // Wide ambient glow line
             map.addLayer({
-              id: 'sender-circle-fill',
-              type: 'fill',
+              id: 'sender-circle-glow',
+              type: 'line',
               source: 'sender-circle',
               paint: {
-                'fill-color': '#FFFFFF',
-                'fill-opacity': 0.14,
+                'line-color': '#FFFFFF',
+                'line-width': 8,
+                'line-opacity': 0.35,
+                'line-blur': 6,
               },
             })
 
-            // White glowing stroke
+            // Crisp glowing stroke
             map.addLayer({
               id: 'sender-circle-stroke',
               type: 'line',
@@ -141,24 +160,31 @@ export default function InsightsMap({ latitude, longitude, city, country, region
               paint: {
                 'line-color': '#FFFFFF',
                 'line-width': 2,
-                'line-opacity': 0.85,
-                'line-blur': 1,
+                'line-opacity': 0.9,
+              },
+            })
+
+            // Translucent white fill
+            map.addLayer({
+              id: 'sender-circle-fill',
+              type: 'fill',
+              source: 'sender-circle',
+              paint: {
+                'fill-color': '#FFFFFF',
+                'fill-opacity': 0.16,
               },
             })
 
             // White glowing center pulse marker
             const el = document.createElement('div')
-            el.className = 'tbh-white-marker'
-            el.style.position = 'relative'
-            el.style.width = '24px'
-            el.style.height = '24px'
-            el.style.display = 'flex'
-            el.style.alignItems = 'center'
-            el.style.justifyContent = 'center'
-
+            el.className = 'tbh-white-glow-wrapper'
             el.innerHTML = `
-              <div style="position: absolute; width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,0.35); box-shadow: 0 0 20px rgba(255,255,255,0.8); animation: tbh-white-pulse 2.2s infinite ease-in-out;"></div>
-              <div style="position: relative; width: 13px; height: 13px; border-radius: 50%; background: #FFFFFF; border: 2px solid rgba(255,255,255,0.9); box-shadow: 0 0 16px #FFFFFF, 0 0 32px rgba(255,255,255,0.7);"></div>
+              <div class="tbh-glow-pin">
+                <div class="tbh-pulse-ring"></div>
+                <div class="tbh-pulse-ring-2"></div>
+                <div class="tbh-glow-aura"></div>
+                <div class="tbh-white-dot"></div>
+              </div>
             `
 
             new mapboxgl.Marker({ element: el })
@@ -175,10 +201,16 @@ export default function InsightsMap({ latitude, longitude, city, country, region
       }
     }
 
-    // 2. Leaflet Fallback
+    // 2. Leaflet Fallback (Dark CARTO tiles with glowing white dot & position area)
     try {
       ensureCss('leaflet-css', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css')
       const { default: L } = await import('leaflet')
+
+      // Ensure container has clean state
+      if ((container as any)._leaflet_id) {
+        delete (container as any)._leaflet_id
+      }
+      container.innerHTML = ''
 
       const map = L.map(container, {
         center: [latitude, longitude],
@@ -194,27 +226,48 @@ export default function InsightsMap({ latitude, longitude, city, country, region
       })
 
       L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        subdomains: 'abcd',
         maxZoom: 19,
       }).addTo(map)
 
-      // White glowing circle
-      L.circle([latitude, longitude], {
-        radius: 2800,
+      // Glowing position area (approximate sender zone)
+      const areaCircle = L.circle([latitude, longitude], {
+        radius: 2400,
         color: '#FFFFFF',
         fillColor: '#FFFFFF',
-        fillOpacity: 0.15,
-        weight: 2,
+        fillOpacity: 0.12,
+        weight: 1.5,
         opacity: 0.85,
+        dashArray: '5, 8',
+        className: 'tbh-glow-area-circle',
       }).addTo(map)
 
-      // White glowing center dot
-      L.circleMarker([latitude, longitude], {
-        radius: 6,
-        color: '#FFFFFF',
-        fillColor: '#FFFFFF',
-        fillOpacity: 1,
-        weight: 2,
+      // White glowing center dot marker
+      const glowDotIcon = L.divIcon({
+        className: 'tbh-white-glow-wrapper',
+        html: `
+          <div class="tbh-glow-pin">
+            <div class="tbh-pulse-ring"></div>
+            <div class="tbh-pulse-ring-2"></div>
+            <div class="tbh-glow-aura"></div>
+            <div class="tbh-white-dot"></div>
+          </div>
+        `,
+        iconSize: [44, 44],
+        iconAnchor: [22, 22],
+      })
+
+      L.marker([latitude, longitude], {
+        icon: glowDotIcon,
+        interactive: false,
       }).addTo(map)
+
+      // Frame position area and glow dot nicely
+      map.fitBounds(areaCircle.getBounds(), {
+        padding: interactive ? [40, 40] : [15, 15],
+        maxZoom: 13,
+        animate: false,
+      })
 
       return map
     } catch (leafletError) {
@@ -227,17 +280,45 @@ export default function InsightsMap({ latitude, longitude, city, country, region
   useEffect(() => {
     if (!inlineContainerRef.current) return
     let cancelled = false
+    let ro: ResizeObserver | null = null
 
-    initializeMap(inlineContainerRef.current, false, 11).then(map => {
+    if ((inlineContainerRef.current as any)._leaflet_id) {
+      delete (inlineContainerRef.current as any)._leaflet_id
+    }
+    inlineContainerRef.current.innerHTML = ''
+
+    initializeMap(inlineContainerRef.current, false, 12).then(map => {
       if (cancelled) {
         map?.remove?.()
         return
       }
       inlineMapRef.current = map
+
+      const invalidate = () => {
+        if (cancelled || !map) return
+        if (typeof map.resize === 'function') map.resize()
+        if (typeof map.invalidateSize === 'function') {
+          map.invalidateSize({ pan: false })
+          if (typeof map.setView === 'function') {
+            map.setView([latitude, longitude], 12)
+          }
+        }
+      }
+
+      // Staggered size invalidation passes to handle sheet slide transition
+      setTimeout(invalidate, 60)
+      setTimeout(invalidate, 180)
+      setTimeout(invalidate, 360)
+
+      if (typeof ResizeObserver !== 'undefined' && inlineContainerRef.current) {
+        ro = new ResizeObserver(() => invalidate())
+        ro.observe(inlineContainerRef.current)
+      }
     })
 
     return () => {
       cancelled = true
+      if (ro) ro.disconnect()
       if (inlineMapRef.current) {
         inlineMapRef.current.remove?.()
         inlineMapRef.current = null
@@ -249,23 +330,38 @@ export default function InsightsMap({ latitude, longitude, city, country, region
   useEffect(() => {
     if (!showFullscreen || !fullscreenContainerRef.current) return
     let cancelled = false
+    let ro: ResizeObserver | null = null
 
-    initializeMap(fullscreenContainerRef.current, true, 12).then(map => {
+    if ((fullscreenContainerRef.current as any)._leaflet_id) {
+      delete (fullscreenContainerRef.current as any)._leaflet_id
+    }
+    fullscreenContainerRef.current.innerHTML = ''
+
+    initializeMap(fullscreenContainerRef.current, true, 13).then(map => {
       if (cancelled) {
         map?.remove?.()
         return
       }
       fullscreenMapRef.current = map
-      // Trigger resize after animation
-      setTimeout(() => {
-        const mapAny = map as any
-        if (typeof mapAny?.resize === 'function') {
-          mapAny.resize()
+
+      const invalidate = (center = false) => {
+        if (cancelled || !map) return
+        if (typeof map.resize === 'function') map.resize()
+        if (typeof map.invalidateSize === 'function') {
+          map.invalidateSize({ pan: false })
+          if (center && typeof map.setView === 'function') {
+            map.setView([latitude, longitude], 13)
+          }
         }
-        if (typeof mapAny?.invalidateSize === 'function') {
-          mapAny.invalidateSize()
-        }
-      }, 100)
+      }
+
+      setTimeout(() => invalidate(true), 60)
+      setTimeout(() => invalidate(true), 200)
+
+      if (typeof ResizeObserver !== 'undefined' && fullscreenContainerRef.current) {
+        ro = new ResizeObserver(() => invalidate(false))
+        ro.observe(fullscreenContainerRef.current)
+      }
     })
 
     // Escape key handler
@@ -277,6 +373,7 @@ export default function InsightsMap({ latitude, longitude, city, country, region
     return () => {
       cancelled = true
       window.removeEventListener('keydown', handleKeyDown)
+      if (ro) ro.disconnect()
       if (fullscreenMapRef.current) {
         fullscreenMapRef.current.remove?.()
         fullscreenMapRef.current = null
@@ -301,8 +398,13 @@ export default function InsightsMap({ latitude, longitude, city, country, region
 
   const handleCenter = () => {
     const map = fullscreenMapRef.current as any
-    if (typeof map?.flyTo === 'function') {
+    if (!map) return
+    if (token && typeof map?.flyTo === 'function') {
+      // Mapbox flyTo
       map.flyTo({ center: [longitude, latitude], zoom: 13, speed: 1.2 })
+    } else if (typeof map?.flyTo === 'function') {
+      // Leaflet flyTo
+      map.flyTo([latitude, longitude], 13, { duration: 1.0 })
     } else if (typeof map?.setView === 'function') {
       map.setView([latitude, longitude], 13)
     }
@@ -310,13 +412,119 @@ export default function InsightsMap({ latitude, longitude, city, country, region
 
   const locationTitle = [city, region, country].filter(Boolean).join(', ')
 
+  if (isNaN(latitude) || isNaN(longitude)) {
+    return (
+      <div className="w-full rounded-[22px] mb-5 flex items-center justify-center border border-[#EBEBEB]" style={{ height: 80 }}>
+        <p className="text-[13px] text-[#ADADAD]">{t.locationMapNotAvailable || 'Carte de localisation indisponible'}</p>
+      </div>
+    )
+  }
+
   return (
     <>
       <style>{`
-        @keyframes tbh-white-pulse {
-          0% { transform: scale(0.85); opacity: 0.9; }
-          50% { transform: scale(1.6); opacity: 0.15; }
-          100% { transform: scale(0.85); opacity: 0.9; }
+        @keyframes tbh-pulse-wave {
+          0% {
+            transform: scale(0.35);
+            opacity: 0.95;
+            border-width: 2px;
+          }
+          60% {
+            opacity: 0.45;
+          }
+          100% {
+            transform: scale(2.2);
+            opacity: 0;
+            border-width: 1px;
+          }
+        }
+
+        @keyframes tbh-glow-breathe {
+          0% {
+            transform: scale(0.9);
+            opacity: 0.6;
+          }
+          100% {
+            transform: scale(1.3);
+            opacity: 1;
+          }
+        }
+
+        .leaflet-container {
+          background: #121214 !important;
+          outline: none;
+          font-family: inherit;
+        }
+
+        .leaflet-div-icon.tbh-white-glow-wrapper,
+        .tbh-white-glow-wrapper {
+          background: transparent !important;
+          border: none !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          width: 44px !important;
+          height: 44px !important;
+          pointer-events: none !important;
+        }
+
+        .tbh-glow-pin {
+          position: relative;
+          width: 44px;
+          height: 44px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          pointer-events: none;
+        }
+
+        .tbh-pulse-ring {
+          position: absolute;
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          border: 2px solid #FFFFFF;
+          box-shadow: 0 0 12px rgba(255, 255, 255, 0.85);
+          animation: tbh-pulse-wave 2.4s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+          pointer-events: none;
+        }
+
+        .tbh-pulse-ring-2 {
+          position: absolute;
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          border: 2px solid #FFFFFF;
+          box-shadow: 0 0 12px rgba(255, 255, 255, 0.85);
+          animation: tbh-pulse-wave 2.4s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+          animation-delay: 1.2s;
+          pointer-events: none;
+        }
+
+        .tbh-glow-aura {
+          position: absolute;
+          width: 30px;
+          height: 30px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.3) 50%, rgba(255, 255, 255, 0) 75%);
+          filter: blur(3px);
+          animation: tbh-glow-breathe 2.4s ease-in-out infinite alternate;
+          pointer-events: none;
+        }
+
+        .tbh-white-dot {
+          position: relative;
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          background: #FFFFFF;
+          border: 2.5px solid #FFFFFF;
+          box-shadow: 0 0 8px #FFFFFF, 0 0 18px rgba(255, 255, 255, 0.95), 0 0 32px rgba(255, 255, 255, 0.8);
+          z-index: 2;
+        }
+
+        .tbh-glow-area-circle {
+          filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.6));
         }
       `}</style>
 

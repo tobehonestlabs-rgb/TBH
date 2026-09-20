@@ -1737,21 +1737,31 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                   </div>
 
                   {/* Map */}
-                  {selectedMsg?.latitude && selectedMsg?.longitude ? (
-                    <div className="mb-5">
-                      <InsightsMap
-                        latitude={parseFloat(selectedMsg.latitude)}
-                        longitude={parseFloat(selectedMsg.longitude)}
-                        city={selectedMsg.city ?? undefined}
-                        country={selectedMsg.country ?? undefined}
-                        region={selectedMsg.region ?? undefined}
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-full rounded-[22px] mb-5 flex items-center justify-center border border-[#EBEBEB]" style={{ height: 80 }}>
-                      <p className="text-[13px] text-[#ADADAD]">{t.locationMapNotAvailable || 'Carte de localisation indisponible'}</p>
-                    </div>
-                  )}
+                  {(() => {
+                    const rawLat = selectedMsg?.latitude
+                    const rawLon = selectedMsg?.longitude
+                    const lat = typeof rawLat === 'number' ? rawLat : parseFloat(String(rawLat ?? ''))
+                    const lon = typeof rawLon === 'number' ? rawLon : parseFloat(String(rawLon ?? ''))
+                    const hasCoords = !isNaN(lat) && !isNaN(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180 && (lat !== 0 || lon !== 0)
+                    if (hasCoords) {
+                      return (
+                        <div className="mb-5">
+                          <InsightsMap
+                            latitude={lat}
+                            longitude={lon}
+                            city={selectedMsg?.city ?? undefined}
+                            country={selectedMsg?.country ?? undefined}
+                            region={selectedMsg?.region ?? undefined}
+                          />
+                        </div>
+                      )
+                    }
+                    return (
+                      <div className="w-full rounded-[22px] mb-5 flex items-center justify-center border border-[#EBEBEB]" style={{ height: 80 }}>
+                        <p className="text-[13px] text-[#ADADAD]">{t.locationMapNotAvailable || 'Carte de localisation indisponible'}</p>
+                      </div>
+                    )
+                  })()}
 
                   <button onClick={() => isPro ? startConversation() : setShowProScreen(true)} className="w-full py-[15px] rounded-full bg-[#0D0D0D] text-white font-bold text-[15px] active:scale-95 transition-transform">
                     {t.chatBtn || 'Chat 👀'}
