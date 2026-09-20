@@ -1070,7 +1070,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
                 <button
                   type="button"
                   onClick={e => toggleFavorite(conv.id, e)}
-                  aria-label={isFav ? (t.removeFromFavorites || 'Retirer des favoris') : (t.addToFavorites || 'Ajouter aux favoris')}
+                  aria-label={isFav ? 'Retirer des favoris' : 'Ajouter aux favoris'}
                   className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ease-out active:scale-125 hover:scale-110 active:rotate-[-8deg] ${
                     isFav 
                       ? 'bg-[#FF3358]/10 hover:bg-[#FF3358]/15' 
