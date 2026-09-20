@@ -931,9 +931,9 @@ export default function ReadMessageScreen() {
           <div className="rounded-[28px] overflow-hidden bg-white shadow-[0_24px_60px_rgba(0,0,0,0.45),0_8px_20px_rgba(0,0,0,0.25)]">
             {/* Task 1: Black banner with specified text */}
             <div className="bg-[#111111] px-5 py-3.5 text-center">
-              <span className="text-[14px] font-bold leading-snug text-white">
+              <p className="text-[15px] font-bold leading-snug text-white">
                 Envoie moi un message anonyme et on chat anonymement
-              </span>
+              </p>
             </div>
 
             {/* Task 2: White box without inner black box, clean spacing */}

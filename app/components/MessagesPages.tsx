@@ -1482,10 +1482,10 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                     <>
                       {/* Message card preview */}
                       <div className="overflow-hidden rounded-[28px] bg-white shadow-[0_24px_60px_rgba(0,0,0,0.18),0_8px_20px_rgba(0,0,0,0.12)] mb-3">
-                        <div className="bg-[#111111] px-5 py-4 text-center">
-                          <span className="inline-flex items-center rounded-full bg-white/10 px-4 py-2 text-[12px] font-bold text-white/75">
-                            🔒&nbsp; Envoie moi un message anonyme et on chat anonymement
-                          </span>
+                        <div className="bg-[#111111] px-5 py-3.5 text-center">
+                          <p className="text-[15px] font-bold leading-snug text-white">
+                            Envoie moi un message anonyme et on chat anonymement
+                          </p>
                         </div>
                         <div className="bg-white px-6 py-6 min-h-[140px] flex flex-col justify-center items-center">
                           {isImageMessage && imageUrl && (
