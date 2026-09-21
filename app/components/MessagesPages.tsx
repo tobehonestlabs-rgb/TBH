@@ -92,26 +92,9 @@ const BG_EXPANSION_PADDING = 60
 const BLUR_PASS_COUNT = 3
 const BLUR_PASS_RADIUS = 4
 
-// Logo & Emojis décoratifs
+// Logo TBH
 const LOGO_WIDTH = 220
 const LOGO_TOP_Y = 100
-const EMOJI_DECORATIONS = [
-  { src: '/assets/poop.svg',    size: 180, x: 60,  y: 120,  rot: -15, opacity: 0.18 },
-  { src: '/assets/hot.svg',     size: 220, x: 780, y: 80,   rot: 12,  opacity: 0.18 },
-  { src: '/assets/nerd.svg',    size: 160, x: 860, y: 600,  rot: -8,  opacity: 0.15 },
-  { src: '/assets/Deamon.svg',  size: 240, x: 40,  y: 900,  rot: 18,  opacity: 0.18 },
-  { src: '/assets/Excited.svg', size: 190, x: 800, y: 1200, rot: -20, opacity: 0.15 },
-  { src: '/assets/Skull.svg',   size: 160, x: 100, y: 1500, rot: 10,  opacity: 0.15 },
-]
-
-// Pilule Anonymous Message
-const ANONYMOUS_PILL_TEXT = '🔒  Anonymous message'
-const ANONYMOUS_PILL_FONT = 'bold 44px -apple-system, BlinkMacSystemFont, sans-serif'
-const ANONYMOUS_PILL_PADDING_X = 32
-const ANONYMOUS_PILL_HEIGHT = 72
-const ANONYMOUS_PILL_TOP_Y = 320
-const ANONYMOUS_PILL_BG = 'rgba(255, 255, 255, 0.12)'
-const ANONYMOUS_PILL_TEXT_COLOR = 'rgba(255, 255, 255, 0.70)'
 
 // Boîte de message globale
 const CARD_BOX_WIDTH = 860
@@ -425,20 +408,7 @@ async function generateReplyCard(
     // 1. Arrière-plan flouté avec voile sombre et vignette
     drawBlurredBackground(ctx, pfpImg, W, H, blurTmp, hasFilter)
 
-    // 2. Emojis décoratifs
-    for (const e of EMOJI_DECORATIONS) {
-      const img = await loadImage(e.src).catch(() => null)
-      if (!img) continue
-      ctx.save()
-      ctx.globalAlpha = e.opacity
-      ctx.translate(e.x + e.size / 2, e.y + e.size / 2)
-      ctx.rotate((e.rot * Math.PI) / 180)
-      ctx.drawImage(img, -e.size / 2, -e.size / 2, e.size, e.size)
-      ctx.restore()
-    }
-    ctx.globalAlpha = 1
-
-    // 3. Logo TBH
+    // 2. Logo TBH
     const logo = await loadImage(logoSrc).catch(() => null)
     if (logo) {
       const lw = LOGO_WIDTH, lh = Math.round(lw * logo.height / logo.width)
@@ -576,20 +546,7 @@ async function generateMessageCard(
     // 1. Arrière-plan flouté avec voile sombre et vignette
     drawBlurredBackground(ctx, pfpImg, W, H, blurTmp, hasFilter)
 
-    // 2. Emojis décoratifs
-    for (const e of EMOJI_DECORATIONS) {
-      const img = await loadImage(e.src).catch(() => null)
-      if (!img) continue
-      ctx.save()
-      ctx.globalAlpha = e.opacity
-      ctx.translate(e.x + e.size / 2, e.y + e.size / 2)
-      ctx.rotate((e.rot * Math.PI) / 180)
-      ctx.drawImage(img, -e.size / 2, -e.size / 2, e.size, e.size)
-      ctx.restore()
-    }
-    ctx.globalAlpha = 1
-
-    // 3. Logo TBH
+    // 2. Logo TBH
     const logo = await loadImage(logoSrc).catch(() => null)
     if (logo) {
       const lw = LOGO_WIDTH, lh = Math.round(lw * logo.height / logo.width)
@@ -605,25 +562,12 @@ async function generateMessageCard(
       ctx.globalAlpha = 1
     }
 
-    // 4. Pilule "🔒 Anonymous message"
-    ctx.font = ANONYMOUS_PILL_FONT
-    const pillW = ctx.measureText(ANONYMOUS_PILL_TEXT).width + ANONYMOUS_PILL_PADDING_X * 2
-    const pillH = ANONYMOUS_PILL_HEIGHT
-    const pillX = (W - pillW) / 2
-    const pillY = ANONYMOUS_PILL_TOP_Y
-    ctx.fillStyle = ANONYMOUS_PILL_BG
-    roundRect(ctx, pillX, pillY, pillW, pillH, pillH / 2)
-    ctx.fill()
-    ctx.fillStyle = ANONYMOUS_PILL_TEXT_COLOR
-    ctx.textAlign = 'center'
-    ctx.fillText(ANONYMOUS_PILL_TEXT, W / 2, pillY + 48)
-
-    // 5. Image attachée si présente
+    // 3. Image attachée si présente
     let imageBoxY = 0
     if (imageUrl) {
       const img = await loadImage(imageUrl).catch(() => null)
       if (img) {
-        const imgS = 860, imgY = 440
+        const imgS = 860, imgY = 280
         ctx.save()
         roundRect(ctx, (W - imgS) / 2, imgY, imgS, imgS, 48)
         ctx.clip()
@@ -637,7 +581,7 @@ async function generateMessageCard(
       }
     }
 
-    // 6. Boîte avec bandeau noir multiligne et zone blanche dynamique
+    // 4. Boîte avec bandeau noir multiligne et zone blanche dynamique
     const boxWidth = CARD_BOX_WIDTH
     const boxX = (W - boxWidth) / 2
     const boxRadius = CARD_BOX_RADIUS
@@ -671,10 +615,10 @@ async function generateMessageCard(
     // Position Y de la boîte
     let boxY = 0
     if (imageUrl) {
-      boxY = imageBoxY > 0 ? imageBoxY : 440 + 860 + 40
+      boxY = imageBoxY > 0 ? imageBoxY : 280 + 860 + 40
     } else {
-      const availableTop = pillY + pillH + 40
-      boxY = Math.max(availableTop, (H - totalBoxHeight) / 2 + 10)
+      const availableTop = 260
+      boxY = Math.max(availableTop, (H - totalBoxHeight) / 2)
     }
 
     // 6a. Ombre + fond blanc
