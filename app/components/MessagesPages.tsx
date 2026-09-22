@@ -8,6 +8,7 @@ import { getT, useTranslation } from '@/lib/i18n'
 import InsightsMap from './InsightsMap'
 import GifPicker, { GifResult } from './GifPicker'
 import TBHProScreen from './TBHProScreen'
+import SharePlatformSheet from './SharePlatformSheet'
 import { extractPhotoUrls } from '@/lib/chatImages'
 
 type Message = {
@@ -916,6 +917,9 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
   const [cardGenerating, setCardGenerating]   = useState(false)
   const [sharing, setSharing]           = useState(false)
   const [replySending, setReplySending] = useState(false)
+  const [showPlatformSheet, setShowPlatformSheet] = useState(false)
+  const [pendingShareType, setPendingShareType] = useState<'message' | 'reply' | null>(null)
+  const [showSnapToast, setShowSnapToast] = useState(false)
   // Whether the received photo should be blurred inside generated share/reply
   // cards (independent from `imageBlurred`, which only affects the in-app preview).
   const [blurSharedPhoto, setBlurSharedPhoto] = useState(false)
@@ -1183,11 +1187,15 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
   }, [selectedPhoto, replyMode, showReply, selectedMsg, userPfp])
 
   // Shares a blob via the Web Share API (falling back to a download link),
-  // guarded by the single global in-flight lock.
-  const shareBlob = async (blob: Blob, filename: string) => {
+  // guarded by the single global in-flight lock. `includeText` is false for
+  // Snapchat: bundling both `files` and `text` in the same navigator.share()
+  // call makes Snapchat's share extension pick up the link and drop the
+  // image, so Snapchat gets the file alone (the link is copied separately).
+  const shareBlob = async (blob: Blob, filename: string, opts: { includeText?: boolean } = {}) => {
+    const includeText = opts.includeText !== false
     const file = new File([blob], filename, { type: 'image/png' })
     if (navigator.share && navigator.canShare?.({ files: [file] })) {
-      await navigator.share({ files: [file], text: userLink })
+      await navigator.share(includeText ? { files: [file], text: userLink } : { files: [file] })
       return
     }
     if (navigator.share) {
@@ -1201,7 +1209,17 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
     setTimeout(() => URL.revokeObjectURL(url), 10000)
   }
 
-  const handleSendReply = async () => {
+  // Snapchat prep: put the link on the clipboard so it can be pasted next to
+  // the image. Deliberately NOT awaited — awaiting here would end the
+  // synchronous turn and cost us the transient user activation that
+  // navigator.share({ files }) requires on iOS Safari.
+  const copyLinkForSnap = () => {
+    try { navigator.clipboard?.writeText(userLink).catch(() => {}) } catch {}
+    setShowSnapToast(true)
+    setTimeout(() => setShowSnapToast(false), 3000)
+  }
+
+  const handleSendReply = async (platform: 'whatsapp' | 'instagram' | 'snapchat') => {
     if (shareInFlightRef.current || replySending) return
     const blobToUse = replyMode === 'text' ? replyCardBlob : replyMode === 'gif' ? gifCardBlob : photoCardBlob
     // The button is disabled until this is non-null, but guard anyway —
@@ -1211,7 +1229,12 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
     shareInFlightRef.current = true
     setReplySending(true)
     try {
-      await shareBlob(blobToUse, 'tbh-reply.png')
+      if (platform === 'snapchat') {
+        copyLinkForSnap()
+        await shareBlob(blobToUse, 'tbh-reply.png', { includeText: false })
+      } else {
+        await shareBlob(blobToUse, 'tbh-reply.png')
+      }
 
       // Reset UI after share completes (even if user cancels)
       setShowReply(false)
@@ -1302,7 +1325,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
     closeSheet()
   }
 
-  const handleShare = async () => {
+  const handleShare = async (platform: 'whatsapp' | 'instagram' | 'snapchat') => {
     if (!selectedMsg || shareInFlightRef.current) return
     shareInFlightRef.current = true
     setSharing(true)
@@ -1317,13 +1340,25 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
         )
       }
       if (!blobToUse) return
-      await shareBlob(blobToUse, 'tbh.png')
+      if (platform === 'snapchat') {
+        copyLinkForSnap()
+        await shareBlob(blobToUse, 'tbh.png', { includeText: false })
+      } else {
+        await shareBlob(blobToUse, 'tbh.png')
+      }
     } catch (e: any) {
       if (e?.name !== 'AbortError') console.error('Share failed', e)
     } finally {
       setSharing(false)
       shareInFlightRef.current = false
     }
+  }
+
+  const handlePlatformSelect = (platform: 'whatsapp' | 'instagram' | 'snapchat') => {
+    const type = pendingShareType
+    setShowPlatformSheet(false)
+    if (type === 'message') handleShare(platform)
+    else if (type === 'reply') handleSendReply(platform)
   }
 
   if (loading) {
@@ -1615,7 +1650,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                         const preparing = hasInput && !ready
                         return (
                           <button
-                            onClick={handleSendReply}
+                            onClick={() => { setPendingShareType('reply'); setShowPlatformSheet(true) }}
                             disabled={replySending || !hasInput || !ready}
                             className="w-full py-[15px] rounded-full bg-[#0D0D0D] text-white font-bold text-[15px] active:scale-95 transition-transform disabled:opacity-40 flex items-center justify-center gap-2"
                           >
@@ -1829,7 +1864,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
               <div className="px-5 pb-8 pt-2.5 flex gap-3 border-t border-[#F0F0F0] flex-shrink-0">
                 <button onClick={() => setShowReply(true)} className="flex-1 py-[15px] rounded-full bg-[#0D0D0D] text-white font-bold text-[15px] active:scale-95 transition-transform">{t.reply}</button>
                 <button
-                  onClick={handleShare}
+                  onClick={() => { setPendingShareType('message'); setShowPlatformSheet(true) }}
                   disabled={sharing}
                   className="flex-1 py-[15px] rounded-full font-bold text-[15px] active:scale-95 transition-transform disabled:opacity-50 flex items-center justify-center"
                   style={{ background: '#F2F2F2', color: '#0D0D0D' }}
@@ -1880,6 +1915,34 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                 onClose={() => setShowGifPicker(false)}
               />
             </div>
+          </div>
+        </div>,
+        portalTarget
+      )}
+
+      {/* Platform picker — shown before every card share so Snapchat can be
+          handled differently (image alone + link in the clipboard) */}
+      <SharePlatformSheet
+        isOpen={showPlatformSheet}
+        onClose={() => setShowPlatformSheet(false)}
+        onSelect={handlePlatformSelect}
+        title={t.shareOn || 'Partager sur'}
+        subtitle={t.chooseAppToShare || 'Choisis une application pour partager ton image'}
+        cancelText={t.cancel || 'Annuler'}
+        portalTarget={portalTarget}
+      />
+
+      {/* Snapchat: confirms the link landed in the clipboard */}
+      {showSnapToast && portalTarget && createPortal(
+        <div className="fixed left-0 right-0 z-[90] flex justify-center px-6 pointer-events-none" style={{ bottom: '40px' }}>
+          <div className="backdrop-enter flex items-center gap-2 px-4 py-3 rounded-full shadow-2xl" style={{ background: 'rgba(13,13,13,0.94)' }}>
+            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" className="flex-shrink-0">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="#FFFC00" strokeWidth="2" strokeLinecap="round"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="#FFFC00" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+            <span className="text-white text-[13px] font-semibold">
+              {t.snapLinkCopied || 'Lien copié — colle-le sur Snapchat'}
+            </span>
           </div>
         </div>,
         portalTarget

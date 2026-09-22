@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
 import { useTranslation } from '@/lib/i18n'
+import SharePlatformSheet from '@/app/components/SharePlatformSheet'
 
 type Message = {
   message_id: string
@@ -670,6 +671,9 @@ export default function ReadMessageScreen() {
   const [replyText, setReplyText] = useState('')
   const [replySending, setReplySending] = useState(false)
   const [sharing, setSharing] = useState(false)
+  const [showPlatformSheet, setShowPlatformSheet] = useState(false)
+  const [pendingShareType, setPendingShareType] = useState<'message' | 'reply' | null>(null)
+  const [showSnapToast, setShowSnapToast] = useState(false)
 
   const [messageCardBlob, setMessageCardBlob] = useState<Blob | null>(null)
   const [cardGenerating, setCardGenerating] = useState(false)
@@ -747,24 +751,47 @@ export default function ReadMessageScreen() {
     }
   }, [replyText, showReply, textContent, imageUrl, logoSrc, userPfp, arrowsSrc])
 
-  const handleShareMessage = async () => {
+  // Snapchat prep: put the link on the clipboard so it can be pasted next to
+  // the image. Deliberately NOT awaited — awaiting here would end the
+  // synchronous turn and cost us the transient user activation that
+  // navigator.share({ files }) requires on iOS Safari.
+  const copyLinkForSnap = () => {
+    try { navigator.clipboard?.writeText(userLink).catch(() => {}) } catch {}
+    setShowSnapToast(true)
+    setTimeout(() => setShowSnapToast(false), 3000)
+  }
+
+  // Shares a card via the Web Share API. For Snapchat the link is put on the
+  // clipboard and only the file is handed to navigator.share() — passing
+  // `files` and `text` together makes Snapchat keep the link and drop the
+  // image, which is the whole point of picking a platform first.
+  const shareCardBlob = async (
+    blob: Blob,
+    filename: string,
+    platform: 'whatsapp' | 'instagram' | 'snapchat',
+  ) => {
+    if (platform === 'snapchat') copyLinkForSnap()
+    const file = new File([blob], filename, { type: 'image/png' })
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      await navigator.share(platform === 'snapchat' ? { files: [file] } : { files: [file], text: userLink })
+      return
+    }
+    if (navigator.share) {
+      await navigator.share({ url: userLink })
+      return
+    }
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = filename
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 10000)
+  }
+
+  const handleShareMessage = async (platform: 'whatsapp' | 'instagram' | 'snapchat') => {
     if (!message || sharing || !messageCardBlob) return
     setSharing(true)
     try {
-      const file = new File([messageCardBlob], 'tbh.png', { type: 'image/png' })
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], text: userLink })
-        return
-      }
-      if (navigator.share) {
-        await navigator.share({ url: userLink })
-        return
-      }
-      const url = URL.createObjectURL(messageCardBlob)
-      const a = document.createElement('a')
-      a.href = url; a.download = 'tbh.png'
-      document.body.appendChild(a); a.click(); document.body.removeChild(a)
-      setTimeout(() => URL.revokeObjectURL(url), 10000)
+      await shareCardBlob(messageCardBlob, 'tbh.png', platform)
     } catch (e: any) {
       if (e?.name !== 'AbortError') console.error('Share failed', e)
     } finally {
@@ -772,7 +799,7 @@ export default function ReadMessageScreen() {
     }
   }
 
-  const handleSendReply = async () => {
+  const handleSendReply = async (platform: 'whatsapp' | 'instagram' | 'snapchat') => {
     const text = replyText.trim()
     if (!text || replySending) return
 
@@ -790,18 +817,7 @@ export default function ReadMessageScreen() {
           : await generateReplyCard(textContent, text, imageUrl, logoSrc, userPfp, arrowsSrc)
       }
 
-      const file = new File([blob], 'tbh.png', { type: 'image/png' })
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], text: userLink })
-      } else if (navigator.share) {
-        await navigator.share({ url: userLink })
-      } else {
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url; a.download = 'tbh.png'
-        document.body.appendChild(a); a.click(); document.body.removeChild(a)
-        setTimeout(() => URL.revokeObjectURL(url), 10000)
-      }
+      await shareCardBlob(blob, 'tbh.png', platform)
 
       setShowReply(false)
       setReplyText('')
@@ -812,6 +828,13 @@ export default function ReadMessageScreen() {
     } finally {
       setReplySending(false)
     }
+  }
+
+  const handlePlatformSelect = (platform: 'whatsapp' | 'instagram' | 'snapchat') => {
+    const type = pendingShareType
+    setShowPlatformSheet(false)
+    if (type === 'message') handleShareMessage(platform)
+    else if (type === 'reply') handleSendReply(platform)
   }
 
   if (loading) {
@@ -957,7 +980,7 @@ export default function ReadMessageScreen() {
               {t.reply || 'Répondre'}
             </button>
             <button
-              onClick={handleShareMessage}
+              onClick={() => { setPendingShareType('message'); setShowPlatformSheet(true) }}
               disabled={sharing || cardGenerating || !messageCardBlob}
               className="flex-1 py-4 rounded-[32px] font-bold text-[15px] text-white active:scale-95 transition-transform disabled:opacity-60 flex items-center justify-center"
               style={{ background: 'linear-gradient(135deg, #FF6B6B, #FF431D)' }}
@@ -1046,7 +1069,7 @@ export default function ReadMessageScreen() {
                     }}
                   />
                   <button
-                    onClick={handleSendReply}
+                    onClick={() => { setPendingShareType('reply'); setShowPlatformSheet(true) }}
                     disabled={!replyText.trim() || replySending}
                     className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 active:scale-90 transition-transform"
                     style={{ background: replyText.trim() ? 'linear-gradient(135deg, #FF6B6B, #FF431D)' : 'rgba(255,255,255,0.15)' }}
@@ -1064,6 +1087,30 @@ export default function ReadMessageScreen() {
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Platform picker — Snapchat gets the image alone + the link on the clipboard */}
+      <SharePlatformSheet
+        isOpen={showPlatformSheet}
+        onClose={() => setShowPlatformSheet(false)}
+        onSelect={handlePlatformSelect}
+        title={t.shareOn || 'Partager sur'}
+        subtitle={t.chooseAppToShare || 'Choisis une application pour partager ton image'}
+        cancelText={t.cancel || 'Annuler'}
+      />
+
+      {showSnapToast && (
+        <div className="fixed left-0 right-0 z-[90] flex justify-center px-6 pointer-events-none" style={{ bottom: '40px' }}>
+          <div className="flex items-center gap-2 px-4 py-3 rounded-full shadow-2xl" style={{ background: 'rgba(13,13,13,0.94)' }}>
+            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" className="flex-shrink-0">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="#FFFC00" strokeWidth="2" strokeLinecap="round"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="#FFFC00" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+            <span className="text-white text-[13px] font-semibold">
+              {t.snapLinkCopied || 'Lien copié — colle-le sur Snapchat'}
+            </span>
           </div>
         </div>
       )}

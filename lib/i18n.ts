@@ -127,6 +127,10 @@ export type T = {
   sendReplyGo?: string
   preparingAndSharing?: string
   shareFailed?: string
+  // Platform picker sheet
+  shareOn?: string
+  chooseAppToShare?: string
+  snapLinkCopied?: string
   // TBHProScreen / Insights
   unlockWithPro?: string
   seeWhoSentIt?: string
@@ -340,6 +344,9 @@ const en: T = {
   sendReplyGo: 'Go',
   preparingAndSharing: 'Preparing and sharing...',
   shareFailed: 'Share failed',
+  shareOn: 'Share on',
+  chooseAppToShare: 'Choose an app to share your image',
+  snapLinkCopied: 'Link copied — paste it on Snapchat',
   // TBHProScreen / Insights
   unlockWithPro: 'Unlock with TBH Pro',
   seeWhoSentIt: 'See who sent it',
@@ -553,6 +560,9 @@ const fr: T = {
   sendReplyGo: 'Envoyer',
   preparingAndSharing: 'Préparation et partage en cours…',
   shareFailed: 'Échec du partage',
+  shareOn: 'Partager sur',
+  chooseAppToShare: 'Choisis une application pour partager ton image',
+  snapLinkCopied: 'Lien copié — colle-le sur Snapchat',
   // TBHProScreen / Insights
   unlockWithPro: 'Débloquer avec TBH Pro',
   seeWhoSentIt: 'Découvre qui a envoyé ce message',
@@ -766,6 +776,9 @@ const es: T = {
   sendReplyGo: 'Enviar',
   preparingAndSharing: 'Preparando y compartiendo…',
   shareFailed: 'Error al compartir',
+  shareOn: 'Compartir en',
+  chooseAppToShare: 'Elige una aplicación para compartir tu imagen',
+  snapLinkCopied: 'Enlace copiado — pégalo en Snapchat',
   // TBHProScreen / Insights
   unlockWithPro: 'Desbloquear con TBH Pro',
   seeWhoSentIt: 'Descubre quién lo envió',
