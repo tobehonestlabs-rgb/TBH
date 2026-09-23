@@ -9,6 +9,14 @@ import { useTranslation } from '@/lib/i18n'
 
 type Props = { profile: UserProfile | null }
 
+type SharePlatform = 'instagram' | 'snapchat' | 'whatsapp'
+
+const PLATFORMS: { id: SharePlatform; label: string; icon: string }[] = [
+  { id: 'instagram', label: 'Instagram', icon: '/assets/social_media_icons/IG_icon.svg' },
+  { id: 'snapchat',  label: 'Snapchat',  icon: '/assets/social_media_icons/snapshat_icon.svg' },
+  { id: 'whatsapp',  label: 'WhatsApp',  icon: '/assets/social_media_icons/Platform=WhatsApp, Color=Original.svg' },
+]
+
 type CardType = {
   id: string
   emoji: string
@@ -575,13 +583,12 @@ export default function SharePage({ profile }: Props) {
   const [promptText, setPromptText]       = useState('Send me an anonymous photo/message')
   const [editingPrompt, setEditingPrompt] = useState(false)
   const [tempPrompt, setTempPrompt]       = useState(promptText)
-  const [showCardPicker, setShowCardPicker] = useState(false)
   const [selectedCard, setSelectedCard]   = useState<CardType>(ALL_CARD_TYPES[0])
   const [generating, setGenerating]       = useState(false)
   const [gifProgress, setGifProgress]     = useState(0)
   const [sharedPlatforms, setSharedPlatforms] = useState<string[]>([])
-  const shareProgress = sharedPlatforms.length / 3
   const hasMarkedSharing = useRef(false)
+  const [pendingPlatform, setPendingPlatform] = useState<SharePlatform | null>(null)
   const [showSheet, setShowSheet]         = useState(false)
   // 'format' → pick Image/GIF, 'color' → pick color (after format chosen)
   const [sheetStep, setSheetStep]         = useState<'format' | 'color'>('format')
@@ -589,18 +596,40 @@ export default function SharePage({ profile }: Props) {
   const [selectedColor, setSelectedColor] = useState(CARD_COLORS[1])
   const [phraseIndex, setPhraseIndex]     = useState(0)
   const [phraseVisible, setPhraseVisible] = useState(true)
-  const [showHelpModal, setShowHelpModal] = useState(false)
   const [showGamePicker, setShowGamePicker] = useState(false)
   const [sheetClosing, setSheetClosing]         = useState(false)
   const [gamePickerClosing, setGamePickerClosing] = useState(false)
-  const [shareReady, setShareReady] = useState<{ blob: Blob; filename: string; isGif: boolean } | null>(null)
+  const [shareReady, setShareReady] = useState<{ blob: Blob; filename: string; isGif: boolean; platform: SharePlatform } | null>(null)
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
 
+  // The PNG card is rendered in the background whenever its inputs change, so
+  // the share tap has a finished blob waiting and can call navigator.share()
+  // without awaiting anything first (iOS drops the gesture otherwise).
+  const [cardBlob, setCardBlob] = useState<Blob | null>(null)
+  const cardTokenRef = useRef(0)
+  const cardDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   useEffect(() => { setPortalTarget(document.getElementById('app-shell')) }, [])
+
+  useEffect(() => {
+    cardTokenRef.current += 1
+    setCardBlob(null)
+    if (!profile) return
+    const myToken = cardTokenRef.current
+    if (cardDebounceRef.current) clearTimeout(cardDebounceRef.current)
+    cardDebounceRef.current = setTimeout(() => {
+      generateShareCard(profile, promptText, selectedCard, selectedColor.stops, selectedColor.ring)
+        .then(blob => { if (cardTokenRef.current === myToken) setCardBlob(blob) })
+        .catch(() => {})
+    }, 350)
+    return () => { if (cardDebounceRef.current) clearTimeout(cardDebounceRef.current) }
+  }, [profile, promptText, selectedCard, selectedColor])
 
   const shareLink = profile?.slug
     ? `${typeof window !== 'undefined' ? window.location.origin : 'https://tbhonest.net'}/send/${profile.slug}`
     : ''
+
+  const pendingPlatformLabel = PLATFORMS.find(p => p.id === pendingPlatform)?.label ?? ''
 
   // Mark user as sharing on first successful share (fixed: awaited)
   useEffect(() => {
@@ -639,30 +668,52 @@ export default function SharePage({ profile }: Props) {
     closeGamePicker()
   }
 
-  // Called from a fresh button tap → fresh gesture context → navigator.share works on iOS
-  const handleShareReady = async () => {
-    if (!shareReady) return
-    const { blob, filename, isGif } = shareReady
-    const mime = isGif ? 'image/gif' : 'image/png'
-    const file = new File([blob], filename, { type: mime })
-    const shareData = { files: [file], title: 'TBH', text: shareLink }
+  // Snapchat and Instagram keep the link and drop the image when both ride in
+  // the same navigator.share() call, so they get the file alone and the link
+  // goes to the clipboard instead. Deliberately not awaited — awaiting would
+  // end the synchronous turn and cost the transient user activation that
+  // navigator.share({ files }) requires on iOS Safari.
+  const copyLinkToClipboard = () => {
+    try { navigator.clipboard?.writeText(shareLink).catch(() => {}) } catch {}
+  }
+
+  const shareFile = async (blob: Blob, filename: string, isGif: boolean, platform: SharePlatform) => {
+    const file = new File([blob], filename, { type: isGif ? 'image/gif' : 'image/png' })
+    const imageOnly = platform === 'snapchat' || platform === 'instagram'
+    if (imageOnly) copyLinkToClipboard()
+
+    const shareData = imageOnly
+      ? { files: [file] }
+      : { files: [file], title: 'TBH', text: shareLink }
+
+    const markShared = () =>
+      setSharedPlatforms(prev => prev.includes(platform) ? prev : [...prev, platform])
+
     if (navigator.share && navigator.canShare?.(shareData)) {
-      try {
-        await navigator.share(shareData)
-        setShareReady(null)
-        setSharedPlatforms(prev => prev.includes('share') ? prev : [...prev, 'share'])
-        return
-      }
-      catch (e: any) { if (e?.name === 'AbortError') { setShareReady(null); return } }
+      await navigator.share(shareData)
+      markShared()
+      return
     }
-    // fallback: trigger download
+    // No Web Share (desktop): download the card so it can be posted by hand
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url; a.download = filename
     document.body.appendChild(a); a.click(); document.body.removeChild(a)
     setTimeout(() => URL.revokeObjectURL(url), 30000)
-    setShareReady(null)
-    setSharedPlatforms(prev => prev.includes('share') ? prev : [...prev, 'share'])
+    markShared()
+  }
+
+  // Called from a fresh button tap → fresh gesture context → navigator.share works on iOS
+  const handleShareReady = async () => {
+    if (!shareReady) return
+    const { blob, filename, isGif, platform } = shareReady
+    try {
+      await shareFile(blob, filename, isGif, platform)
+    } catch (e: any) {
+      if (e?.name !== 'AbortError') console.error('Share failed', e)
+    } finally {
+      setShareReady(null)
+    }
   }
 
   const handleCopy = async () => {
@@ -683,20 +734,45 @@ export default function SharePage({ profile }: Props) {
     } catch (e) { console.error('Copy failed', e) }
   }
 
-  const handleShareCard = async (cardType: CardType) => {
-    if (!profile) return
+  // Tapping a network is the entry point now: pick format, pick colour, share.
+  const openPlatformSheet = (platform: SharePlatform) => {
+    if (generating) return
+    setPendingPlatform(platform)
+    setSheetStep('format')
+    setShowSheet(true)
+  }
+
+  const handleShareCard = async () => {
+    const platform = pendingPlatform
+    if (!profile || !platform) return
     closeSheet()
-    await new Promise(r => setTimeout(r, 300))
+
+    // Rendered in the background already → hand it straight to navigator.share
+    // while this tap still counts as a user gesture. No await before the call.
+    if (cardBlob) {
+      try {
+        await shareFile(cardBlob, 'tbh-share.png', false, platform)
+      } catch (e: any) {
+        if (e?.name !== 'AbortError') console.error('Share card failed', e)
+      }
+      return
+    }
+
+    // Background render hasn't landed yet: build it now, then surface the
+    // fresh-gesture button (awaiting generation would break the chain).
     setGenerating(true)
     try {
-      const blob = await generateShareCard(profile, promptText, cardType, selectedColor.stops, selectedColor.ring)
-      setShareReady({ blob, filename: 'tbh-share.png', isGif: false })
+      const blob = await generateShareCard(profile, promptText, selectedCard, selectedColor.stops, selectedColor.ring)
+      setShareReady({ blob, filename: 'tbh-share.png', isGif: false, platform })
     } catch (e) { console.error('Share card failed', e) }
     finally { setGenerating(false) }
   }
 
+  // 40 encoded frames is far too slow to pre-render, so GIFs keep the
+  // two-step "ready" overlay that restores a fresh gesture.
   const handleShareGif = async () => {
-    if (!profile) return
+    const platform = pendingPlatform
+    if (!profile || !platform) return
     closeSheet()
     await new Promise(r => setTimeout(r, 300))
     setGenerating(true)
@@ -706,38 +782,9 @@ export default function SharePage({ profile }: Props) {
         profile, promptText, selectedCard, selectedColor.stops, selectedColor.ring,
         pct => setGifProgress(pct),
       )
-      setShareReady({ blob, filename: 'tbh-share.gif', isGif: true })
+      setShareReady({ blob, filename: 'tbh-share.gif', isGif: true, platform })
     } catch (e) { console.error('GIF generation failed', e) }
     finally { setGenerating(false); setGifProgress(0) }
-  }
-
-  const handlePlatformShare = async (platformId: string) => {
-    if (!profile || generating) return
-
-    // Snapchat: copy link + open Snapchat camera with link as swipe-up attachment
-    if (platformId === 'snapchat') {
-      try { await navigator.clipboard.writeText(shareLink) } catch {}
-      const snapDeep = `snapchat://creativekit/preview?attachmentUrl=${encodeURIComponent(shareLink)}`
-      window.location.href = snapDeep
-      // Fallback after 1.5s (Snapchat not installed) → generic share sheet
-      setTimeout(async () => {
-        if (navigator.share) {
-          try { await navigator.share({ url: shareLink, text: 'tbhonest.net' }) } catch {}
-        }
-      }, 1500)
-      setSharedPlatforms(prev => prev.includes(platformId) ? prev : [...prev, platformId])
-      return
-    }
-
-    // Instagram / WhatsApp: pre-generate the share card, then surface a fresh-gesture "Share" button
-    // (navigator.share with files requires a fresh user gesture — async generation breaks the chain)
-    setGenerating(true)
-    try {
-      const blob = await generateShareCard(profile, promptText, selectedCard, selectedColor.stops, selectedColor.ring)
-      setShareReady({ blob, filename: 'tbh-share.png', isGif: false })
-      setSharedPlatforms(prev => prev.includes(platformId) ? prev : [...prev, platformId])
-    } catch (e) { console.error('Platform share card failed', e) }
-    finally { setGenerating(false) }
   }
 
   return (
@@ -803,24 +850,6 @@ export default function SharePage({ profile }: Props) {
         </svg>
       </button>
 
-      {/* ── Flat progress bar ── */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-3">
-          <span className="text-[13px] font-bold text-[#0D0D0D] w-[38px]">
-            {Math.round(shareProgress * 100)}%
-          </span>
-          <div className="flex-1 h-[6px] rounded-full bg-[#EBEBEB] overflow-hidden">
-            <div
-              className="h-full rounded-full bg-[#0D0D0D] transition-all duration-700"
-              style={{ width: `${Math.round(shareProgress * 100)}%` }}
-            />
-          </div>
-        </div>
-        <p className="text-[11px] font-semibold text-[#555]">
-          {t.theMoreYouShare || 'Plus tu partages, plus tu reçois de messages de tes amis'}
-        </p>
-      </div>
-
       {/* ── Copy button — color flash on click ── */}
       <button
         onClick={handleCopy}
@@ -834,47 +863,36 @@ export default function SharePage({ profile }: Props) {
         {copied ? (t.copied || 'Copié !') : (t.copyMyLink || 'Copier mon lien')}
       </button>
 
-      {/* ── Share button → opens format + color sheet ── */}
-      <button
-        onClick={() => { setSheetStep('format'); setShowSheet(true) }}
-        disabled={generating}
-        className="w-full py-[13px] rounded-[32px] flex items-center justify-center gap-2 font-bold text-[16px] text-white disabled:opacity-60 active:scale-95 transition-all"
-        style={{ background: `linear-gradient(135deg, ${selectedColor.stops[0]}, ${selectedColor.stops[selectedColor.stops.length - 1]})` }}
-      >
-        {generating ? (
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            {gifProgress > 0 && <span className="text-[13px] opacity-80">GIF {Math.round(gifProgress * 100)}%</span>}
-          </div>
-        ) : (
-          <>
-            <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
-              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            {t.shareMyLink || 'Partager mon lien'}
-          </>
-        )}
-      </button>
-
-      {/* ── Platform quick-share row ── */}
+      {/* ── Platform row — the only way to share now ── */}
       <div className="w-full flex gap-2.5">
-        {[
-          { id: 'instagram', label: 'Instagram', icon: '/assets/social_media_icons/IG_icon.svg' },
-          { id: 'snapchat',  label: 'Snapchat',  icon: '/assets/social_media_icons/snapshat_icon.svg' },
-          { id: 'whatsapp',  label: 'WhatsApp',  icon: '/assets/social_media_icons/Platform=WhatsApp, Color=Original.svg' },
-        ].map(platform => {
+        {PLATFORMS.map(platform => {
           const shared = sharedPlatforms.includes(platform.id)
+          const busy   = generating && pendingPlatform === platform.id
           return (
             <button
               key={platform.id}
-              onClick={() => handlePlatformShare(platform.id)}
+              onClick={() => openPlatformSheet(platform.id)}
               disabled={generating}
               className="flex-1 flex flex-col items-center justify-center gap-2 py-4 rounded-[20px] active:scale-95 transition-all relative disabled:opacity-50"
               style={{ background: shared ? '#0D0D0D' : '#F5F5F7', border: 'none' }}
             >
-              <img src={platform.icon} alt={platform.label} className="w-6 h-6 object-contain" />
-              <span className="text-[11px] font-semibold" style={{ color: shared ? '#FFF' : '#0D0D0D' }}>{platform.label}</span>
-              {shared && (
+              {busy ? (
+                <>
+                  <div
+                    className="w-6 h-6 border-2 rounded-full animate-spin"
+                    style={{ borderColor: shared ? 'rgba(255,255,255,0.35)' : '#D5D5DA', borderTopColor: shared ? '#FFF' : '#0D0D0D' }}
+                  />
+                  <span className="text-[11px] font-semibold" style={{ color: shared ? '#FFF' : '#0D0D0D' }}>
+                    {gifProgress > 0 ? `GIF ${Math.round(gifProgress * 100)}%` : platform.label}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <img src={platform.icon} alt={platform.label} className="w-6 h-6 object-contain" />
+                  <span className="text-[11px] font-semibold" style={{ color: shared ? '#FFF' : '#0D0D0D' }}>{platform.label}</span>
+                </>
+              )}
+              {shared && !busy && (
                 <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-[#34C759] flex items-center justify-center">
                   <svg width="8" height="8" fill="none" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 </div>
@@ -925,7 +943,9 @@ export default function SharePage({ profile }: Props) {
                 {/* ── Step 1: Format picker ── */}
                 {sheetStep === 'format' && (
                   <div className="slide-from-left pb-2">
-                    <p className="text-white text-center text-[20px] font-extrabold px-6 pt-3">{t.shareFormat || 'Format de partage'}</p>
+                    <p className="text-white text-center text-[20px] font-extrabold px-6 pt-3">
+                      {pendingPlatformLabel ? `${t.shareOn || 'Partager sur'} ${pendingPlatformLabel}` : (t.shareFormat || 'Format de partage')}
+                    </p>
                     <p className="text-[#777] text-center text-[12px] mt-1 mb-5 px-6">{t.chooseHowToShare || 'Choisis comment partager ta carte'}</p>
                     <div className="flex gap-3 px-5 mb-5">
                       <button
@@ -1055,7 +1075,7 @@ export default function SharePage({ profile }: Props) {
                       <button
                         onClick={() => {
                           if (shareMode === 'gif') handleShareGif()
-                          else handleShareCard(selectedCard)
+                          else handleShareCard()
                         }}
                         className="w-full py-[17px] rounded-full text-white font-bold text-[16px] active:scale-95 transition-all flex items-center justify-center gap-2"
                         style={{
@@ -1161,14 +1181,20 @@ export default function SharePage({ profile }: Props) {
             </div>
             <div className="mb-5">
               <p className="text-white font-extrabold text-[18px]">{shareReady.isGif ? (t.gifReady || 'GIF prêt !') : (t.imageReady || 'Image prête !')}</p>
-              <p className="text-[#555] text-[12px] mt-0.5">{t.tapToShare || 'Appuie ci-dessous — puis choisis ton app dans le menu de partage'}</p>
+              <p className="text-[#555] text-[12px] mt-0.5">
+                {shareReady.platform === 'whatsapp'
+                  ? (t.tapToShare || 'Appuie ci-dessous — puis choisis ton app dans le menu de partage')
+                  : (t.snapLinkCopied || 'Lien copié — colle-le après avoir posté')}
+              </p>
             </div>
             <button
               onClick={handleShareReady}
               className="w-full py-[17px] rounded-full font-extrabold text-[17px] active:scale-95 transition-transform mb-3"
               style={{ background: '#ffffff', color: '#0D0D0D' }}
             >
-              {t.shareImageAndLink || 'Partager image + lien'}
+              {shareReady.platform === 'whatsapp'
+                ? (t.shareImageAndLink || 'Partager image + lien')
+                : (t.share || 'Partager')}
             </button>
             <button
               onClick={() => setShareReady(null)}
