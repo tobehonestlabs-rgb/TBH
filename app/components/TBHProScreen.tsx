@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
-import { apiFetch } from '@/lib/api'
 import { useTranslation } from '@/lib/i18n'
 
 const PREMIUM_PRICE_XOF = 625
@@ -29,31 +28,14 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
   const handleUnlock = async () => {
     setLoading(true)
     setError(null)
-
-    try {
-      const { data: { session } } = await supabaseClient.auth.getSession()
-      if (!session?.user?.email || !session?.user?.id) {
-        setError('Veuillez vous connecter d’abord')
-        setLoading(false)
-        return
-      }
-
-      // Initialize Paystack payment directly
-      const res = await apiFetch('/api/paystack', {
-        method: 'POST',
-        body: JSON.stringify({ email: session.user.email, userId: session.user.id }),
-      })
-      const data = await res.json()
-      if (!res.ok || data?.status !== 'success') {
-        throw new Error(data?.error || 'Impossible de démarrer le paiement')
-      }
-      // Redirect to Paystack authorization URL
-      window.location.href = data.data.authorization_url
-      onClose()
-    } catch (err: any) {
-      setError(err.message || 'Une erreur est survenue')
+    const { data: { session } } = await supabaseClient.auth.getSession()
+    if (!session?.user) {
+      setError('Veuillez vous connecter d’abord')
       setLoading(false)
+      return
     }
+    onClose()
+    router.push('/payment-choice')
   }
 
   if (!portalTarget) return null
