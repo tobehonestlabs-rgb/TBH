@@ -131,6 +131,7 @@ export default function PaymentChoicePage() {
               '💳 Payer avec Creem — $4 / semaine'
             )}
           </button>}
+
         </div>
 
         {error && <p className="text-red-400 text-sm mt-4">{error}</p>}
