@@ -32,12 +32,10 @@ export async function POST(request: NextRequest) {
 
   const payload = {
     email,
-    currency: 'USD',
     plan: PAYSTACK_PLAN_CODE,
     metadata: {
       userId,
     },
-    channels: ['card'],
     callback_url: `${APP_URL}/payment/status`,
   }
 
@@ -55,8 +53,11 @@ export async function POST(request: NextRequest) {
   if (!response.ok || !data.status) {
     console.error('Paystack error:', data)
     return NextResponse.json(
-      { error: data.message || 'Erreur lors de l\'initialisation du paiement' },
-      { status: 502 }
+      {
+        error: data.message || 'Erreur lors de l\'initialisation du paiement',
+        provider: 'paystack',
+      },
+      { status: response.status >= 400 && response.status < 500 ? response.status : 502 }
     )
   }
 
