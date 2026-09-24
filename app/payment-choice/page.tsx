@@ -47,6 +47,27 @@ export default function PaymentChoicePage() {
     getSession()
   }, [router])
 
+  const handleCreemPayment = async () => {
+    if (!user) return
+    setLoading('creem')
+    setError(null)
+
+    try {
+      const res = await apiFetch('/api/creem/create-checkout', {
+        method: 'POST',
+        body: JSON.stringify({ userEmail: user.email, userId: user.id }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.checkoutUrl) {
+        throw new Error(data.error || 'Impossible de démarrer le paiement Creem')
+      }
+      window.location.href = data.checkoutUrl
+    } catch (err: any) {
+      setError(err.message || 'Erreur lors du paiement Creem')
+      setLoading(null)
+    }
+  }
+
   const handlePaystackPayment = async () => {
     if (!user) return
     setLoading('paystack')
@@ -94,7 +115,20 @@ export default function PaymentChoicePage() {
             {loading === 'paystack' ? (
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
-              '📱 Payer $1 / mois avec Paystack'
+              '📱 Payer par mobile money avec Paystack — $1 / mois'
+            )}
+          </button>}
+
+          {isAfrican === true && <button
+            onClick={handleCreemPayment}
+            disabled={loading !== null}
+            className="w-full py-4 rounded-full font-bold text-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+          >
+            {loading === 'creem' ? (
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              '💳 Payer avec Creem — $4 / semaine'
             )}
           </button>}
         </div>
