@@ -33,8 +33,20 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // This refreshes the session if it's expired
-  await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  const path = request.nextUrl.pathname
+
+  // Logged in users redirect from / or /sign-up to /home
+  if (user && (path === '/' || path === '/sign-up')) {
+    return NextResponse.redirect(new URL('/home', request.url))
+  }
+
+  // Logged out users redirect from /home and protected routes to /
+  if (!user && path.startsWith('/home')) {
+    return NextResponse.redirect(new URL('/', request.url))
+  }
 
   return response
 }
