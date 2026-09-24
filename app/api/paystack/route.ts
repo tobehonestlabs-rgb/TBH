@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || ''
+const PAYSTACK_PLAN_CODE = process.env.PAYSTACK_PLAN_CODE || ''
 const APP_URL = process.env.PAYSTACK_RETURN_URL || 'https://tbhonest.net'
 
 // ── Supabase Admin Client ──────────────────────────────────────────────
@@ -15,8 +16,8 @@ function getAdminSupabase() {
 }
 
 export async function POST(request: NextRequest) {
-  if (!PAYSTACK_SECRET_KEY) {
-    return NextResponse.json({ error: 'PAYSTACK_SECRET_KEY missing' }, { status: 500 })
+  if (!PAYSTACK_SECRET_KEY || !PAYSTACK_PLAN_CODE) {
+    return NextResponse.json({ error: 'PAYSTACK_SECRET_KEY and PAYSTACK_PLAN_CODE are required' }, { status: 500 })
   }
 
   const body = await request.json()
@@ -29,18 +30,14 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // ✅ Price: 1800 XOF (change to 1800 for production)
-  const amount = 525 // 1 XOF for testing
-
   const payload = {
     email,
-    amount: Number(amount) * 100, // Paystack uses kobo (100 = 1 XOF)
-    currency: 'XOF',
+    currency: 'USD',
+    plan: PAYSTACK_PLAN_CODE,
     metadata: {
       userId,
     },
-    // ✅ Explicitly specify channels to include card payments
-    channels: ['card', 'mobile_money', 'bank_transfer', 'ussd'],
+    channels: ['card'],
     callback_url: `${APP_URL}/payment/status`,
   }
 

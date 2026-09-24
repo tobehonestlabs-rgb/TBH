@@ -8,11 +8,15 @@ const creem = new Creem({
   server: process.env.NODE_ENV !== 'production' ? 'test' : 'prod',
 })
 
-const PRODUCT_ID = process.env.CREEM_PRODUCT_ID || 'prod_YOUR_PRODUCT_ID'
+const PRODUCT_ID = process.env.CREEM_PRODUCT_ID || ''
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://tbhonest.net'
 
 export async function POST(request: NextRequest) {
   try {
+    if (!process.env.CREEM_API_KEY || !PRODUCT_ID) {
+      return NextResponse.json({ error: 'CREEM_API_KEY and CREEM_PRODUCT_ID are required' }, { status: 500 })
+    }
+
     const body = await request.json()
     const { userId, userEmail } = body
 
@@ -25,7 +29,6 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Creem] Creating checkout for user: ${userId}`)
 
-    // ── Create dynamic checkout session ──────────────────────────────────
     const session = await creem.checkouts.create({
       productId: PRODUCT_ID,
       customer: {

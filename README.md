@@ -1,5 +1,16 @@
 # TBH
 
+## Payments
+
+Configure `CREEM_API_KEY`, `CREEM_PRODUCT_ID`, `CREEM_WEBHOOK_SECRET`,
+`NEXT_PUBLIC_APP_URL`, `PAYSTACK_SECRET_KEY`, `PAYSTACK_PLAN_CODE`, and
+`PAYSTACK_RETURN_URL`. Configure the Creem product at `$4.00 USD` with a weekly
+recurring interval. Create the
+Paystack plan at `$1.00 USD` with a monthly interval, then set its code in
+`PAYSTACK_PLAN_CODE`. Creem Checkout charges `$4.00 USD` weekly for users outside
+the supported African Paystack markets. Paystack charges
+`$1.00 USD` monthly for users in its configured African markets.
+
 
 
 ## Getting started

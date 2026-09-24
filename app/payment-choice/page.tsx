@@ -5,13 +5,15 @@ import { useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
 import { apiFetch } from '@/lib/api'
 import { useTranslation } from '@/lib/i18n'
+import { shouldUsePaystack } from '@/lib/paymentRegion'
 
 export default function PaymentChoicePage() {
   const { t } = useTranslation()
   const router = useRouter()
-  const [loading, setLoading] = useState<'card' | 'wave' | null>(null)
+  const [loading, setLoading] = useState<'creem' | 'paystack' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [user, setUser] = useState<{ id: string; email: string } | null>(null)
+  const [isAfrican, setIsAfrican] = useState<boolean | null>(null)
 
   useEffect(() => {
     async function getSession() {
@@ -21,26 +23,33 @@ export default function PaymentChoicePage() {
         return
       }
       setUser({ id: session.user.id, email: session.user.email! })
+      try {
+        const geoResponse = await fetch('/api/geo', { cache: 'no-store' })
+        const geo = await geoResponse.json()
+        const african = shouldUsePaystack(geo.country)
+        setIsAfrican(african)
+
+        if (!african) {
+          setLoading('creem')
+          const res = await apiFetch('/api/creem/create-checkout', {
+            method: 'POST',
+            body: JSON.stringify({ userEmail: session.user.email, userId: session.user.id }),
+          })
+          const data = await res.json()
+          if (!res.ok || !data.checkoutUrl) throw new Error(data.error || 'Impossible de démarrer le paiement Creem')
+          window.location.href = data.checkoutUrl
+        }
+      } catch (err: any) {
+        setError(err.message || 'Erreur lors du démarrage du paiement')
+        setLoading(null)
+      }
     }
     getSession()
   }, [router])
 
-  const handleCardPayment = async () => {
+  const handlePaystackPayment = async () => {
     if (!user) return
-    setLoading('card')
-    setError(null)
-
-    try {
-      window.location.href = 'https://tally.so/r/PdQY70'
-    } catch (err: any) {
-      setError(err.message || 'Erreur lors du paiement par carte')
-      setLoading(null)
-    }
-  }
-
-  const handleWavePayment = async () => {
-    if (!user) return
-    setLoading('wave')
+    setLoading('paystack')
     setError(null)
 
     try {
@@ -71,32 +80,23 @@ export default function PaymentChoicePage() {
           <p className="text-white/60 text-sm mt-2">Choisissez votre moyen de paiement</p>
         </div>
 
-        <div className="flex flex-col gap-3">
-          <button
-            onClick={handleCardPayment}
-            disabled={loading !== null}
-            className="w-full py-4 rounded-full font-bold text-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-            style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
-          >
-            {loading === 'card' ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              '💳 Payer par carte (Visa/Mastercard)'
-            )}
-          </button>
+        {isAfrican === null && <p className="text-white/60 text-sm">Vérification de votre région...</p>}
 
-          <button
-            onClick={handleWavePayment}
+        <div className="flex flex-col gap-3">
+          {isAfrican === false && <p className="text-white/60 text-sm">Redirection vers Creem...</p>}
+
+          {isAfrican === true && <button
+            onClick={handlePaystackPayment}
             disabled={loading !== null}
             className="w-full py-4 rounded-full font-bold text-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             style={{ background: 'linear-gradient(135deg, #1DBF73 0%, #0f8b4c 100%)' }}
           >
-            {loading === 'wave' ? (
+            {loading === 'paystack' ? (
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
-              '📱 Payer par Wave (Mobile Money)'
+              '📱 Payer $1 / mois avec Paystack'
             )}
-          </button>
+          </button>}
         </div>
 
         {error && <p className="text-red-400 text-sm mt-4">{error}</p>}
