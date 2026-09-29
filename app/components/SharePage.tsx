@@ -682,19 +682,6 @@ export default function SharePage({ profile }: Props) {
     const imageOnly = platform === 'snapchat' || platform === 'instagram'
     if (imageOnly) copyLinkToClipboard()
 
-    if (platform === 'snapchat') {
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      setTimeout(() => URL.revokeObjectURL(url), 30000)
-      setSharedPlatforms(prev => prev.includes(platform) ? prev : [...prev, platform])
-      return
-    }
-
     const shareData = imageOnly
       ? { files: [file] }
       : { files: [file], title: 'TBH', text: shareLink }
@@ -1198,7 +1185,7 @@ export default function SharePage({ profile }: Props) {
                 {shareReady.platform === 'whatsapp'
                   ? (t.tapToShare || 'Appuie ci-dessous — puis choisis ton app dans le menu de partage')
                   : shareReady.platform === 'snapchat'
-                    ? 'L’image sera téléchargée et le lien copié'
+                    ? 'Choisis Snapchat pour ouvrir l’image à modifier. Le lien est copié.'
                     : (t.snapLinkCopied || 'Lien copié — colle-le après avoir posté')}
               </p>
             </div>
@@ -1210,7 +1197,7 @@ export default function SharePage({ profile }: Props) {
               {shareReady.platform === 'whatsapp'
                 ? (t.shareImageAndLink || 'Partager image + lien')
                 : shareReady.platform === 'snapchat'
-                  ? 'Télécharger + copier le lien'
+                  ? 'Choisir Snapchat'
                 : (t.share || 'Partager')}
             </button>
             <button
