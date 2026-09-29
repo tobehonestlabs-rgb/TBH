@@ -1,9 +1,9 @@
-/** Paystack-supported African markets */
-const PAYSTACK_COUNTRIES = new Set([
-  'NG', 'GH', 'ZA', 'KE', 'CI', 'EG',
+/** Countries currently listed for SasPay mobile-money checkout */
+const SASPAY_COUNTRIES = new Set([
+  'CI', 'SN', 'TG', 'BJ', 'CM', 'BF',
 ])
 
-export function shouldUsePaystack(country: string | null | undefined): boolean {
+export function shouldUseSasPay(country: string | null | undefined): boolean {
   if (!country) return false
-  return PAYSTACK_COUNTRIES.has(country.toUpperCase())
+  return SASPAY_COUNTRIES.has(country.toUpperCase())
 }

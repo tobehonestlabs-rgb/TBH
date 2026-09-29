@@ -6,9 +6,6 @@ import { useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
 import { useTranslation } from '@/lib/i18n'
 
-const PREMIUM_PRICE_XOF = 625
-const PREMIUM_PRICE_DISCOUNTED_XOF = 525 // 400 for first 400 users, 525 for others
-
 type Props = {
   onClose: () => void
   onSuccess: () => void
@@ -92,8 +89,7 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
         </div>
         {error && <p className="text-[#FF6B6B] text-[13px] text-center mb-3">{error}</p>}
         <div className="text-white/60 text-[13px] text-center mb-4">
-          <p><strong>Promo:</strong> Première 400 commandes — {PREMIUM_PRICE_DISCOUNTED_XOF.toLocaleString()} FCFA au lieu de {PREMIUM_PRICE_XOF.toLocaleString()} FCFA.</p>
-          <p>Paiement via Wave (mobile money) disponible.</p>
+          <p>Paiement mobile money disponible avec SasPay, ou par carte avec Lemon Squeezy.</p>
         </div>
         <button
           onClick={handleUnlock}
@@ -104,11 +100,11 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
           {loading ? (
             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
           ) : (
-            `${t.unlockWithPro || 'Débloquer TBH Pro'} — ${PREMIUM_PRICE_XOF.toLocaleString()} FCFA`
+            `${t.unlockWithPro || 'Débloquer TBH Pro'}`
           )}
         </button>
         <p className="text-white/25 text-[11px] text-center mb-3">
-          Vous serez redirigé vers Paystack pour finaliser le paiement (Wave disponible)
+          Choisissez SasPay ou Lemon Squeezy pour continuer le paiement.
         </p>
         <button
           onClick={onClose}

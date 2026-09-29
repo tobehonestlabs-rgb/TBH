@@ -5,12 +5,12 @@ import { useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
 import { apiFetch } from '@/lib/api'
 import { useTranslation } from '@/lib/i18n'
-import { shouldUsePaystack } from '@/lib/paymentRegion'
+import { shouldUseSasPay } from '@/lib/paymentRegion'
 
 export default function PaymentChoicePage() {
   const { t } = useTranslation()
   const router = useRouter()
-  const [loading, setLoading] = useState<'creem' | 'paystack' | null>(null)
+  const [loading, setLoading] = useState<'lemonsqueezy' | 'saspay' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [user, setUser] = useState<{ id: string; email: string } | null>(null)
   const [isAfrican, setIsAfrican] = useState<boolean | null>(null)
@@ -26,17 +26,17 @@ export default function PaymentChoicePage() {
       try {
         const geoResponse = await fetch('/api/geo', { cache: 'no-store' })
         const geo = await geoResponse.json()
-        const african = shouldUsePaystack(geo.country)
-        setIsAfrican(african)
+        const canUseSasPay = shouldUseSasPay(geo.country)
+        setIsAfrican(canUseSasPay)
 
-        if (!african) {
-          setLoading('creem')
-          const res = await apiFetch('/api/creem/create-checkout', {
+        if (!canUseSasPay) {
+          setLoading('lemonsqueezy')
+          const res = await apiFetch('/api/lemonsqueezy/checkout', {
             method: 'POST',
-            body: JSON.stringify({ userEmail: session.user.email, userId: session.user.id }),
+            body: JSON.stringify({ email: session.user.email, userId: session.user.id }),
           })
           const data = await res.json()
-          if (!res.ok || !data.checkoutUrl) throw new Error(data.error || 'Impossible de démarrer le paiement Creem')
+          if (!res.ok || !data.checkoutUrl) throw new Error(data.error || 'Impossible de démarrer le paiement Lemon Squeezy')
           window.location.href = data.checkoutUrl
         }
       } catch (err: any) {
@@ -47,44 +47,42 @@ export default function PaymentChoicePage() {
     getSession()
   }, [router])
 
-  const handleCreemPayment = async () => {
+  const handleLemonSqueezyPayment = async () => {
     if (!user) return
-    setLoading('creem')
+    setLoading('lemonsqueezy')
     setError(null)
 
     try {
-      const res = await apiFetch('/api/creem/create-checkout', {
-        method: 'POST',
-        body: JSON.stringify({ userEmail: user.email, userId: user.id }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.checkoutUrl) {
-        throw new Error(data.error || 'Impossible de démarrer le paiement Creem')
-      }
-      window.location.href = data.checkoutUrl
-    } catch (err: any) {
-      setError(err.message || 'Erreur lors du paiement Creem')
-      setLoading(null)
-    }
-  }
-
-  const handlePaystackPayment = async () => {
-    if (!user) return
-    setLoading('paystack')
-    setError(null)
-
-    try {
-      const res = await apiFetch('/api/paystack', {
+      const res = await apiFetch('/api/lemonsqueezy/checkout', {
         method: 'POST',
         body: JSON.stringify({ email: user.email, userId: user.id }),
       })
       const data = await res.json()
-      if (!data.status || data.status !== 'success') {
-        throw new Error(data.error || 'Impossible de démarrer le paiement Wave')
+      if (!res.ok || !data.checkoutUrl) {
+        throw new Error(data.error || 'Impossible de démarrer le paiement Lemon Squeezy')
       }
-      window.location.href = data.data.authorization_url
+      window.location.href = data.checkoutUrl
     } catch (err: any) {
-      setError(err.message || 'Erreur lors du paiement Wave')
+      setError(err.message || 'Erreur lors du paiement Lemon Squeezy')
+      setLoading(null)
+    }
+  }
+
+  const handleSasPayPayment = async () => {
+    if (!user) return
+    setLoading('saspay')
+    setError(null)
+
+    try {
+      const res = await apiFetch('/api/saspay/checkout', {
+        method: 'POST',
+        body: JSON.stringify({ email: user.email, userId: user.id }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.checkoutUrl) throw new Error(data.error || 'Impossible de démarrer le paiement SasPay')
+      window.location.href = data.checkoutUrl
+    } catch (err: any) {
+      setError(err.message || 'Erreur lors du paiement SasPay')
       setLoading(null)
     }
   }
@@ -104,31 +102,31 @@ export default function PaymentChoicePage() {
         {isAfrican === null && <p className="text-white/60 text-sm">Vérification de votre région...</p>}
 
         <div className="flex flex-col gap-3">
-          {isAfrican === false && <p className="text-white/60 text-sm">Redirection vers Creem...</p>}
+          {isAfrican === false && <p className="text-white/60 text-sm">Redirection vers Lemon Squeezy...</p>}
 
           {isAfrican === true && <button
-            onClick={handlePaystackPayment}
+            onClick={handleSasPayPayment}
             disabled={loading !== null}
             className="w-full py-4 rounded-full font-bold text-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             style={{ background: 'linear-gradient(135deg, #1DBF73 0%, #0f8b4c 100%)' }}
           >
-            {loading === 'paystack' ? (
+            {loading === 'saspay' ? (
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
-              '📱 Payer par mobile money avec Paystack — $1 / mois'
+              '📱 SasPay : mobile money, accès 30 jours'
             )}
           </button>}
 
           {isAfrican === true && <button
-            onClick={handleCreemPayment}
+            onClick={handleLemonSqueezyPayment}
             disabled={loading !== null}
             className="w-full py-4 rounded-full font-bold text-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
           >
-            {loading === 'creem' ? (
+            {loading === 'lemonsqueezy' ? (
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
-              '💳 Payer avec Creem — $4 / semaine'
+              '💳 Payer avec Lemon Squeezy — $4 / semaine'
             )}
           </button>}
 
@@ -143,7 +141,7 @@ export default function PaymentChoicePage() {
           Annuler et revenir à l'accueil
         </button>
 
-        <p className="text-white/20 text-xs mt-6">Paiements sécurisés via Creem & Paystack</p>
+        <p className="text-white/20 text-xs mt-6">Paiements sécurisés via SasPay & Lemon Squeezy</p>
       </div>
     </div>
   )

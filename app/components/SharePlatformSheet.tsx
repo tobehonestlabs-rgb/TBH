@@ -106,7 +106,7 @@ export default function SharePlatformSheet({
                   Lien copié
                 </span>
               </div>
-              <p className="text-[12px] text-[#8E8E93] truncate">Image seule • Lien copié automatiquement</p>
+              <p className="text-[12px] text-[#8E8E93] truncate">Téléchargement • Lien copié automatiquement</p>
             </div>
             <svg width="18" height="18" fill="none" viewBox="0 0 24 24" className="text-[#C4C4C6] flex-shrink-0">
               <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>

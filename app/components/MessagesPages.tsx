@@ -32,7 +32,7 @@ type Message = {
 type Props = {
   onUnreadChange: (hasUnread: boolean) => void
   isActive: boolean
-  profile: { active_subscription: boolean } | null
+  profile: { active_subscription: boolean; subscription_end?: string | null } | null
 }
 
 function timeAgo(iso: string): string {
@@ -897,7 +897,8 @@ type ConvMsg = {
 }
 
 export default function MessagesPage({ onUnreadChange, isActive, profile }: Props) {
-  const isPro = !!profile?.active_subscription
+  const isPro = !!profile?.active_subscription &&
+    (!profile.subscription_end || new Date(profile.subscription_end).getTime() > Date.now())
   const { t } = useTranslation()
   const [messages, setMessages]         = useState<Message[]>([])
   const [loading, setLoading]           = useState(true)

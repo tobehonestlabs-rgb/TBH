@@ -2,14 +2,16 @@
 
 ## Payments
 
-Configure `CREEM_API_KEY`, `CREEM_PRODUCT_ID`, `CREEM_WEBHOOK_SECRET`,
-`NEXT_PUBLIC_APP_URL`, `PAYSTACK_SECRET_KEY`, `PAYSTACK_PLAN_CODE`, and
-`PAYSTACK_RETURN_URL`. Configure the Creem product at `$4.00 USD` with a weekly
-recurring interval. Create the
-Paystack plan at `$1.00 USD` with a monthly interval, then set its code in
-`PAYSTACK_PLAN_CODE`. Creem Checkout charges `$4.00 USD` weekly for users outside
-the supported African Paystack markets. Paystack charges
-`$1.00 USD` monthly for users in its configured African markets.
+Configure these Vercel environment variables:
+
+- `SASPAY_API_KEY` and `SASPAY_WEBHOOK_SECRET` for SasPay.
+- `SASPAY_AMOUNT` and `SASPAY_CURRENCY` for the local-currency checkout amount (for example, amount `650`, currency `XOF`). `SASPAY_COUNTRY` is optional.
+- `LEMON_SQUEEZY_API_KEY`, `LEMON_SQUEEZY_STORE_ID`, `LEMON_SQUEEZY_VARIANT_ID`, and `LEMON_SQUEEZY_WEBHOOK_SECRET` for Lemon Squeezy.
+- `NEXT_PUBLIC_APP_URL=https://tbhonest.net`.
+
+Create a published Lemon Squeezy subscription variant priced at `$4.00 USD` weekly. Configure Lemon Squeezy's webhook URL as `https://tbhonest.net/api/lemonsqueezy/webhook` and subscribe to `subscription_created`, `subscription_updated`, `subscription_resumed`, `subscription_unpaused`, and `subscription_expired`.
+
+Configure SasPay's webhook URL as `https://tbhonest.net/api/saspay/webhook` and subscribe to `transaction.success`. SasPay's public checkout API accepts local currencies such as XOF/XAF and documents a hosted one-time checkout; it does not document automatic recurring subscription collection. Each successful checkout grants 30 days of access; renewals must currently be initiated again by the customer. `SASPAY_AMOUNT` and `SASPAY_CURRENCY` must reflect your SasPay local-currency price.
 
 
 
