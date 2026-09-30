@@ -1188,10 +1188,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
   }, [selectedPhoto, replyMode, showReply, selectedMsg, userPfp])
 
   // Shares a blob via the Web Share API (falling back to a download link),
-  // guarded by the single global in-flight lock. `includeText` is false for
-  // Snapchat: bundling both `files` and `text` in the same navigator.share()
-  // call makes Snapchat's share extension pick up the link and drop the
-  // image, so Snapchat gets the file alone (the link is copied separately).
+  // guarded by the single global in-flight lock.
   const shareBlob = async (blob: Blob, filename: string, opts: { includeText?: boolean } = {}) => {
     const includeText = opts.includeText !== false
     const file = new File([blob], filename, { type: 'image/png' })
@@ -1210,17 +1207,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
     setTimeout(() => URL.revokeObjectURL(url), 10000)
   }
 
-  // Snapchat prep: put the link on the clipboard so it can be pasted next to
-  // the image. Deliberately NOT awaited — awaiting here would end the
-  // synchronous turn and cost us the transient user activation that
-  // navigator.share({ files }) requires on iOS Safari.
-  const copyLinkForSnap = () => {
-    try { navigator.clipboard?.writeText(userLink).catch(() => {}) } catch {}
-    setShowSnapToast(true)
-    setTimeout(() => setShowSnapToast(false), 3000)
-  }
-
-  const handleSendReply = async (platform: 'whatsapp' | 'instagram' | 'snapchat') => {
+  const handleSendReply = async (platform: 'whatsapp' | 'instagram') => {
     if (shareInFlightRef.current || replySending) return
     const blobToUse = replyMode === 'text' ? replyCardBlob : replyMode === 'gif' ? gifCardBlob : photoCardBlob
     // The button is disabled until this is non-null, but guard anyway —
@@ -1230,12 +1217,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
     shareInFlightRef.current = true
     setReplySending(true)
     try {
-      if (platform === 'snapchat') {
-        copyLinkForSnap()
-        await shareBlob(blobToUse, 'tbh-reply.png', { includeText: false })
-      } else {
-        await shareBlob(blobToUse, 'tbh-reply.png')
-      }
+      await shareBlob(blobToUse, 'tbh-reply.png')
 
       // Reset UI after share completes (even if user cancels)
       setShowReply(false)
@@ -1326,7 +1308,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
     closeSheet()
   }
 
-  const handleShare = async (platform: 'whatsapp' | 'instagram' | 'snapchat') => {
+  const handleShare = async (platform: 'whatsapp' | 'instagram') => {
     if (!selectedMsg || shareInFlightRef.current) return
     shareInFlightRef.current = true
     setSharing(true)
@@ -1341,12 +1323,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
         )
       }
       if (!blobToUse) return
-      if (platform === 'snapchat') {
-        copyLinkForSnap()
-        await shareBlob(blobToUse, 'tbh.png', { includeText: false })
-      } else {
-        await shareBlob(blobToUse, 'tbh.png')
-      }
+      await shareBlob(blobToUse, 'tbh.png')
     } catch (e: any) {
       if (e?.name !== 'AbortError') console.error('Share failed', e)
     } finally {
@@ -1355,7 +1332,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
     }
   }
 
-  const handlePlatformSelect = (platform: 'whatsapp' | 'instagram' | 'snapchat') => {
+  const handlePlatformSelect = (platform: 'whatsapp' | 'instagram') => {
     const type = pendingShareType
     setShowPlatformSheet(false)
     if (type === 'message') handleShare(platform)
@@ -1921,8 +1898,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
         portalTarget
       )}
 
-      {/* Platform picker — shown before every card share so Snapchat can be
-          handled differently (image alone + link in the clipboard) */}
+        {/* Platform picker */}
       <SharePlatformSheet
         isOpen={showPlatformSheet}
         onClose={() => setShowPlatformSheet(false)}
@@ -1932,22 +1908,6 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
         cancelText={t.cancel || 'Annuler'}
         portalTarget={portalTarget}
       />
-
-      {/* Snapchat: confirms the link landed in the clipboard */}
-      {showSnapToast && portalTarget && createPortal(
-        <div className="fixed left-0 right-0 z-[90] flex justify-center px-6 pointer-events-none" style={{ bottom: '40px' }}>
-          <div className="backdrop-enter flex items-center gap-2 px-4 py-3 rounded-full shadow-2xl" style={{ background: 'rgba(13,13,13,0.94)' }}>
-            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" className="flex-shrink-0">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="#FFFC00" strokeWidth="2" strokeLinecap="round"/>
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="#FFFC00" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-            <span className="text-white text-[13px] font-semibold">
-              {t.snapLinkCopied || 'Lien copié — colle-le sur Snapchat'}
-            </span>
-          </div>
-        </div>,
-        portalTarget
-      )}
 
       {/* Pro screen */}
       {showProScreen && (

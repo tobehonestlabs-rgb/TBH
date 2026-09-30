@@ -9,11 +9,10 @@ import { useTranslation } from '@/lib/i18n'
 
 type Props = { profile: UserProfile | null }
 
-type SharePlatform = 'instagram' | 'snapchat' | 'whatsapp'
+type SharePlatform = 'instagram' | 'whatsapp'
 
 const PLATFORMS: { id: SharePlatform; label: string; icon: string }[] = [
   { id: 'instagram', label: 'Instagram', icon: '/assets/social_media_icons/IG_icon.svg' },
-  { id: 'snapchat',  label: 'Snapchat',  icon: '/assets/social_media_icons/snapshat_icon.svg' },
   { id: 'whatsapp',  label: 'WhatsApp',  icon: '/assets/social_media_icons/Platform=WhatsApp, Color=Original.svg' },
 ]
 
@@ -668,23 +667,9 @@ export default function SharePage({ profile }: Props) {
     closeGamePicker()
   }
 
-  // Snapchat and Instagram keep the link and drop the image when both ride in
-  // the same navigator.share() call, so they get the file alone and the link
-  // goes to the clipboard instead. Deliberately not awaited — awaiting would
-  // end the synchronous turn and cost the transient user activation that
-  // navigator.share({ files }) requires on iOS Safari.
-  const copyLinkToClipboard = () => {
-    try { navigator.clipboard?.writeText(shareLink).catch(() => {}) } catch {}
-  }
-
   const shareFile = async (blob: Blob, filename: string, isGif: boolean, platform: SharePlatform) => {
     const file = new File([blob], filename, { type: isGif ? 'image/gif' : 'image/png' })
-    const imageOnly = platform === 'snapchat' || platform === 'instagram'
-    if (imageOnly) copyLinkToClipboard()
-
-    const shareData = imageOnly
-      ? { files: [file] }
-      : { files: [file], title: 'TBH', text: shareLink }
+    const shareData = { files: [file], title: 'TBH', text: shareLink }
 
     const markShared = () =>
       setSharedPlatforms(prev => prev.includes(platform) ? prev : [...prev, platform])
@@ -1184,9 +1169,7 @@ export default function SharePage({ profile }: Props) {
               <p className="text-[#555] text-[12px] mt-0.5">
                 {shareReady.platform === 'whatsapp'
                   ? (t.tapToShare || 'Appuie ci-dessous — puis choisis ton app dans le menu de partage')
-                  : shareReady.platform === 'snapchat'
-                    ? 'Choisis Snapchat pour ouvrir l’image à modifier. Le lien est copié.'
-                    : (t.snapLinkCopied || 'Lien copié — colle-le après avoir posté')}
+                  : (t.tapToShare || 'Appuie ci-dessous — puis choisis ton app dans le menu de partage')}
               </p>
             </div>
             <button
@@ -1196,8 +1179,6 @@ export default function SharePage({ profile }: Props) {
             >
               {shareReady.platform === 'whatsapp'
                 ? (t.shareImageAndLink || 'Partager image + lien')
-                : shareReady.platform === 'snapchat'
-                  ? 'Choisir Snapchat'
                 : (t.share || 'Partager')}
             </button>
             <button

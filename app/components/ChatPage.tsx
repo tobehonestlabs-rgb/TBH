@@ -78,6 +78,88 @@ function cleanReplyPreview(text?: string | null): string {
   return text.replace(/^[📷🎬🔙↪]\s*/, '').trim()
 }
 
+function wrapChatText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  const words = text.split(/\s+/).filter(Boolean)
+  const lines: string[] = []
+  let current = ''
+
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word
+    if (ctx.measureText(candidate).width <= maxWidth) {
+      current = candidate
+    } else {
+      if (current) lines.push(current)
+      current = word
+    }
+  }
+
+  if (current) lines.push(current)
+  return lines.length ? lines : ['']
+}
+
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.lineTo(x + w - r, y)
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r)
+  ctx.lineTo(x + w, y + h - r)
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
+  ctx.lineTo(x + r, y + h)
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r)
+  ctx.lineTo(x, y + r)
+  ctx.quadraticCurveTo(x, y, x + r, y)
+  ctx.closePath()
+}
+
+function generateChatShareCard({ title, messages }: { title: string; messages: ConvMsg[] }): Promise<Blob> {
+  return new Promise((resolve) => {
+    const W = 1080, H = 1920
+    const canvas = document.createElement('canvas')
+    canvas.width = W
+    canvas.height = H
+    const ctx = canvas.getContext('2d')!
+
+    const bg = ctx.createLinearGradient(0, 0, W, H)
+    bg.addColorStop(0, '#0D0D0D')
+    bg.addColorStop(1, '#1C1C1E')
+    ctx.fillStyle = bg
+    ctx.fillRect(0, 0, W, H)
+
+    ctx.fillStyle = '#FFFFFF'
+    ctx.textAlign = 'center'
+    ctx.font = '700 72px Arial'
+    ctx.fillText('TBH', W / 2, 120)
+
+    ctx.textAlign = 'left'
+    ctx.font = '700 48px Arial'
+    ctx.fillText(title, 80, 220)
+
+    let y = 330
+    const visible = messages.slice(-5)
+
+    visible.forEach((m) => {
+      const messageText = (m.content || 'Photo / GIF').replace(/\s+/g, ' ').trim()
+      const bubble = ctx.createLinearGradient(80, y - 20, W - 80, y + 130)
+      bubble.addColorStop(0, '#19191B')
+      bubble.addColorStop(1, '#2B2B2F')
+      ctx.fillStyle = 'rgba(255,255,255,0.08)'
+      roundRect(ctx, 70, y - 20, W - 140, 150, 28)
+      ctx.fill()
+
+      ctx.fillStyle = '#F5F5F5'
+      ctx.font = '600 34px Arial'
+      const lines = wrapChatText(ctx, messageText, W - 220)
+      lines.slice(0, 3).forEach((line, idx) => {
+        ctx.fillText(line, 110, y + idx * 42)
+      })
+
+      y += 180
+    })
+
+    canvas.toBlob((blob) => resolve(blob || new Blob()), 'image/png', 1)
+  })
+}
+
 function MessageBubbleRow({
   m,
   isMine,
@@ -394,6 +476,7 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
   const [showImageFull, setShowImageFull] = useState(false)
   const [fullImageUrl, setFullImageUrl] = useState<string | null>(null)
+  const [shareCardBusy, setShareCardBusy] = useState(false)
 
   // Favorites, names, last-seen
   const [favorites, setFavorites]   = useState<Set<string>>(new Set())
@@ -1012,6 +1095,34 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
   const lastReadSentId = [...msgs].reverse().find(m => m.sender_id === myUserId && m.is_read)?.id
   const groupedMessages = groupMessagesByDate(msgs)
 
+  const handleShareChatCard = async () => {
+    if (!selected || msgs.length === 0) return
+    setShareCardBusy(true)
+    try {
+      const title = convDisplayName(selected)
+      const blob = await generateChatShareCard({ title, messages: msgs })
+      const file = new File([blob], 'tbh-chat-card.png', { type: 'image/png' })
+      const shareData = { files: [file], title: 'TBH chat', text: 'Check my chat on TBH' }
+
+      if (navigator.share && navigator.canShare?.(shareData)) {
+        await navigator.share(shareData)
+      } else {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'tbh-chat-card.png'
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        setTimeout(() => URL.revokeObjectURL(url), 30000)
+      }
+    } catch (error) {
+      console.error('Share chat card failed', error)
+    } finally {
+      setShareCardBusy(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex flex-col gap-3 px-4 pt-3">
@@ -1197,7 +1308,17 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
               <p className="text-[11px] text-[#ADADAD] truncate">{t.endToEndPrivate || 'Conversation privée de bout en bout'}</p>
             </div>
             {/* 3-dots Options Menu */}
-            <div className="relative flex-shrink-0">
+            <div className="relative flex-shrink-0 flex items-center gap-2">
+              <button
+                onClick={handleShareChatCard}
+                disabled={shareCardBusy || !selected || msgs.length === 0}
+                className="w-8 h-8 rounded-full bg-[#F5F5F5] hover:bg-[#EBEBEB] flex items-center justify-center active:scale-90 transition-transform disabled:opacity-50"
+                title="Share chat card"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
               <button
                 onClick={() => setShowMenu(p => !p)}
                 className="w-8 h-8 rounded-full bg-[#F5F5F5] hover:bg-[#EBEBEB] flex items-center justify-center active:scale-90 transition-transform"

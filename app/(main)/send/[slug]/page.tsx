@@ -98,23 +98,6 @@ type RecipientProfile = {
   pfp: string | null
 }
 
-function FloatingEmojis() {
-  return (
-    <>
-      {FLOATING_EMOJIS.map((e, i) => (
-        <div key={i} style={{
-          position: 'absolute', left: `${e.x}%`, top: `${e.y}%`,
-          transform: `rotate(${e.rot}deg)`, pointerEvents: 'none', zIndex: 0,
-        }}>
-          <div style={{ animation: `floaty ${e.dur}s ease-in-out ${e.delay}s infinite` }}>
-            <img src={e.src} alt="" style={{ width: `${e.size}px`, height: `${e.size}px`, display: 'block' }} />
-          </div>
-        </div>
-      ))}
-    </>
-  )
-}
-
 export default function SendMessagePage() {
   const { slug } = useParams<{ slug: string }>()
   const router = useRouter()
@@ -126,7 +109,6 @@ export default function SendMessagePage() {
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
-  const [popupVisible, setPopupVisible] = useState(false)
   const [suggIndex, setSuggIndex] = useState(0)
   const [suggVisible, setSuggVisible] = useState(true)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
@@ -203,18 +185,12 @@ export default function SendMessagePage() {
   }, [slug])
 
   useEffect(() => {
-    const t = setTimeout(() => setPopupVisible(true), 60)
-    return () => clearTimeout(t)
-  }, [])
-
-  useEffect(() => {
-    if (!agreedToTerms) return
     const interval = setInterval(() => {
       setSuggVisible(false)
       setTimeout(() => { setSuggIndex(i => (i + 1) % suggestions.length); setSuggVisible(true) }, 400)
     }, 5000)
     return () => clearInterval(interval)
-  }, [agreedToTerms, suggestions.length])
+  }, [suggestions.length])
 
   // Live count ticker on success screen
   useEffect(() => {
@@ -303,87 +279,6 @@ export default function SendMessagePage() {
     setIsSubmitting(false)
   }
 }
-  // ── Terms popup ──────────────────────────────────────────────────────────────
-  if (!agreedToTerms) {
-    return (
-      <main style={{
-        height: '100%', overflowY: 'auto', background: themeGradient,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '24px', fontFamily: font, position: 'relative',
-      }}>
-        <FloatingEmojis />
-        <style>{GLOBAL_STYLES}</style>
-
-        <div style={{
-          position: 'relative', zIndex: 1, width: '100%', maxWidth: '360px',
-          background: 'rgba(35,35,35,0.85)',
-          backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)',
-          borderRadius: '32px', overflow: 'hidden',
-          boxShadow: '0 40px 100px rgba(0,0,0,0.7)',
-          transform: popupVisible ? 'translateY(0) scale(1)' : 'translateY(40px) scale(0.95)',
-          opacity: popupVisible ? 1 : 0,
-          transition: 'transform 0.6s cubic-bezier(0.23,1,0.32,1), opacity 0.4s ease',
-        }}>
-          <div style={{ padding: '32px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-
-            {recipient && (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                <div style={{ width: '72px', height: '72px', borderRadius: '50%', overflow: 'hidden', border: `3px solid ${accentColor}`, background: '#333' }}>
-                  {recipient.pfp
-                    ? <img src={recipient.pfp} alt={recipient.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '28px', fontWeight: '800' }}>
-                        {recipient.username[0]?.toUpperCase()}
-                      </div>
-                  }
-                </div>
-                <p style={{ fontSize: '15px', fontWeight: '700', color: 'rgba(255,255,255,0.8)', margin: 0 }}>@{recipient.username}</p>
-              </div>
-            )}
-
-            <p style={{ fontSize: '22px', fontWeight: '800', color: '#FFFFFF', margin: 0 }}>{t.beforeSend}</p>
-            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', margin: 0, textAlign: 'center' }}>
-              {t.prohibited}
-            </p>
-
-            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {[
-                { emoji: '🚫', text: t.harassment },
-                { emoji: '⚠️', text: t.harmful },
-                { emoji: '🚨', text: t.sexualContent },
-                { emoji: '👺', text: t.noSlurs },
-              ].map(item => (
-                <div key={item.text} style={{
-                  display: 'flex', alignItems: 'center', gap: '12px',
-                  padding: '14px 16px', borderRadius: '18px', background: 'rgba(255,255,255,0.05)',
-                }}>
-                  <span style={{ fontSize: '18px' }}>{item.emoji}</span>
-                  <p style={{ fontSize: '14px', fontWeight: '600', color: 'rgba(255,255,255,0.85)', margin: 0 }}>{item.text}</p>
-                </div>
-              ))}
-            </div>
-
-            <button
-              onClick={() => setAgreedToTerms(true)}
-              onMouseDown={btnPress} onMouseUp={btnRelease}
-              onTouchStart={btnPress} onTouchEnd={btnRelease}
-              style={{
-                width: '100%', padding: '18px', borderRadius: '99px', border: 'none',
-                background: accentColor, color: 'white', fontSize: '16px', fontWeight: '800',
-                cursor: 'pointer', transition: 'transform 0.12s ease', fontFamily: font, marginTop: '8px',
-              }}
-            >
-              {t.agree}
-            </button>
-
-            <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)', textAlign: 'center', margin: 0 }}>
-              {t.violations}
-            </p>
-          </div>
-        </div>
-      </main>
-    )
-  }
-
   // ── Success screen ───────────────────────────────────────────────────────────
   if (success) {
     return (
@@ -393,7 +288,6 @@ export default function SendMessagePage() {
         justifyContent: 'center', padding: '32px 24px', fontFamily: font, gap: '24px',
         position: 'relative',
       }}>
-        <FloatingEmojis />
         <style>{GLOBAL_STYLES}</style>
 
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', width: '100%' }}>
@@ -518,7 +412,6 @@ export default function SendMessagePage() {
       position: 'relative',
     }}>
       <InAppBrowserBanner />
-      <FloatingEmojis />
       <style>{GLOBAL_STYLES}</style>
 
       <div style={{ position: 'relative', zIndex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>

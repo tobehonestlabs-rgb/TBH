@@ -751,29 +751,16 @@ export default function ReadMessageScreen() {
     }
   }, [replyText, showReply, textContent, imageUrl, logoSrc, userPfp, arrowsSrc])
 
-  // Snapchat prep: put the link on the clipboard so it can be pasted next to
-  // the image. Deliberately NOT awaited — awaiting here would end the
-  // synchronous turn and cost us the transient user activation that
-  // navigator.share({ files }) requires on iOS Safari.
-  const copyLinkForSnap = () => {
-    try { navigator.clipboard?.writeText(userLink).catch(() => {}) } catch {}
-    setShowSnapToast(true)
-    setTimeout(() => setShowSnapToast(false), 3000)
-  }
-
-  // Shares a card via the Web Share API. For Snapchat the link is put on the
-  // clipboard and only the file is handed to navigator.share() — passing
-  // `files` and `text` together makes Snapchat keep the link and drop the
-  // image, which is the whole point of picking a platform first.
+  // Shares a card via the Web Share API while keeping the standard image + link
+  // payload for the supported share targets.
   const shareCardBlob = async (
     blob: Blob,
     filename: string,
-    platform: 'whatsapp' | 'instagram' | 'snapchat',
+    platform: 'whatsapp' | 'instagram',
   ) => {
-    if (platform === 'snapchat') copyLinkForSnap()
     const file = new File([blob], filename, { type: 'image/png' })
-    if (navigator.share && navigator.canShare?.({ files: [file] })) {
-      await navigator.share(platform === 'snapchat' ? { files: [file] } : { files: [file], text: userLink })
+    if (navigator.share && navigator.canShare?.({ files: [file], text: userLink })) {
+      await navigator.share({ files: [file], text: userLink })
       return
     }
     if (navigator.share) {
@@ -787,7 +774,7 @@ export default function ReadMessageScreen() {
     setTimeout(() => URL.revokeObjectURL(url), 10000)
   }
 
-  const handleShareMessage = async (platform: 'whatsapp' | 'instagram' | 'snapchat') => {
+  const handleShareMessage = async (platform: 'whatsapp' | 'instagram') => {
     if (!message || sharing || !messageCardBlob) return
     setSharing(true)
     try {
@@ -799,7 +786,7 @@ export default function ReadMessageScreen() {
     }
   }
 
-  const handleSendReply = async (platform: 'whatsapp' | 'instagram' | 'snapchat') => {
+  const handleSendReply = async (platform: 'whatsapp' | 'instagram') => {
     const text = replyText.trim()
     if (!text || replySending) return
 
@@ -830,7 +817,7 @@ export default function ReadMessageScreen() {
     }
   }
 
-  const handlePlatformSelect = (platform: 'whatsapp' | 'instagram' | 'snapchat') => {
+  const handlePlatformSelect = (platform: 'whatsapp' | 'instagram') => {
     const type = pendingShareType
     setShowPlatformSheet(false)
     if (type === 'message') handleShareMessage(platform)
@@ -1091,7 +1078,7 @@ export default function ReadMessageScreen() {
         </div>
       )}
 
-      {/* Platform picker — Snapchat gets the image alone + the link on the clipboard */}
+      {/* Platform picker */}
       <SharePlatformSheet
         isOpen={showPlatformSheet}
         onClose={() => setShowPlatformSheet(false)}
@@ -1101,19 +1088,6 @@ export default function ReadMessageScreen() {
         cancelText={t.cancel || 'Annuler'}
       />
 
-      {showSnapToast && (
-        <div className="fixed left-0 right-0 z-[90] flex justify-center px-6 pointer-events-none" style={{ bottom: '40px' }}>
-          <div className="flex items-center gap-2 px-4 py-3 rounded-full shadow-2xl" style={{ background: 'rgba(13,13,13,0.94)' }}>
-            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" className="flex-shrink-0">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="#FFFC00" strokeWidth="2" strokeLinecap="round"/>
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="#FFFC00" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-            <span className="text-white text-[13px] font-semibold">
-              {t.snapLinkCopied || 'Lien copié — colle-le sur Snapchat'}
-            </span>
-          </div>
-        </div>
-      )}
     </main>
   )
 }

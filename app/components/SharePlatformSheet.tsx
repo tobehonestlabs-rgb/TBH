@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom'
 interface SharePlatformSheetProps {
   isOpen: boolean
   onClose: () => void
-  onSelect: (platform: 'snapchat' | 'instagram' | 'whatsapp') => void
+  onSelect: (platform: 'instagram' | 'whatsapp') => void
   title?: string
   subtitle?: string
   cancelText?: string
@@ -43,7 +43,7 @@ export default function SharePlatformSheet({
     }, 200)
   }
 
-  const handleSelect = (platform: 'snapchat' | 'instagram' | 'whatsapp') => {
+  const handleSelect = (platform: 'instagram' | 'whatsapp') => {
     // Call directly in user tap gesture context to preserve Web Share privileges
     onSelect(platform)
   }
@@ -86,33 +86,6 @@ export default function SharePlatformSheet({
 
         {/* Platform selection items */}
         <div className="flex flex-col gap-2.5 mb-4">
-          {/* Snapchat */}
-          <button
-            onClick={() => handleSelect('snapchat')}
-            type="button"
-            className="w-full flex items-center gap-3.5 p-3.5 rounded-[22px] bg-[#F7F7F9] hover:bg-[#EFEFF3] active:scale-[0.98] transition-all text-left cursor-pointer"
-          >
-            <div className="w-12 h-12 rounded-[16px] overflow-hidden flex items-center justify-center flex-shrink-0 shadow-sm bg-[#FFFC00]">
-              <img
-                src="/assets/social_media_icons/snapshat_icon.svg"
-                alt="Snapchat"
-                className="w-8 h-8 object-contain"
-              />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-[16px] font-bold text-[#0D0D0D]">Snapchat</span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FFFC00] text-black border border-black/10">
-                  Lien copié
-                </span>
-              </div>
-              <p className="text-[12px] text-[#8E8E93] truncate">Image à modifier • Lien copié automatiquement</p>
-            </div>
-            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" className="text-[#C4C4C6] flex-shrink-0">
-              <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-
           {/* Instagram */}
           <button
             onClick={() => handleSelect('instagram')}

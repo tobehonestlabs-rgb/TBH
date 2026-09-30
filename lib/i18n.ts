@@ -346,7 +346,6 @@ const en: T = {
   shareFailed: 'Share failed',
   shareOn: 'Share on',
   chooseAppToShare: 'Choose an app to share your image',
-  snapLinkCopied: 'Link copied — paste it on Snapchat',
   // TBHProScreen / Insights
   unlockWithPro: 'Unlock with TBH Pro',
   seeWhoSentIt: 'See who sent it',
@@ -370,7 +369,7 @@ const en: T = {
   // Additional SharePage
   step1CopyLink: 'Step 1: Copy your link',
   step2ShareStory: 'Step 2: Share on your story',
-  step2ShareStorySub: 'Paste your link on Instagram, Snapchat or TikTok',
+  step2ShareStorySub: 'Paste your link on Instagram or TikTok',
   cardPromptDefault: 'send me anonymous messages!',
   tapToChangeText: 'Tap to change text',
   // Added for app-wide French localization
@@ -411,7 +410,7 @@ const en: T = {
   guideStep1Title: 'COPY YOUR LINK',
   guideStep1Desc: "Your unique TBH link is the key. It's already waiting in your clipboard.",
   guideStep2Title: 'PICK YOUR VIBE',
-  guideStep2Desc: 'Open Instagram or Snapchat. Capture or upload the card you just saved.',
+  guideStep2Desc: 'Open Instagram. Capture or upload the card you just saved.',
   guideStep3Title: 'STICK THE LINK',
   guideStep3Desc: "Use the 'Link' sticker (IG) or 'Paperclip' (Snap). Paste your link and place it over the card.",
   imReadyBtn: "I'M READY",
@@ -562,7 +561,6 @@ const fr: T = {
   shareFailed: 'Échec du partage',
   shareOn: 'Partager sur',
   chooseAppToShare: 'Choisis une application pour partager ton image',
-  snapLinkCopied: 'Lien copié — colle-le sur Snapchat',
   // TBHProScreen / Insights
   unlockWithPro: 'Débloquer avec TBH Pro',
   seeWhoSentIt: 'Découvre qui a envoyé ce message',
@@ -586,7 +584,7 @@ const fr: T = {
   // Additional SharePage
   step1CopyLink: 'Étape 1 : Copie ton lien',
   step2ShareStory: 'Étape 2 : Partage sur ta story',
-  step2ShareStorySub: 'Colle ton lien sur Instagram, Snapchat ou TikTok',
+  step2ShareStorySub: 'Colle ton lien sur Instagram ou TikTok',
   cardPromptDefault: 'envoie-moi des messages anonymes !',
   tapToChangeText: 'Appuie pour modifier le texte',
   // Added for app-wide French localization
@@ -627,7 +625,7 @@ const fr: T = {
   guideStep1Title: 'COPIE TON LIEN',
   guideStep1Desc: "Ton lien TBH unique est la clé. Il attend déjà dans ton presse-papier.",
   guideStep2Title: 'CHOISIS TON STYLE',
-  guideStep2Desc: 'Ouvre Instagram ou Snapchat. Prends une photo ou importe la carte enregistrée.',
+  guideStep2Desc: 'Ouvre Instagram. Prends une photo ou importe la carte enregistrée.',
   guideStep3Title: 'COLLE LE LIEN',
   guideStep3Desc: "Utilise le sticker « Lien » (IG) ou « Trombone » (Snap). Colle ton lien sur la carte.",
   imReadyBtn: 'JE SUIS PRÊT',
@@ -778,7 +776,6 @@ const es: T = {
   shareFailed: 'Error al compartir',
   shareOn: 'Compartir en',
   chooseAppToShare: 'Elige una aplicación para compartir tu imagen',
-  snapLinkCopied: 'Enlace copiado — pégalo en Snapchat',
   // TBHProScreen / Insights
   unlockWithPro: 'Desbloquear con TBH Pro',
   seeWhoSentIt: 'Descubre quién lo envió',
@@ -802,7 +799,7 @@ const es: T = {
   // Additional SharePage
   step1CopyLink: 'Paso 1: Copia tu enlace',
   step2ShareStory: 'Paso 2: Comparte en tu historia',
-  step2ShareStorySub: 'Pega tu enlace en Instagram, Snapchat o TikTok',
+  step2ShareStorySub: 'Pega tu enlace en Instagram o TikTok',
   cardPromptDefault: '¡envíame mensajes anónimos!',
   tapToChangeText: 'Toca para cambiar el texto',
 }
