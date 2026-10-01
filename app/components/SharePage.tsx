@@ -669,33 +669,94 @@ export default function SharePage({ profile }: Props) {
     closeGamePicker()
   }
 
-  const shareFile = async (blob: Blob, filename: string, isGif: boolean, platform: SharePlatform) => {
-    const file = new File([blob], filename, { type: isGif ? 'image/gif' : 'image/png' })
-    const isSnapchat = platform === 'snapchat'
+  const handleShareToSnapchat = async () => {
+    if (!profile) return
+    setPendingPlatform('snapchat')
+    setGenerating(true)
 
-    // For Snapchat: copy link to clipboard so user can attach it via the link sticker/paperclip
-    if (isSnapchat && shareLink) {
-      try {
-        if (navigator?.clipboard?.writeText) {
-          navigator.clipboard.writeText(shareLink).catch(() => {})
-        } else {
-          const el = document.createElement('textarea')
-          el.value = shareLink
-          document.body.appendChild(el)
-          el.select()
-          document.execCommand('copy')
-          document.body.removeChild(el)
-        }
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
-      } catch {}
+    try {
+      const markShared = () =>
+        setSharedPlatforms(prev => prev.includes('snapchat') ? prev : [...prev, 'snapchat'])
+
+      markShared()
+
+      // 1. Copy profile link to clipboard immediately
+      if (shareLink) {
+        try {
+          if (navigator?.clipboard?.writeText) {
+            navigator.clipboard.writeText(shareLink).catch(() => {})
+          } else {
+            const el = document.createElement('textarea')
+            el.value = shareLink
+            document.body.appendChild(el)
+            el.select()
+            document.execCommand('copy')
+            document.body.removeChild(el)
+          }
+          setCopied(true)
+          setTimeout(() => setCopied(false), 2000)
+          try {
+            const audio = new Audio('/asset/notif.wav')
+            audio.volume = 0.5
+            audio.play().catch(() => {})
+          } catch {}
+        } catch {}
+      }
+
+      // 2. Download / save card image so it's in the device's camera roll
+      let blob = cardBlob
+      if (!blob) {
+        try {
+          blob = await generateShareCard(profile, promptText, selectedCard, selectedColor.stops, selectedColor.ring)
+          setCardBlob(blob)
+        } catch {}
+      }
+
+      if (blob) {
+        try {
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = 'tbh-share.png'
+          document.body.appendChild(a)
+          a.click()
+          document.body.removeChild(a)
+          setTimeout(() => URL.revokeObjectURL(url), 30000)
+        } catch {}
+
+        // Try copying PNG image to clipboard for quick paste as sticker in Snapchat
+        try {
+          if (navigator?.clipboard && typeof ClipboardItem !== 'undefined') {
+            navigator.clipboard.write([
+              new ClipboardItem({ 'image/png': blob })
+            ]).catch(() => {})
+          }
+        } catch {}
+      }
+
+      // 3. Directly launch Snapchat Creative Kit editor (no browser share sheet!)
+      const snapUrl = `https://snapchat.com/scan?attachmentUrl=${encodeURIComponent(shareLink)}`
+      const isMobile = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+
+      if (isMobile) {
+        window.location.href = snapUrl
+      } else {
+        window.open(snapUrl, '_blank')
+      }
+    } finally {
+      setGenerating(false)
+      setPendingPlatform(null)
+    }
+  }
+
+  const shareFile = async (blob: Blob, filename: string, isGif: boolean, platform: SharePlatform) => {
+    if (platform === 'snapchat') {
+      handleShareToSnapchat()
+      return
     }
 
-    // For Snapchat: share ONLY files without text/title so iOS & Android pass it directly
-    // into Snapchat's Creative Kit image editing screen!
-    const shareData: ShareData = isSnapchat
-      ? { files: [file] }
-      : { files: [file], title: 'TBH', text: shareLink }
+    const file = new File([blob], filename, { type: isGif ? 'image/gif' : 'image/png' })
+    const shareData = { files: [file], title: 'TBH', text: shareLink }
 
     const markShared = () =>
       setSharedPlatforms(prev => prev.includes(platform) ? prev : [...prev, platform])
@@ -758,6 +819,11 @@ export default function SharePage({ profile }: Props) {
     if (!profile || !platform) return
     closeSheet()
 
+    if (platform === 'snapchat') {
+      handleShareToSnapchat()
+      return
+    }
+
     // Rendered in the background already → hand it straight to navigator.share
     // while this tap still counts as a user gesture. No await before the call.
     if (cardBlob) {
@@ -785,6 +851,12 @@ export default function SharePage({ profile }: Props) {
     const platform = pendingPlatform
     if (!profile || !platform) return
     closeSheet()
+
+    if (platform === 'snapchat') {
+      handleShareToSnapchat()
+      return
+    }
+
     await new Promise(r => setTimeout(r, 300))
     setGenerating(true)
     setGifProgress(0)
@@ -882,7 +954,13 @@ export default function SharePage({ profile }: Props) {
           return (
             <button
               key={platform.id}
-              onClick={() => openPlatformSheet(platform.id)}
+              onClick={() => {
+                if (platform.id === 'snapchat') {
+                  handleShareToSnapchat()
+                } else {
+                  openPlatformSheet(platform.id)
+                }
+              }}
               disabled={generating}
               className="flex-1 flex flex-col items-center justify-center gap-2 py-4 rounded-[20px] active:scale-95 transition-all relative disabled:opacity-50"
               style={{ background: shared ? '#0D0D0D' : '#F5F5F7', border: 'none' }}

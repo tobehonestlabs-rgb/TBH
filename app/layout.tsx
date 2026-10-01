@@ -54,9 +54,11 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         {/* Google Fonts: Outfit */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap" rel="stylesheet" />
         <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-icon-180.png" />
+        {/* Snapchat Creative Kit SDK & Sticker Metadata */}
+        <meta property="snapchat:sticker" content="https://tbhonest.net/icons/icon-512.png" />
+        <script src="https://sdk.snapkit.com/js/v1/create.js" async></script>
       </head>
       <body className={`${outfit.variable} ${outfit.className} font-sans`}>
         {children}
