@@ -602,6 +602,7 @@ export default function SharePage({ profile }: Props) {
   const [gamePickerClosing, setGamePickerClosing] = useState(false)
   const [shareReady, setShareReady] = useState<{ blob: Blob; filename: string; isGif: boolean; platform: SharePlatform } | null>(null)
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
+  const [snapToast, setSnapToast] = useState(false)
 
   // The PNG card is rendered in the background whenever its inputs change, so
   // the share tap has a finished blob waiting and can call navigator.share()
@@ -734,14 +735,22 @@ export default function SharePage({ profile }: Props) {
         } catch {}
       }
 
-      // 3. Directly launch Snapchat Creative Kit editor (no browser share sheet!)
-      const snapUrl = `https://snapchat.com/scan?attachmentUrl=${encodeURIComponent(shareLink)}`
+      setSnapToast(true)
+      setTimeout(() => setSnapToast(false), 4000)
+
+      // 3. Directly launch Snapchat native app (avoids web scan & App Store redirect loop!)
       const isMobile = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
 
       if (isMobile) {
-        window.location.href = snapUrl
+        // Direct launch into the native Snapchat app
+        window.location.href = 'snapchat://'
+        // Fallback after delay if Snapchat is not installed
+        setTimeout(() => {
+          if (document.hidden) return
+          window.location.href = `https://snapchat.com/scan?attachmentUrl=${encodeURIComponent(shareLink)}`
+        }, 1800)
       } else {
-        window.open(snapUrl, '_blank')
+        window.open(`https://snapchat.com/scan?attachmentUrl=${encodeURIComponent(shareLink)}`, '_blank')
       }
     } finally {
       setGenerating(false)
@@ -872,6 +881,18 @@ export default function SharePage({ profile }: Props) {
 
   return (
     <div className="flex flex-col px-5 pt-3 pb-6 gap-3 relative">
+
+      {/* ── Snapchat toast notification ── */}
+      {snapToast && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-[#0D0D0D] text-white px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2.5 border border-white/15 pointer-events-none transition-all">
+          <div className="w-5 h-5 rounded-full bg-[#FFFC00] flex items-center justify-center shrink-0">
+            <img src="/assets/social_media_icons/snapshat_icon.svg" alt="Snapchat" className="w-3.5 h-3.5" />
+          </div>
+          <span className="text-[12px] font-bold whitespace-nowrap">
+            {locale === 'fr' ? 'Image enregistrée & lien copié !' : 'Card saved & link copied!'}
+          </span>
+        </div>
+      )}
 
       {/* ── Profile Card ── */}
       {!profile ? (
@@ -1409,9 +1430,9 @@ export default function SharePage({ profile }: Props) {
                 </div>
                 <p className="text-[12px] text-white/80 leading-snug">
                   {locale === 'fr' ? (
-                    <>L&apos;image générée s&apos;ouvre directement dans l&apos;<strong>éditeur Snapchat</strong>.</>
+                    <>L&apos;image est <strong>enregistrée dans tes photos</strong> (et copiée dans le presse-papier).</>
                   ) : (
-                    <>The generated card opens directly in the <strong>Snapchat editor</strong>.</>
+                    <>The card is <strong>saved to your photos</strong> (and copied to your clipboard).</>
                   )}
                 </p>
               </div>
@@ -1421,9 +1442,9 @@ export default function SharePage({ profile }: Props) {
                 </div>
                 <p className="text-[12px] text-white/80 leading-snug">
                   {locale === 'fr' ? (
-                    <>Appuie sur l&apos;icône <strong>trombone 📎</strong> pour coller ton lien et partage ta story !</>
+                    <>Dans Snapchat, choisis l&apos;image dans ta pellicule (ou colle-la) et appuie sur le <strong>trombone 📎</strong> pour joindre ton lien !</>
                   ) : (
-                    <>Tap the <strong>paperclip 📎</strong> to paste your link and post to your story!</>
+                    <>In Snapchat, pick the card from camera roll (or paste it) and tap the <strong>paperclip 📎</strong> to attach your link!</>
                   )}
                 </p>
               </div>
