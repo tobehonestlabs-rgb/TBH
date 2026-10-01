@@ -145,7 +145,7 @@ export default function HomePage() {
           </div>
           <div className="relative overflow-hidden" style={{ width: '33.333%', flexShrink: 0, height: '100%' }}>
             <div className="h-full overflow-y-auto">
-              <ChatPage onUnreadChange={setHasUnreadChat} />
+              <ChatPage onUnreadChange={setHasUnreadChat} profile={profile} />
             </div>
           </div>
         </div>

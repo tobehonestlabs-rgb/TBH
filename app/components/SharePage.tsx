@@ -9,10 +9,11 @@ import { useTranslation } from '@/lib/i18n'
 
 type Props = { profile: UserProfile | null }
 
-type SharePlatform = 'instagram' | 'whatsapp'
+type SharePlatform = 'instagram' | 'snapchat' | 'whatsapp'
 
 const PLATFORMS: { id: SharePlatform; label: string; icon: string }[] = [
   { id: 'instagram', label: 'Instagram', icon: '/assets/social_media_icons/IG_icon.svg' },
+  { id: 'snapchat',  label: 'Snapchat',  icon: '/assets/social_media_icons/snapshat_icon.svg' },
   { id: 'whatsapp',  label: 'WhatsApp',  icon: '/assets/social_media_icons/Platform=WhatsApp, Color=Original.svg' },
 ]
 
@@ -577,7 +578,7 @@ async function generateShareGif(
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function SharePage({ profile }: Props) {
-  const { t } = useTranslation()
+  const { t, locale } = useTranslation()
   const [copied, setCopied]               = useState(false)
   const [promptText, setPromptText]       = useState('Send me an anonymous photo/message')
   const [editingPrompt, setEditingPrompt] = useState(false)
@@ -596,6 +597,7 @@ export default function SharePage({ profile }: Props) {
   const [phraseIndex, setPhraseIndex]     = useState(0)
   const [phraseVisible, setPhraseVisible] = useState(true)
   const [showGamePicker, setShowGamePicker] = useState(false)
+  const [showHowToModal, setShowHowToModal] = useState(false)
   const [sheetClosing, setSheetClosing]         = useState(false)
   const [gamePickerClosing, setGamePickerClosing] = useState(false)
   const [shareReady, setShareReady] = useState<{ blob: Blob; filename: string; isGif: boolean; platform: SharePlatform } | null>(null)
@@ -669,7 +671,31 @@ export default function SharePage({ profile }: Props) {
 
   const shareFile = async (blob: Blob, filename: string, isGif: boolean, platform: SharePlatform) => {
     const file = new File([blob], filename, { type: isGif ? 'image/gif' : 'image/png' })
-    const shareData = { files: [file], title: 'TBH', text: shareLink }
+    const isSnapchat = platform === 'snapchat'
+
+    // For Snapchat: copy link to clipboard so user can attach it via the link sticker/paperclip
+    if (isSnapchat && shareLink) {
+      try {
+        if (navigator?.clipboard?.writeText) {
+          navigator.clipboard.writeText(shareLink).catch(() => {})
+        } else {
+          const el = document.createElement('textarea')
+          el.value = shareLink
+          document.body.appendChild(el)
+          el.select()
+          document.execCommand('copy')
+          document.body.removeChild(el)
+        }
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      } catch {}
+    }
+
+    // For Snapchat: share ONLY files without text/title so iOS & Android pass it directly
+    // into Snapchat's Creative Kit image editing screen!
+    const shareData: ShareData = isSnapchat
+      ? { files: [file] }
+      : { files: [file], title: 'TBH', text: shareLink }
 
     const markShared = () =>
       setSharedPlatforms(prev => prev.includes(platform) ? prev : [...prev, platform])
@@ -892,15 +918,17 @@ export default function SharePage({ profile }: Props) {
         {PHRASES[phraseIndex]}
       </p>
 
-      {/* ── How to share link ── */}
-      <Link href="/guide" className="self-center">
-        <button className="flex items-center gap-1.5 py-1 text-[13px] font-bold text-gray-400 hover:text-black active:scale-95 transition-all">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="10" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-          </svg>
-          {t.howToPostMyLink || 'Comment publier mon lien ?'}
-        </button>
-      </Link>
+      {/* ── How to share button ── */}
+      <button
+        type="button"
+        onClick={() => setShowHowToModal(true)}
+        className="self-center flex items-center gap-1.5 py-1 text-[13px] font-bold text-gray-400 hover:text-black active:scale-95 transition-all"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="10" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        {t.howToPostMyLink || 'Comment publier mon lien ?'}
+      </button>
 
       {/* ── Share sheet (format → color) ── */}
       {showSheet && portalTarget && createPortal(
@@ -1167,7 +1195,11 @@ export default function SharePage({ profile }: Props) {
             <div className="mb-5">
               <p className="text-white font-extrabold text-[18px]">{shareReady.isGif ? (t.gifReady || 'GIF prêt !') : (t.imageReady || 'Image prête !')}</p>
               <p className="text-[#555] text-[12px] mt-0.5">
-                {shareReady.platform === 'whatsapp'
+                {shareReady.platform === 'snapchat'
+                  ? (locale === 'fr'
+                      ? 'Ton lien est copié ! Appuie ci-dessous pour ouvrir dans l’éditeur Snapchat.'
+                      : 'Your link is copied! Tap below to open in the Snapchat editor.')
+                  : shareReady.platform === 'whatsapp'
                   ? (t.tapToShare || 'Appuie ci-dessous — puis choisis ton app dans le menu de partage')
                   : (t.tapToShare || 'Appuie ci-dessous — puis choisis ton app dans le menu de partage')}
               </p>
@@ -1177,7 +1209,9 @@ export default function SharePage({ profile }: Props) {
               className="w-full py-[17px] rounded-full font-extrabold text-[17px] active:scale-95 transition-transform mb-3"
               style={{ background: '#ffffff', color: '#0D0D0D' }}
             >
-              {shareReady.platform === 'whatsapp'
+              {shareReady.platform === 'snapchat'
+                ? (locale === 'fr' ? 'Ouvrir dans Snapchat' : 'Open in Snapchat')
+                : shareReady.platform === 'whatsapp'
                 ? (t.shareImageAndLink || 'Partager image + lien')
                 : (t.share || 'Partager')}
             </button>
@@ -1187,6 +1221,146 @@ export default function SharePage({ profile }: Props) {
             >
               {t.cancel || 'Annuler'}
             </button>
+          </div>
+        </div>,
+        portalTarget
+      )}
+
+      {/* ── How to share on Snapchat popup modal ── */}
+      {showHowToModal && portalTarget && createPortal(
+        <div
+          className="fixed inset-0 z-[120] flex items-start justify-center pt-8 sm:pt-12 px-4 pb-6 overflow-y-auto animate-in fade-in duration-200"
+          style={{
+            background: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+          }}
+          onClick={() => setShowHowToModal(false)}
+          onTouchStart={e => e.stopPropagation()}
+          onTouchEnd={e => e.stopPropagation()}
+        >
+          <div
+            className="relative w-full max-w-sm bg-[#161618] border border-white/10 rounded-[32px] overflow-hidden shadow-2xl text-white my-auto sm:my-0 animate-in zoom-in-95 duration-200 flex flex-col"
+            onClick={e => e.stopPropagation()}
+            style={{
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.08)',
+            }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-white/[0.08]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-[#FFFC00] flex items-center justify-center shadow-sm">
+                  <img src="/assets/social_media_icons/snapshat_icon.svg" alt="Snapchat" className="w-4 h-4 object-contain brightness-0" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-[15px] tracking-tight text-white leading-none">
+                    {locale === 'fr' ? 'Partager sur Snapchat' : 'Share to Snapchat'}
+                  </h3>
+                  <p className="text-[11px] text-white/50 mt-1">
+                    {locale === 'fr' ? 'Tutoriel vidéo' : 'Video tutorial'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHowToModal(false)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 flex items-center justify-center transition-all text-white/70 hover:text-white"
+                aria-label="Fermer"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Video Player Container */}
+            <div className="px-5 pt-4 pb-2">
+              <div className="relative w-full aspect-[9/16] max-h-[340px] rounded-[22px] overflow-hidden bg-black/60 border border-white/10 flex items-center justify-center">
+                <video
+                  src="/assets/how-to-share.mp4"
+                  controls
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.currentTarget
+                    target.style.display = 'none'
+                    const parent = target.parentElement
+                    if (parent) {
+                      const fallback = parent.querySelector('.snap-video-fallback')
+                      if (fallback) (fallback as HTMLElement).style.display = 'flex'
+                    }
+                  }}
+                />
+                {/* Fallback state when video is being added */}
+                <div className="snap-video-fallback hidden absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-gradient-to-b from-[#1C1C20] to-[#121214]">
+                  <div className="w-14 h-14 rounded-2xl bg-[#FFFC00]/15 border border-[#FFFC00]/30 flex items-center justify-center mb-3 shadow-lg shadow-[#FFFC00]/10">
+                    <img src="/assets/social_media_icons/snapshat_icon.svg" alt="Snapchat" className="w-8 h-8" />
+                  </div>
+                  <p className="font-extrabold text-[15px] text-white mb-1.5">
+                    {locale === 'fr' ? 'Vidéo guide Snapchat' : 'Snapchat Video Guide'}
+                  </p>
+                  <p className="text-[12px] text-white/60 leading-relaxed max-w-[220px]">
+                    {locale === 'fr'
+                      ? 'how-to-share.mp4 s’affichera ici dès son ajout dans public/assets/.'
+                      : 'how-to-share.mp4 will play here once placed in public/assets/.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* 3 Step instructions */}
+            <div className="px-5 py-3 space-y-2.5">
+              <div className="flex items-start gap-3">
+                <div className="w-5 h-5 rounded-full bg-white/10 text-white font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                  1
+                </div>
+                <p className="text-[12px] text-white/80 leading-snug">
+                  {locale === 'fr' ? (
+                    <>Ton lien TBH est <strong>automatiquement copié</strong> dès que tu appuies sur Snapchat.</>
+                  ) : (
+                    <>Your TBH link is <strong>automatically copied</strong> when you tap Snapchat.</>
+                  )}
+                </p>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-5 h-5 rounded-full bg-white/10 text-white font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                  2
+                </div>
+                <p className="text-[12px] text-white/80 leading-snug">
+                  {locale === 'fr' ? (
+                    <>L&apos;image générée s&apos;ouvre directement dans l&apos;<strong>éditeur Snapchat</strong>.</>
+                  ) : (
+                    <>The generated card opens directly in the <strong>Snapchat editor</strong>.</>
+                  )}
+                </p>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-5 h-5 rounded-full bg-white/10 text-white font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                  3
+                </div>
+                <p className="text-[12px] text-white/80 leading-snug">
+                  {locale === 'fr' ? (
+                    <>Appuie sur l&apos;icône <strong>trombone 📎</strong> pour coller ton lien et partage ta story !</>
+                  ) : (
+                    <>Tap the <strong>paperclip 📎</strong> to paste your link and post to your story!</>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* Confirm action */}
+            <div className="px-5 pb-5 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowHowToModal(false)}
+                className="w-full py-3.5 rounded-[18px] bg-white text-black font-extrabold text-[14px] active:scale-[0.98] transition-transform"
+              >
+                {locale === 'fr' ? "C'est compris !" : "Got it!"}
+              </button>
+            </div>
           </div>
         </div>,
         portalTarget

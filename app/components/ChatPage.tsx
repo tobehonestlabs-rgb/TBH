@@ -9,6 +9,7 @@ import GifPicker, { GifResult } from './GifPicker'
 import ImageEditor from './ImageEditor'
 import { useTranslation } from '@/lib/i18n'
 import { extractPhotoUrls } from '@/lib/chatImages'
+import { UserProfile } from '@/types'
 
 type Conversation = {
   id: string
@@ -111,50 +112,328 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath()
 }
 
-function generateChatShareCard({ title, messages }: { title: string; messages: ConvMsg[] }): Promise<Blob> {
-  return new Promise((resolve) => {
+function roundRectComplex(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  tl: number,
+  tr: number,
+  br: number,
+  bl: number
+) {
+  ctx.beginPath()
+  ctx.moveTo(x + tl, y)
+  ctx.lineTo(x + w - tr, y)
+  ctx.quadraticCurveTo(x + w, y, x + w, y + tr)
+  ctx.lineTo(x + w, y + h - br)
+  ctx.quadraticCurveTo(x + w, y + h, x + w - br, y + h)
+  ctx.lineTo(x + bl, y + h)
+  ctx.quadraticCurveTo(x, y + h, x, y + h - bl)
+  ctx.lineTo(x, y + tl)
+  ctx.quadraticCurveTo(x, y, x + tl, y)
+  ctx.closePath()
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = src
+  })
+}
+
+async function generateChatShareCard({
+  title,
+  messages,
+  myUserId,
+  slug,
+}: {
+  title: string
+  messages: ConvMsg[]
+  myUserId: string | null
+  slug?: string | null
+}): Promise<Blob> {
+  return new Promise(async (resolve) => {
     const W = 1080, H = 1920
     const canvas = document.createElement('canvas')
     canvas.width = W
     canvas.height = H
     const ctx = canvas.getContext('2d')!
 
-    const bg = ctx.createLinearGradient(0, 0, W, H)
-    bg.addColorStop(0, '#0D0D0D')
-    bg.addColorStop(1, '#1C1C1E')
+    // 1. Background gradient (dark aesthetic)
+    const bg = ctx.createLinearGradient(0, 0, 0, H)
+    bg.addColorStop(0, '#09090B')
+    bg.addColorStop(0.5, '#131317')
+    bg.addColorStop(1, '#070709')
     ctx.fillStyle = bg
     ctx.fillRect(0, 0, W, H)
 
-    ctx.fillStyle = '#FFFFFF'
+    // Subtle top ambient glow
+    const glow = ctx.createRadialGradient(W / 2, 140, 10, W / 2, 140, 500)
+    glow.addColorStop(0, 'rgba(255, 255, 255, 0.08)')
+    glow.addColorStop(1, 'rgba(255, 255, 255, 0)')
+    ctx.fillStyle = glow
+    ctx.fillRect(0, 0, W, 600)
+
+    // 2. TBH Logo on top
+    try {
+      const logo = await loadImage('/assets/white_logo.svg')
+      const logoW = 190
+      const logoH = Math.round(logoW * (logo.height / logo.width))
+      ctx.drawImage(logo, (W - logoW) / 2, 120, logoW, logoH)
+    } catch {
+      ctx.fillStyle = '#FFFFFF'
+      ctx.textAlign = 'center'
+      ctx.font = '900 64px -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif'
+      ctx.fillText('TBH', W / 2, 180)
+    }
+
+    // 3. Conversation title badge
+    const headerTitle = title || 'Anonyme'
+    ctx.font = '600 28px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+    const titleMetrics = ctx.measureText(headerTitle)
+    const badgeW = Math.min(680, titleMetrics.width + 64)
+    const badgeH = 52
+    const badgeX = (W - badgeW) / 2
+    const badgeY = 236
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.07)'
+    roundRect(ctx, badgeX, badgeY, badgeW, badgeH, 26)
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)'
+    ctx.lineWidth = 1.5
+    ctx.stroke()
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)'
     ctx.textAlign = 'center'
-    ctx.font = '700 72px Arial'
-    ctx.fillText('TBH', W / 2, 120)
+    ctx.fillText(headerTitle, W / 2, badgeY + 36)
 
-    ctx.textAlign = 'left'
-    ctx.font = '700 48px Arial'
-    ctx.fillText(title, 80, 220)
-
-    let y = 330
+    // 4. Prepare visible messages (up to 5 recent messages)
     const visible = messages.slice(-5)
 
-    visible.forEach((m) => {
-      const messageText = (m.content || 'Photo / GIF').replace(/\s+/g, ' ').trim()
-      const bubble = ctx.createLinearGradient(80, y - 20, W - 80, y + 130)
-      bubble.addColorStop(0, '#19191B')
-      bubble.addColorStop(1, '#2B2B2F')
-      ctx.fillStyle = 'rgba(255,255,255,0.08)'
-      roundRect(ctx, 70, y - 20, W - 140, 150, 28)
-      ctx.fill()
+    const padX = 36
+    const padY = 24
+    const lineH = 44
+    const maxTextW = 600
+    const msgGap = 20
 
-      ctx.fillStyle = '#F5F5F5'
-      ctx.font = '600 34px Arial'
-      const lines = wrapChatText(ctx, messageText, W - 220)
-      lines.slice(0, 3).forEach((line, idx) => {
-        ctx.fillText(line, 110, y + idx * 42)
-      })
+    type PreparedMsg = {
+      isMine: boolean
+      isGif: boolean
+      lines: string[]
+      replyPreview: string | null
+      w: number
+      h: number
+    }
 
-      y += 180
+    const prepared: PreparedMsg[] = visible.map((m) => {
+      const isMine = !!(myUserId && m.sender_id === myUserId)
+      const isGif = !!(m.gif_url || (m.content && m.content.trim().toUpperCase() === 'GIF'))
+
+      if (isGif) {
+        return {
+          isMine,
+          isGif: true,
+          lines: [],
+          replyPreview: null,
+          w: 180,
+          h: 76,
+        }
+      }
+
+      ctx.font = '500 32px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      const text = (m.content || '').trim() || '...'
+      const lines = wrapChatText(ctx, text, maxTextW)
+      const maxLineW = Math.max(...lines.map(l => ctx.measureText(l).width))
+
+      let replyH = 0
+      let replyPreview: string | null = null
+      if (m.reply_to_content) {
+        replyPreview = cleanReplyPreview(m.reply_to_content)
+        replyH = 58
+      }
+
+      const bubbleW = Math.max(160, Math.min(maxTextW + padX * 2, maxLineW + padX * 2))
+      const bubbleH = replyH + padY * 2 + lines.length * lineH
+
+      return {
+        isMine,
+        isGif: false,
+        lines,
+        replyPreview,
+        w: bubbleW,
+        h: bubbleH,
+      }
     })
+
+    // Calculate total height of the message column + CTA pill
+    const messagesHeight = prepared.reduce((sum, p) => sum + p.h, 0) + Math.max(0, prepared.length - 1) * msgGap
+    const ctaButtonH = 104
+    const ctaGap = 55
+    const linkH = slug ? 45 : 0
+    const totalColumnH = messagesHeight + ctaGap + ctaButtonH + linkH
+
+    // Center the column vertically between header (y=320) and story bottom (y=1800)
+    const availableSpace = 1800 - 320
+    let curY = 320 + Math.max(30, Math.floor((availableSpace - totalColumnH) / 2))
+
+    // 5. Draw message bubbles matching real site layout
+    const marginX = 80
+
+    for (const p of prepared) {
+      const bubbleX = p.isMine ? W - marginX - p.w : marginX
+
+      if (p.isGif) {
+        // GIF bubble: written GIF only as requested
+        if (p.isMine) {
+          const bubbleGrad = ctx.createLinearGradient(bubbleX, curY, bubbleX + p.w, curY + p.h)
+          bubbleGrad.addColorStop(0, '#000000')
+          bubbleGrad.addColorStop(1, '#303030')
+          ctx.fillStyle = bubbleGrad
+          roundRect(ctx, bubbleX, curY, p.w, p.h, 28)
+          ctx.fill()
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)'
+          ctx.lineWidth = 1.5
+          ctx.stroke()
+
+          ctx.fillStyle = '#FFFFFF'
+          ctx.font = 'bold 30px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+          ctx.textAlign = 'center'
+          ctx.fillText('GIF', bubbleX + p.w / 2, curY + 49)
+        } else {
+          ctx.fillStyle = '#F2F2F4'
+          roundRect(ctx, bubbleX, curY, p.w, p.h, 28)
+          ctx.fill()
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.06)'
+          ctx.lineWidth = 1
+          ctx.stroke()
+
+          ctx.fillStyle = '#0D0D0D'
+          ctx.font = 'bold 30px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+          ctx.textAlign = 'center'
+          ctx.fillText('GIF', bubbleX + p.w / 2, curY + 49)
+        }
+      } else {
+        // Regular text bubble matching real site
+        if (p.isMine) {
+          const bubbleGrad = ctx.createLinearGradient(bubbleX, curY, bubbleX + p.w, curY + p.h)
+          bubbleGrad.addColorStop(0, '#000000')
+          bubbleGrad.addColorStop(1, '#303030')
+          ctx.fillStyle = bubbleGrad
+          roundRect(ctx, bubbleX, curY, p.w, p.h, 28)
+          ctx.fill()
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)'
+          ctx.lineWidth = 1.5
+          ctx.stroke()
+
+          let textStartY = curY + padY + 28
+
+          // Reply compartment if message was a reply
+          if (p.replyPreview) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.08)'
+            roundRectComplex(ctx, bubbleX, curY, p.w, 54, 28, 28, 0, 0)
+            ctx.fill()
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
+            ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+            ctx.textAlign = 'left'
+            ctx.fillText('RÉPONSE', bubbleX + 24, curY + 24)
+
+            ctx.font = '500 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)'
+            const replySnippet = p.replyPreview.length > 32 ? `${p.replyPreview.slice(0, 32)}…` : p.replyPreview
+            ctx.fillText(replySnippet, bubbleX + 24, curY + 46)
+
+            textStartY = curY + 54 + padY + 26
+          }
+
+          // Message content
+          ctx.fillStyle = '#FFFFFF'
+          ctx.font = '500 32px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+          ctx.textAlign = 'left'
+          p.lines.forEach((line, idx) => {
+            ctx.fillText(line, bubbleX + padX, textStartY + idx * lineH)
+          })
+        } else {
+          // Anonymous partner bubble
+          ctx.fillStyle = '#F2F2F4'
+          roundRect(ctx, bubbleX, curY, p.w, p.h, 28)
+          ctx.fill()
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.06)'
+          ctx.lineWidth = 1
+          ctx.stroke()
+
+          let textStartY = curY + padY + 28
+
+          // Reply compartment if message was a reply
+          if (p.replyPreview) {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)'
+            roundRectComplex(ctx, bubbleX, curY, p.w, 54, 28, 28, 0, 0)
+            ctx.fill()
+
+            ctx.fillStyle = '#6E6E73'
+            ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+            ctx.textAlign = 'left'
+            ctx.fillText('RÉPONSE', bubbleX + 24, curY + 24)
+
+            ctx.font = '500 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+            ctx.fillStyle = '#1C1C1E'
+            const replySnippet = p.replyPreview.length > 32 ? `${p.replyPreview.slice(0, 32)}…` : p.replyPreview
+            ctx.fillText(replySnippet, bubbleX + 24, curY + 46)
+
+            textStartY = curY + 54 + padY + 26
+          }
+
+          // Message content
+          ctx.fillStyle = '#0D0D0D'
+          ctx.font = '500 32px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+          ctx.textAlign = 'left'
+          p.lines.forEach((line, idx) => {
+            ctx.fillText(line, bubbleX + padX, textStartY + idx * lineH)
+          })
+        }
+      }
+
+      curY += p.h + msgGap
+    }
+
+    // 6. At the very end of the column: "chat with me anonymously" button/pill
+    curY += ctaGap - msgGap
+
+    const btnW = 760
+    const btnH = ctaButtonH
+    const btnX = (W - btnW) / 2
+    const btnR = btnH / 2
+
+    // Drop shadow
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.35)'
+    ctx.shadowBlur = 24
+    ctx.shadowOffsetY = 8
+
+    ctx.fillStyle = '#FFFFFF'
+    roundRect(ctx, btnX, curY, btnW, btnH, btnR)
+    ctx.fill()
+
+    ctx.shadowBlur = 0
+    ctx.shadowOffsetY = 0
+
+    // Button text
+    ctx.fillStyle = '#0D0D0D'
+    ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText('Chat with me anonymously 💬', W / 2, curY + 65)
+
+    // Link URL below button
+    if (slug) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.45)'
+      ctx.font = '500 24px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      ctx.textAlign = 'center'
+      ctx.fillText(`tbhonest.net/send/${slug}`, W / 2, curY + btnH + 42)
+    }
 
     canvas.toBlob((blob) => resolve(blob || new Blob()), 'image/png', 1)
   })
@@ -462,12 +741,18 @@ function MessageBubbleRow({
   )
 }
 
-export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: boolean) => void }) {
+export default function ChatPage({
+  onUnreadChange,
+  profile,
+}: {
+  onUnreadChange?: (has: boolean) => void
+  profile?: UserProfile | null
+}) {
   const { t } = useTranslation()
   const [convs, setConvs]           = useState<Conversation[]>([])
   const [loading, setLoading]       = useState(true)
-  const [myUserId, setMyUserId]     = useState<string | null>(null)
-  const myUserIdRef                 = useRef<string | null>(null)
+  const [myUserId, setMyUserId]     = useState<string | null>(profile?.user_id ?? null)
+  const myUserIdRef                 = useRef<string | null>(profile?.user_id ?? null)
   const [selected, setSelected]     = useState<Conversation | null>(null)
   const [msgs, setMsgs]             = useState<ConvMsg[]>([])
   const [loadingMsgs, setLoadingMsgs] = useState(false)
@@ -1100,9 +1385,27 @@ export default function ChatPage({ onUnreadChange }: { onUnreadChange?: (has: bo
     setShareCardBusy(true)
     try {
       const title = convDisplayName(selected)
-      const blob = await generateChatShareCard({ title, messages: msgs })
+      const blob = await generateChatShareCard({
+        title,
+        messages: msgs,
+        myUserId,
+        slug: profile?.slug ?? null,
+      })
       const file = new File([blob], 'tbh-chat-card.png', { type: 'image/png' })
-      const shareData = { files: [file], title: 'TBH chat', text: 'Check my chat on TBH' }
+      const shareLink = profile?.slug
+        ? `${typeof window !== 'undefined' ? window.location.origin : 'https://tbhonest.net'}/send/${profile.slug}`
+        : ''
+
+      // Copy link to clipboard so user can easily attach it in Snapchat / Stories
+      if (shareLink) {
+        try {
+          if (navigator?.clipboard?.writeText) {
+            navigator.clipboard.writeText(shareLink).catch(() => {})
+          }
+        } catch {}
+      }
+
+      const shareData: ShareData = { files: [file] }
 
       if (navigator.share && navigator.canShare?.(shareData)) {
         await navigator.share(shareData)
