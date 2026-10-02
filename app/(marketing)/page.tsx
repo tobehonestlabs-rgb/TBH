@@ -227,7 +227,7 @@ const LandingPage: React.FC = () => {
     sender: string;
     text: string;
     time: string;
-    type: 'received' | 'sent';
+    type: string;
   };
 
   const chatBodyRef = useRef<HTMLDivElement>(null);
