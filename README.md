@@ -4,14 +4,13 @@
 
 Configure these Vercel environment variables:
 
-- `SASPAY_API_KEY` and `SASPAY_WEBHOOK_SECRET` for SasPay.
-- `SASPAY_AMOUNT` and `SASPAY_CURRENCY` for the local-currency checkout amount (for example, amount `650`, currency `XOF`). `SASPAY_COUNTRY` is optional.
-- `LEMON_SQUEEZY_API_KEY`, `LEMON_SQUEEZY_STORE_ID`, `LEMON_SQUEEZY_VARIANT_ID`, and `LEMON_SQUEEZY_WEBHOOK_SECRET` for Lemon Squeezy.
+- `GENIUSPAY_API_KEY`, `GENIUSPAY_API_SECRET`, and `GENIUSPAY_WEBHOOK_SECRET` for GeniusPay.
+- `GENIUSPAY_AMOUNT` (minimum 200) and `GENIUSPAY_CURRENCY` for the hosted checkout amount (defaults to `XOF`).
 - `NEXT_PUBLIC_APP_URL=https://tbhonest.net`.
 
-Create a published Lemon Squeezy subscription variant priced at `$4.00 USD` weekly. Configure Lemon Squeezy's webhook URL as `https://tbhonest.net/api/lemonsqueezy/webhook` and subscribe to `subscription_created`, `subscription_updated`, `subscription_resumed`, `subscription_unpaused`, and `subscription_expired`.
+Configure GeniusPay's webhook URL as `https://tbhonest.net/api/geniuspay/webhook` and subscribe to `payment.success`. GeniusPay's hosted checkout is a one-time payment; each successful checkout grants 30 days of access, and renewals must currently be initiated again by the customer. `GENIUSPAY_AMOUNT` and `GENIUSPAY_CURRENCY` must reflect your GeniusPay price.
 
-Configure SasPay's webhook URL as `https://tbhonest.net/api/saspay/webhook` and subscribe to `transaction.success`. SasPay's public checkout API accepts local currencies such as XOF/XAF and documents a hosted one-time checkout; it does not document automatic recurring subscription collection. Each successful checkout grants 30 days of access; renewals must currently be initiated again by the customer. `SASPAY_AMOUNT` and `SASPAY_CURRENCY` must reflect your SasPay local-currency price.
+The Lemon Squeezy checkout has been removed. Its webhook endpoint remains available only to process lifecycle events for existing subscriptions.
 
 
 

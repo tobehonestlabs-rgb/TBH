@@ -1,9 +1,9 @@
-/** Countries currently listed for SasPay mobile-money checkout */
-const SASPAY_COUNTRIES = new Set([
-  'CI', 'SN', 'TG', 'BJ', 'CM', 'BF',
+/** Countries currently supported by GeniusPay's listed mobile-money routes */
+const GENIUSPAY_COUNTRIES = new Set([
+  'BJ', 'BF', 'CM', 'CD', 'CG', 'CI', 'GA', 'KE', 'RW', 'SN', 'SL', 'TG', 'UG', 'ZM',
 ])
 
-export function shouldUseSasPay(country: string | null | undefined): boolean {
+export function shouldUseGeniusPay(country: string | null | undefined): boolean {
   if (!country) return false
-  return SASPAY_COUNTRIES.has(country.toUpperCase())
+  return GENIUSPAY_COUNTRIES.has(country.toUpperCase())
 }

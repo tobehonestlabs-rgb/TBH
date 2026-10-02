@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin'
 export const PREMIUM_PRICE_USD = 2.99
 export const PREMIUM_PRICE_CENTS = 299
 
-export type PremiumProvider = 'saspay' | 'paypal'
+export type PremiumProvider = 'geniuspay' | 'paypal'
 
 export async function activatePremium(
   userId: string,

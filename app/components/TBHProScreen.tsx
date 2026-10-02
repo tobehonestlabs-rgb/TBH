@@ -89,7 +89,7 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
         </div>
         {error && <p className="text-[#FF6B6B] text-[13px] text-center mb-3">{error}</p>}
         <div className="text-white/60 text-[13px] text-center mb-4">
-          <p>Paiement mobile money disponible avec SasPay, ou par carte avec Lemon Squeezy.</p>
+          <p>Paiement sécurisé disponible via GeniusPay.</p>
         </div>
         <button
           onClick={handleUnlock}
@@ -104,7 +104,7 @@ export default function TBHProScreen({ onClose, onSuccess }: Props) {
           )}
         </button>
         <p className="text-white/25 text-[11px] text-center mb-3">
-          Choisissez SasPay ou Lemon Squeezy pour continuer le paiement.
+          Vous serez redirigé vers GeniusPay pour terminer le paiement.
         </p>
         <button
           onClick={onClose}
