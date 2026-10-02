@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
 import { useTranslation } from '@/lib/i18n'
-import SharePlatformSheet from '@/app/components/SharePlatformSheet'
+import SharePlatformSheet, { type SharePlatformChoice } from '@/app/components/SharePlatformSheet'
 
 type Message = {
   message_id: string
@@ -751,19 +751,38 @@ export default function ReadMessageScreen() {
     }
   }, [replyText, showReply, textContent, imageUrl, logoSrc, userPfp, arrowsSrc])
 
-  // Shares a card via the Web Share API while keeping the standard image + link
-  // payload for the supported share targets.
+  // Shares a card via the Web Share API:
+  // For snapchat: image ONLY (no text, no link)
+  // For whatsapp & instagram: image + link
   const shareCardBlob = async (
     blob: Blob,
     filename: string,
-    platform: 'whatsapp' | 'instagram',
+    platform: SharePlatformChoice,
   ) => {
     const file = new File([blob], filename, { type: 'image/png' })
-    if (navigator.share && navigator.canShare?.({ files: [file], text: userLink })) {
-      await navigator.share({ files: [file], text: userLink })
+    const isSnap = platform === 'snapchat'
+
+    // For Snapchat: also try copying PNG to clipboard for sticker paste on iOS
+    if (isSnap) {
+      try {
+        if (navigator?.clipboard && typeof ClipboardItem !== 'undefined') {
+          navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': blob })
+          ]).catch(() => {})
+        }
+      } catch {}
+    }
+
+    // Snapchat: share ONLY the image file, no text and no link
+    const sharePayload: ShareData = isSnap
+      ? { files: [file] }
+      : { files: [file], text: userLink }
+
+    if (navigator.share && navigator.canShare?.(sharePayload)) {
+      await navigator.share(sharePayload)
       return
     }
-    if (navigator.share) {
+    if (!isSnap && navigator.share && userLink) {
       await navigator.share({ url: userLink })
       return
     }
@@ -774,7 +793,7 @@ export default function ReadMessageScreen() {
     setTimeout(() => URL.revokeObjectURL(url), 10000)
   }
 
-  const handleShareMessage = async (platform: 'whatsapp' | 'instagram') => {
+  const handleShareMessage = async (platform: SharePlatformChoice) => {
     if (!message || sharing || !messageCardBlob) return
     setSharing(true)
     try {
@@ -786,7 +805,7 @@ export default function ReadMessageScreen() {
     }
   }
 
-  const handleSendReply = async (platform: 'whatsapp' | 'instagram') => {
+  const handleSendReply = async (platform: SharePlatformChoice) => {
     const text = replyText.trim()
     if (!text || replySending) return
 
@@ -817,7 +836,7 @@ export default function ReadMessageScreen() {
     }
   }
 
-  const handlePlatformSelect = (platform: 'whatsapp' | 'instagram') => {
+  const handlePlatformSelect = (platform: SharePlatformChoice) => {
     const type = pendingShareType
     setShowPlatformSheet(false)
     if (type === 'message') handleShareMessage(platform)
