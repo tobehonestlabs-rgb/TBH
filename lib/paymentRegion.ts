@@ -1,9 +1,11 @@
-/** Countries currently supported by GeniusPay's listed mobile-money routes */
-const GENIUSPAY_COUNTRIES = new Set([
-  'BJ', 'BF', 'CM', 'CD', 'CG', 'CI', 'GA', 'KE', 'RW', 'SN', 'SL', 'TG', 'UG', 'ZM',
+const AFRICAN_COUNTRIES = new Set([
+  'DZ', 'AO', 'BJ', 'BW', 'BF', 'BI', 'CV', 'CM', 'CF', 'TD', 'KM', 'CG', 'CD', 'CI',
+  'DJ', 'EG', 'GQ', 'ER', 'SZ', 'ET', 'GA', 'GM', 'GH', 'GN', 'GW', 'KE', 'LS', 'LR',
+  'LY', 'MG', 'MW', 'ML', 'MR', 'MU', 'MA', 'MZ', 'NA', 'NE', 'NG', 'RW', 'ST', 'SN',
+  'SC', 'SL', 'SO', 'ZA', 'SS', 'SD', 'TZ', 'TG', 'TN', 'UG', 'ZM', 'ZW',
 ])
 
-export function shouldUseGeniusPay(country: string | null | undefined): boolean {
+export function isAfricanCountry(country: string | null | undefined): boolean {
   if (!country) return false
-  return GENIUSPAY_COUNTRIES.has(country.toUpperCase())
+  return AFRICAN_COUNTRIES.has(country.toUpperCase())
 }
