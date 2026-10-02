@@ -2,11 +2,20 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { UserProfile } from '@/app/home/page'
+import { UserProfile } from '@/types'
 import Link from 'next/link'
 import { supabaseClient } from '@/lib/supabaseClient'
+import { useTranslation } from '@/lib/i18n'
 
 type Props = { profile: UserProfile | null }
+
+type SharePlatform = 'instagram' | 'snapchat' | 'whatsapp'
+
+const PLATFORMS: { id: SharePlatform; label: string; icon: string }[] = [
+  { id: 'instagram', label: 'Instagram', icon: '/assets/social_media_icons/IG_icon.svg' },
+  { id: 'snapchat',  label: 'Snapchat',  icon: '/assets/social_media_icons/snapshat_icon.svg' },
+  { id: 'whatsapp',  label: 'WhatsApp',  icon: '/assets/social_media_icons/Platform=WhatsApp, Color=Original.svg' },
+]
 
 type CardType = {
   id: string
@@ -264,11 +273,14 @@ async function generateShareCard(
     const ctx = canvas.getContext('2d')!
 
     const hasFilter = supportsCanvasFilter()
+    const isPro = !!profile?.active_subscription &&
+      (!((profile as any)?.subscription_end) || new Date((profile as any).subscription_end).getTime() > Date.now())
 
-    const [pfpImg, whiteLogo, whiteArrows] = await Promise.all([
+    const [pfpImg, whiteLogo, whiteArrows, crownImg] = await Promise.all([
       profile.pfp ? loadImage(profile.pfp).catch(() => null) : Promise.resolve(null),
       loadWhiteSvg(`${window.location.origin}/assets/TBH_Title_Logo.svg`).catch(() => null),
       loadWhiteSvg(`${window.location.origin}/assets/arrows.svg`).catch(() => null),
+      isPro ? loadImage(`${window.location.origin}/assets/crown.svg`).catch(() => null) : Promise.resolve(null),
     ])
 
     let blurTmp: HTMLCanvasElement | null = null
@@ -285,17 +297,6 @@ async function generateShareCard(
 
     // 2. Blurred PFP background
     if (pfpImg) drawBlurredBg(ctx, pfpImg, W, H, blurTmp, hasFilter)
-
-    // 3. Dark overlay — lightened for better card feel
-    ctx.fillStyle = 'rgba(0,0,0,0.28)'
-    ctx.fillRect(0, 0, W, H)
-
-    // 4. Vignette
-    const vignette = ctx.createLinearGradient(0, H * 0.5, 0, H)
-    vignette.addColorStop(0, 'transparent')
-    vignette.addColorStop(1, colorStops[colorStops.length - 1] + '55')
-    ctx.fillStyle = vignette
-    ctx.fillRect(0, 0, W, H)
 
     // 5. TBH Logo (white)
     if (whiteLogo) {
@@ -329,8 +330,43 @@ async function generateShareCard(
       ctx.beginPath()
       ctx.arc(cx, cy, ringR - 14, 0, Math.PI * 2)
       ctx.clip()
+      
+      // Calculate aspect ratio to fit the image without stretching
+      const imgRatio = pfpImg.width / pfpImg.height
+      const targetRatio = 1 // Square
+      let drawWidth, drawHeight, drawX, drawY
       const pfpS = (ringR - 14) * 2
-      ctx.drawImage(pfpImg, cx - pfpS / 2, cy - pfpS / 2, pfpS, pfpS)
+      
+      if (imgRatio > targetRatio) {
+        // Image is wider than square - crop left/right
+        drawHeight = pfpS
+        drawWidth = pfpS * imgRatio
+        drawX = cx - drawWidth / 2
+        drawY = cy - pfpS / 2
+      } else {
+        // Image is taller than square - crop top/bottom
+        drawWidth = pfpS
+        drawHeight = pfpS / imgRatio
+        drawX = cx - pfpS / 2
+        drawY = cy - drawHeight / 2
+      }
+      
+      ctx.drawImage(pfpImg, drawX, drawY, drawWidth, drawHeight)
+      ctx.restore()
+    }
+
+    // 7b. Couronne TBH Pro (légèrement en haut à gauche du profil, inclinée de manière réaliste)
+    if (isPro && crownImg) {
+      const crownW = 180
+      const crownH = (crownW * crownImg.height) / (crownImg.width || 1)
+      const crownX = cx - ringR * 0.52
+      const crownY = cy - ringR + 10
+      ctx.save()
+      ctx.translate(crownX, crownY)
+      ctx.rotate((-18 * Math.PI) / 180)
+      ctx.shadowColor = 'rgba(0,0,0,0.45)'
+      ctx.shadowBlur = 16
+      ctx.drawImage(crownImg, -crownW / 2, -crownH / 2, crownW, crownH)
       ctx.restore()
     }
 
@@ -399,10 +435,14 @@ async function generateShareGif(
 
   const hasFilter = supportsCanvasFilter()
 
-  const [pfpImg, whiteLogo, whiteArrows] = await Promise.all([
+  const isPro = !!profile?.active_subscription &&
+    (!((profile as any)?.subscription_end) || new Date((profile as any).subscription_end).getTime() > Date.now())
+
+  const [pfpImg, whiteLogo, whiteArrows, crownImg] = await Promise.all([
     profile.pfp ? loadImage(profile.pfp).catch(() => null) : Promise.resolve(null),
     loadWhiteSvg(`${window.location.origin}/assets/TBH_Title_Logo.svg`).catch(() => null),
     loadWhiteSvg(`${window.location.origin}/assets/arrows.svg`).catch(() => null),
+    isPro ? loadImage(`${window.location.origin}/assets/crown.svg`).catch(() => null) : Promise.resolve(null),
   ])
 
   let blurTmp: HTMLCanvasElement | null = null
@@ -438,17 +478,6 @@ async function generateShareGif(
     // Blurred PFP (with breathing expansion)
     if (pfpImg) drawBlurredBg(ctx, pfpImg, W, H, blurTmp, hasFilter, bgExtra)
 
-    // Dark overlay
-    ctx.fillStyle = 'rgba(0,0,0,0.28)'
-    ctx.fillRect(0, 0, W, H)
-
-    // Vignette
-    const vignette = ctx.createLinearGradient(0, H * 0.5, 0, H)
-    vignette.addColorStop(0, 'transparent')
-    vignette.addColorStop(1, colorStops[colorStops.length - 1] + '55')
-    ctx.fillStyle = vignette
-    ctx.fillRect(0, 0, W, H)
-
     // Logo
     if (whiteLogo) {
       const lw = 100, lh = lw * whiteLogo.height / whiteLogo.width
@@ -481,8 +510,43 @@ async function generateShareGif(
       ctx.beginPath()
       ctx.arc(cx, cy, ringR - 7, 0, Math.PI * 2)
       ctx.clip()
+      
+      // Calculate aspect ratio to fit the image without stretching
+      const imgRatio = pfpImg.width / pfpImg.height
+      const targetRatio = 1 // Square
+      let drawWidth, drawHeight, drawX, drawY
       const pfpS = (ringR - 7) * 2
-      ctx.drawImage(pfpImg, cx - pfpS / 2, cy - pfpS / 2, pfpS, pfpS)
+      
+      if (imgRatio > targetRatio) {
+        // Image is wider than square - crop left/right
+        drawHeight = pfpS
+        drawWidth = pfpS * imgRatio
+        drawX = cx - drawWidth / 2
+        drawY = cy - pfpS / 2
+      } else {
+        // Image is taller than square - crop top/bottom
+        drawWidth = pfpS
+        drawHeight = pfpS / imgRatio
+        drawX = cx - pfpS / 2
+        drawY = cy - drawHeight / 2
+      }
+      
+      ctx.drawImage(pfpImg, drawX, drawY, drawWidth, drawHeight)
+      ctx.restore()
+    }
+
+    // Couronne TBH Pro pour GIF (légèrement en haut à gauche du profil)
+    if (isPro && crownImg) {
+      const crownW = 90
+      const crownH = (crownW * crownImg.height) / (crownImg.width || 1)
+      const crownX = cx - ringR * 0.52
+      const crownY = cy - ringR + 5
+      ctx.save()
+      ctx.translate(crownX, crownY)
+      ctx.rotate((-18 * Math.PI) / 180)
+      ctx.shadowColor = 'rgba(0,0,0,0.45)'
+      ctx.shadowBlur = 8
+      ctx.drawImage(crownImg, -crownW / 2, -crownH / 2, crownW, crownH)
       ctx.restore()
     }
 
@@ -551,17 +615,19 @@ async function generateShareGif(
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function SharePage({ profile }: Props) {
+  const { t, locale } = useTranslation()
+  const isPro = !!profile?.active_subscription &&
+    (!((profile as any)?.subscription_end) || new Date((profile as any).subscription_end).getTime() > Date.now())
   const [copied, setCopied]               = useState(false)
   const [promptText, setPromptText]       = useState('Send me an anonymous photo/message')
   const [editingPrompt, setEditingPrompt] = useState(false)
   const [tempPrompt, setTempPrompt]       = useState(promptText)
-  const [showCardPicker, setShowCardPicker] = useState(false)
   const [selectedCard, setSelectedCard]   = useState<CardType>(ALL_CARD_TYPES[0])
   const [generating, setGenerating]       = useState(false)
   const [gifProgress, setGifProgress]     = useState(0)
   const [sharedPlatforms, setSharedPlatforms] = useState<string[]>([])
-  const shareProgress = sharedPlatforms.length / 3
   const hasMarkedSharing = useRef(false)
+  const [pendingPlatform, setPendingPlatform] = useState<SharePlatform | null>(null)
   const [showSheet, setShowSheet]         = useState(false)
   // 'format' → pick Image/GIF, 'color' → pick color (after format chosen)
   const [sheetStep, setSheetStep]         = useState<'format' | 'color'>('format')
@@ -569,18 +635,42 @@ export default function SharePage({ profile }: Props) {
   const [selectedColor, setSelectedColor] = useState(CARD_COLORS[1])
   const [phraseIndex, setPhraseIndex]     = useState(0)
   const [phraseVisible, setPhraseVisible] = useState(true)
-  const [showHelpModal, setShowHelpModal] = useState(false)
   const [showGamePicker, setShowGamePicker] = useState(false)
+  const [showHowToModal, setShowHowToModal] = useState(false)
   const [sheetClosing, setSheetClosing]         = useState(false)
   const [gamePickerClosing, setGamePickerClosing] = useState(false)
-  const [shareReady, setShareReady] = useState<{ blob: Blob; filename: string; isGif: boolean } | null>(null)
+  const [shareReady, setShareReady] = useState<{ blob: Blob; filename: string; isGif: boolean; platform: SharePlatform } | null>(null)
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
+  const [snapToast, setSnapToast] = useState(false)
+
+  // The PNG card is rendered in the background whenever its inputs change, so
+  // the share tap has a finished blob waiting and can call navigator.share()
+  // without awaiting anything first (iOS drops the gesture otherwise).
+  const [cardBlob, setCardBlob] = useState<Blob | null>(null)
+  const cardTokenRef = useRef(0)
+  const cardDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => { setPortalTarget(document.getElementById('app-shell')) }, [])
+
+  useEffect(() => {
+    cardTokenRef.current += 1
+    setCardBlob(null)
+    if (!profile) return
+    const myToken = cardTokenRef.current
+    if (cardDebounceRef.current) clearTimeout(cardDebounceRef.current)
+    cardDebounceRef.current = setTimeout(() => {
+      generateShareCard(profile, promptText, selectedCard, selectedColor.stops, selectedColor.ring)
+        .then(blob => { if (cardTokenRef.current === myToken) setCardBlob(blob) })
+        .catch(() => {})
+    }, 350)
+    return () => { if (cardDebounceRef.current) clearTimeout(cardDebounceRef.current) }
+  }, [profile, promptText, selectedCard, selectedColor])
 
   const shareLink = profile?.slug
     ? `${typeof window !== 'undefined' ? window.location.origin : 'https://tbhonest.net'}/send/${profile.slug}`
     : ''
+
+  const pendingPlatformLabel = PLATFORMS.find(p => p.id === pendingPlatform)?.label ?? ''
 
   // Mark user as sharing on first successful share (fixed: awaited)
   useEffect(() => {
@@ -619,30 +709,131 @@ export default function SharePage({ profile }: Props) {
     closeGamePicker()
   }
 
-  // Called from a fresh button tap → fresh gesture context → navigator.share works on iOS
-  const handleShareReady = async () => {
-    if (!shareReady) return
-    const { blob, filename, isGif } = shareReady
-    const mime = isGif ? 'image/gif' : 'image/png'
-    const file = new File([blob], filename, { type: mime })
-    const shareData = { files: [file], title: 'TBH', text: shareLink }
-    if (navigator.share && navigator.canShare?.(shareData)) {
-      try {
-        await navigator.share(shareData)
-        setShareReady(null)
-        setSharedPlatforms(prev => prev.includes('share') ? prev : [...prev, 'share'])
-        return
+  const handleShareToSnapchat = async () => {
+    if (!profile) return
+    setPendingPlatform('snapchat')
+    setGenerating(true)
+
+    try {
+      const markShared = () =>
+        setSharedPlatforms(prev => prev.includes('snapchat') ? prev : [...prev, 'snapchat'])
+
+      markShared()
+
+      // 1. Copy profile link to clipboard immediately
+      if (shareLink) {
+        try {
+          if (navigator?.clipboard?.writeText) {
+            navigator.clipboard.writeText(shareLink).catch(() => {})
+          } else {
+            const el = document.createElement('textarea')
+            el.value = shareLink
+            document.body.appendChild(el)
+            el.select()
+            document.execCommand('copy')
+            document.body.removeChild(el)
+          }
+          setCopied(true)
+          setTimeout(() => setCopied(false), 2000)
+          try {
+            const audio = new Audio('/asset/notif.wav')
+            audio.volume = 0.5
+            audio.play().catch(() => {})
+          } catch {}
+        } catch {}
       }
-      catch (e: any) { if (e?.name === 'AbortError') { setShareReady(null); return } }
+
+      // 2. Download / save card image so it's in the device's camera roll
+      let blob = cardBlob
+      if (!blob) {
+        try {
+          blob = await generateShareCard(profile, promptText, selectedCard, selectedColor.stops, selectedColor.ring)
+          setCardBlob(blob)
+        } catch {}
+      }
+
+      if (blob) {
+        try {
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = 'tbh-share.png'
+          document.body.appendChild(a)
+          a.click()
+          document.body.removeChild(a)
+          setTimeout(() => URL.revokeObjectURL(url), 30000)
+        } catch {}
+
+        // Try copying PNG image to clipboard for quick paste as sticker in Snapchat
+        try {
+          if (navigator?.clipboard && typeof ClipboardItem !== 'undefined') {
+            navigator.clipboard.write([
+              new ClipboardItem({ 'image/png': blob })
+            ]).catch(() => {})
+          }
+        } catch {}
+      }
+
+      setSnapToast(true)
+      setTimeout(() => setSnapToast(false), 4000)
+
+      // 3. Directly launch Snapchat native app (avoids web scan & App Store redirect loop!)
+      const isMobile = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+
+      if (isMobile) {
+        // Direct launch into the native Snapchat app
+        window.location.href = 'snapchat://'
+        // Fallback after delay if Snapchat is not installed
+        setTimeout(() => {
+          if (document.hidden) return
+          window.location.href = `https://snapchat.com/scan?attachmentUrl=${encodeURIComponent(shareLink)}`
+        }, 1800)
+      } else {
+        window.open(`https://snapchat.com/scan?attachmentUrl=${encodeURIComponent(shareLink)}`, '_blank')
+      }
+    } finally {
+      setGenerating(false)
+      setPendingPlatform(null)
     }
-    // fallback: trigger download
+  }
+
+  const shareFile = async (blob: Blob, filename: string, isGif: boolean, platform: SharePlatform) => {
+    if (platform === 'snapchat') {
+      handleShareToSnapchat()
+      return
+    }
+
+    const file = new File([blob], filename, { type: isGif ? 'image/gif' : 'image/png' })
+    const shareData = { files: [file], title: 'TBH', text: shareLink }
+
+    const markShared = () =>
+      setSharedPlatforms(prev => prev.includes(platform) ? prev : [...prev, platform])
+
+    if (navigator.share && navigator.canShare?.(shareData)) {
+      await navigator.share(shareData)
+      markShared()
+      return
+    }
+    // No Web Share (desktop): download the card so it can be posted by hand
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url; a.download = filename
     document.body.appendChild(a); a.click(); document.body.removeChild(a)
     setTimeout(() => URL.revokeObjectURL(url), 30000)
-    setShareReady(null)
-    setSharedPlatforms(prev => prev.includes('share') ? prev : [...prev, 'share'])
+    markShared()
+  }
+
+  // Called from a fresh button tap → fresh gesture context → navigator.share works on iOS
+  const handleShareReady = async () => {
+    if (!shareReady) return
+    const { blob, filename, isGif, platform } = shareReady
+    try {
+      await shareFile(blob, filename, isGif, platform)
+    } catch (e: any) {
+      if (e?.name !== 'AbortError') console.error('Share failed', e)
+    } finally {
+      setShareReady(null)
+    }
   }
 
   const handleCopy = async () => {
@@ -663,21 +854,57 @@ export default function SharePage({ profile }: Props) {
     } catch (e) { console.error('Copy failed', e) }
   }
 
-  const handleShareCard = async (cardType: CardType) => {
-    if (!profile) return
+  // Tapping a network is the entry point now: pick format, pick colour, share.
+  const openPlatformSheet = (platform: SharePlatform) => {
+    if (generating) return
+    setPendingPlatform(platform)
+    setSheetStep('format')
+    setShowSheet(true)
+  }
+
+  const handleShareCard = async () => {
+    const platform = pendingPlatform
+    if (!profile || !platform) return
     closeSheet()
-    await new Promise(r => setTimeout(r, 300))
+
+    if (platform === 'snapchat') {
+      handleShareToSnapchat()
+      return
+    }
+
+    // Rendered in the background already → hand it straight to navigator.share
+    // while this tap still counts as a user gesture. No await before the call.
+    if (cardBlob) {
+      try {
+        await shareFile(cardBlob, 'tbh-share.png', false, platform)
+      } catch (e: any) {
+        if (e?.name !== 'AbortError') console.error('Share card failed', e)
+      }
+      return
+    }
+
+    // Background render hasn't landed yet: build it now, then surface the
+    // fresh-gesture button (awaiting generation would break the chain).
     setGenerating(true)
     try {
-      const blob = await generateShareCard(profile, promptText, cardType, selectedColor.stops, selectedColor.ring)
-      setShareReady({ blob, filename: 'tbh-share.png', isGif: false })
+      const blob = await generateShareCard(profile, promptText, selectedCard, selectedColor.stops, selectedColor.ring)
+      setShareReady({ blob, filename: 'tbh-share.png', isGif: false, platform })
     } catch (e) { console.error('Share card failed', e) }
     finally { setGenerating(false) }
   }
 
+  // 40 encoded frames is far too slow to pre-render, so GIFs keep the
+  // two-step "ready" overlay that restores a fresh gesture.
   const handleShareGif = async () => {
-    if (!profile) return
+    const platform = pendingPlatform
+    if (!profile || !platform) return
     closeSheet()
+
+    if (platform === 'snapchat') {
+      handleShareToSnapchat()
+      return
+    }
+
     await new Promise(r => setTimeout(r, 300))
     setGenerating(true)
     setGifProgress(0)
@@ -686,42 +913,25 @@ export default function SharePage({ profile }: Props) {
         profile, promptText, selectedCard, selectedColor.stops, selectedColor.ring,
         pct => setGifProgress(pct),
       )
-      setShareReady({ blob, filename: 'tbh-share.gif', isGif: true })
+      setShareReady({ blob, filename: 'tbh-share.gif', isGif: true, platform })
     } catch (e) { console.error('GIF generation failed', e) }
     finally { setGenerating(false); setGifProgress(0) }
   }
 
-  const handlePlatformShare = async (platformId: string) => {
-    if (!profile || generating) return
-
-    // Snapchat: copy link + open Snapchat camera with link as swipe-up attachment
-    if (platformId === 'snapchat') {
-      try { await navigator.clipboard.writeText(shareLink) } catch {}
-      const snapDeep = `snapchat://creativekit/preview?attachmentUrl=${encodeURIComponent(shareLink)}`
-      window.location.href = snapDeep
-      // Fallback after 1.5s (Snapchat not installed) → generic share sheet
-      setTimeout(async () => {
-        if (navigator.share) {
-          try { await navigator.share({ url: shareLink, text: 'tbhonest.net' }) } catch {}
-        }
-      }, 1500)
-      setSharedPlatforms(prev => prev.includes(platformId) ? prev : [...prev, platformId])
-      return
-    }
-
-    // Instagram / WhatsApp: pre-generate the share card, then surface a fresh-gesture "Share" button
-    // (navigator.share with files requires a fresh user gesture — async generation breaks the chain)
-    setGenerating(true)
-    try {
-      const blob = await generateShareCard(profile, promptText, selectedCard, selectedColor.stops, selectedColor.ring)
-      setShareReady({ blob, filename: 'tbh-share.png', isGif: false })
-      setSharedPlatforms(prev => prev.includes(platformId) ? prev : [...prev, platformId])
-    } catch (e) { console.error('Platform share card failed', e) }
-    finally { setGenerating(false) }
-  }
-
   return (
     <div className="flex flex-col px-5 pt-3 pb-6 gap-3 relative">
+
+      {/* ── Snapchat toast notification ── */}
+      {snapToast && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-[#0D0D0D] text-white px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2.5 border border-white/15 pointer-events-none transition-all">
+          <div className="w-5 h-5 rounded-full bg-[#FFFC00] flex items-center justify-center shrink-0">
+            <img src="/assets/social_media_icons/snapshat_icon.svg" alt="Snapchat" className="w-3.5 h-3.5" />
+          </div>
+          <span className="text-[12px] font-bold whitespace-nowrap">
+            {locale === 'fr' ? 'Image enregistrée & lien copié !' : 'Card saved & link copied!'}
+          </span>
+        </div>
+      )}
 
       {/* ── Profile Card ── */}
       {!profile ? (
@@ -744,6 +954,14 @@ export default function SharePage({ profile }: Props) {
           <div className="relative z-10 flex flex-col justify-center h-full px-5 gap-2">
             <div className="flex items-center gap-3">
               <div className="relative w-[52px] h-[52px] flex-shrink-0">
+                {isPro && (
+                  <img
+                    src="/assets/crown.svg"
+                    alt="TBH Pro Crown"
+                    className="absolute -top-3.5 -left-2.5 w-7 h-7 object-contain pointer-events-none drop-shadow-md z-20"
+                    style={{ transform: 'rotate(-18deg)' }}
+                  />
+                )}
                 <div className="absolute inset-0 rounded-full" style={{ padding: '2.5px', background: 'linear-gradient(135deg, #FF6B6B, #ff4b15, #e654ae, #ff4d4d)', borderRadius: '50%' }}>
                   <div className="w-full h-full rounded-full overflow-hidden bg-gray-700">
                     {profile?.pfp
@@ -777,29 +995,11 @@ export default function SharePage({ profile }: Props) {
           <p className="text-[13px] font-extrabold text-[#0D0D0D] tracking-tight">{selectedCard.title}</p>
           <p className="text-[11px] text-[#888] mt-0.5">{selectedCard.subtitle}</p>
         </div>
-        <span className="text-[11px] font-semibold text-[#AAA]">Change</span>
+        <span className="text-[11px] font-semibold text-[#AAA]">{t.change || 'Changer'}</span>
         <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
           <path d="M9 18l6-6-6-6" stroke="#ADADAD" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </button>
-
-      {/* ── Flat progress bar ── */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-3">
-          <span className="text-[13px] font-bold text-[#0D0D0D] w-[38px]">
-            {Math.round(shareProgress * 100)}%
-          </span>
-          <div className="flex-1 h-[6px] rounded-full bg-[#EBEBEB] overflow-hidden">
-            <div
-              className="h-full rounded-full bg-[#0D0D0D] transition-all duration-700"
-              style={{ width: `${Math.round(shareProgress * 100)}%` }}
-            />
-          </div>
-        </div>
-        <p className="text-[11px] font-semibold text-[#555]">
-          The more you share, the more messages you receive from your friends
-        </p>
-      </div>
 
       {/* ── Copy button — color flash on click ── */}
       <button
@@ -811,50 +1011,45 @@ export default function SharePage({ profile }: Props) {
           <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="white" strokeWidth="2" strokeLinecap="round"/>
           <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="white" strokeWidth="2" strokeLinecap="round"/>
         </svg>
-        {copied ? 'Copied!' : 'Copy my link'}
+        {copied ? (t.copied || 'Copié !') : (t.copyMyLink || 'Copier mon lien')}
       </button>
 
-      {/* ── Share button → opens format + color sheet ── */}
-      <button
-        onClick={() => { setSheetStep('format'); setShowSheet(true) }}
-        disabled={generating}
-        className="w-full py-[13px] rounded-[32px] flex items-center justify-center gap-2 font-bold text-[16px] text-white disabled:opacity-60 active:scale-95 transition-all"
-        style={{ background: `linear-gradient(135deg, ${selectedColor.stops[0]}, ${selectedColor.stops[selectedColor.stops.length - 1]})` }}
-      >
-        {generating ? (
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            {gifProgress > 0 && <span className="text-[13px] opacity-80">GIF {Math.round(gifProgress * 100)}%</span>}
-          </div>
-        ) : (
-          <>
-            <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
-              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            Share my link
-          </>
-        )}
-      </button>
-
-      {/* ── Platform quick-share row ── */}
+      {/* ── Platform row — the only way to share now ── */}
       <div className="w-full flex gap-2.5">
-        {[
-          { id: 'instagram', label: 'Instagram', icon: '/assets/social_media_icons/IG_icon.svg' },
-          { id: 'snapchat',  label: 'Snapchat',  icon: '/assets/social_media_icons/snapshat_icon.svg' },
-          { id: 'whatsapp',  label: 'WhatsApp',  icon: '/assets/social_media_icons/Platform=WhatsApp, Color=Original.svg' },
-        ].map(platform => {
+        {PLATFORMS.map(platform => {
           const shared = sharedPlatforms.includes(platform.id)
+          const busy   = generating && pendingPlatform === platform.id
           return (
             <button
               key={platform.id}
-              onClick={() => handlePlatformShare(platform.id)}
+              onClick={() => {
+                if (platform.id === 'snapchat') {
+                  handleShareToSnapchat()
+                } else {
+                  openPlatformSheet(platform.id)
+                }
+              }}
               disabled={generating}
               className="flex-1 flex flex-col items-center justify-center gap-2 py-4 rounded-[20px] active:scale-95 transition-all relative disabled:opacity-50"
               style={{ background: shared ? '#0D0D0D' : '#F5F5F7', border: 'none' }}
             >
-              <img src={platform.icon} alt={platform.label} className="w-6 h-6 object-contain" />
-              <span className="text-[11px] font-semibold" style={{ color: shared ? '#FFF' : '#0D0D0D' }}>{platform.label}</span>
-              {shared && (
+              {busy ? (
+                <>
+                  <div
+                    className="w-6 h-6 border-2 rounded-full animate-spin"
+                    style={{ borderColor: shared ? 'rgba(255,255,255,0.35)' : '#D5D5DA', borderTopColor: shared ? '#FFF' : '#0D0D0D' }}
+                  />
+                  <span className="text-[11px] font-semibold" style={{ color: shared ? '#FFF' : '#0D0D0D' }}>
+                    {gifProgress > 0 ? `GIF ${Math.round(gifProgress * 100)}%` : platform.label}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <img src={platform.icon} alt={platform.label} className="w-6 h-6 object-contain" />
+                  <span className="text-[11px] font-semibold" style={{ color: shared ? '#FFF' : '#0D0D0D' }}>{platform.label}</span>
+                </>
+              )}
+              {shared && !busy && (
                 <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-[#34C759] flex items-center justify-center">
                   <svg width="8" height="8" fill="none" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 </div>
@@ -869,15 +1064,17 @@ export default function SharePage({ profile }: Props) {
         {PHRASES[phraseIndex]}
       </p>
 
-      {/* ── How to share link ── */}
-      <Link href="/guide" className="self-center">
-        <button className="flex items-center gap-1.5 py-1 text-[13px] font-bold text-gray-400 hover:text-black active:scale-95 transition-all">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-          </svg>
-          How to post my link?
-        </button>
-      </Link>
+      {/* ── How to share button ── */}
+      <button
+        type="button"
+        onClick={() => setShowHowToModal(true)}
+        className="self-center flex items-center gap-1.5 py-1 text-[13px] font-bold text-gray-400 hover:text-black active:scale-95 transition-all"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="10" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        {t.howToPostMyLink || 'Comment publier mon lien ?'}
+      </button>
 
       {/* ── Share sheet (format → color) ── */}
       {showSheet && portalTarget && createPortal(
@@ -905,8 +1102,10 @@ export default function SharePage({ profile }: Props) {
                 {/* ── Step 1: Format picker ── */}
                 {sheetStep === 'format' && (
                   <div className="slide-from-left pb-2">
-                    <p className="text-white text-center text-[20px] font-extrabold px-6 pt-3">Share Format</p>
-                    <p className="text-[#777] text-center text-[12px] mt-1 mb-5 px-6">Choose how to share your card</p>
+                    <p className="text-white text-center text-[20px] font-extrabold px-6 pt-3">
+                      {pendingPlatformLabel ? `${t.shareOn || 'Partager sur'} ${pendingPlatformLabel}` : (t.shareFormat || 'Format de partage')}
+                    </p>
+                    <p className="text-[#777] text-center text-[12px] mt-1 mb-5 px-6">{t.chooseHowToShare || 'Choisis comment partager ta carte'}</p>
                     <div className="flex gap-3 px-5 mb-5">
                       <button
                         onClick={() => { setShareMode('image'); setSheetStep('color') }}
@@ -921,8 +1120,8 @@ export default function SharePage({ profile }: Props) {
                           <circle cx="8.5" cy="8.5" r="1.5" fill="white"/>
                           <path d="M21 15l-5-5L5 21" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
-                        <span className="text-white font-bold text-[14px]">Image</span>
-                        <span className="text-[#555] text-[11px]">Static PNG</span>
+                        <span className="text-white font-bold text-[14px]">{t.image || 'Image'}</span>
+                        <span className="text-[#555] text-[11px]">{t.staticPng || 'PNG statique'}</span>
                       </button>
                       <button
                         onClick={() => { setShareMode('gif'); setSheetStep('color') }}
@@ -937,8 +1136,8 @@ export default function SharePage({ profile }: Props) {
                           <path d="M12 10v4M10 12h4" stroke="white" strokeWidth="1.6" strokeLinecap="round"/>
                           <path d="M7 10v1.5a.5.5 0 0 0 .5.5H9M17 10v4h-2" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
-                        <span className="text-white font-bold text-[14px]">GIF</span>
-                        <span className="text-[#555] text-[11px]">4s animated</span>
+                        <span className="text-white font-bold text-[14px]">{t.gif || 'GIF'}</span>
+                        <span className="text-[#555] text-[11px]">{t.animated || 'Animé 4s'}</span>
                       </button>
                     </div>
                   </div>
@@ -958,7 +1157,7 @@ export default function SharePage({ profile }: Props) {
                         </svg>
                       </button>
                       <p className="text-white text-[20px] font-extrabold flex-1">
-                        {shareMode === 'gif' ? 'GIF Color' : 'Card Color'}
+                        {shareMode === 'gif' ? 'GIF Color' : (t.cardColor || 'Couleur de la carte')}
                       </p>
                       <span className="text-[11px] px-2.5 py-0.5 rounded-full font-bold" style={{ background: 'rgba(255,255,255,0.08)', color: shareMode === 'gif' ? '#FFD60A' : 'rgba(255,255,255,0.5)' }}>
                         {shareMode === 'gif' ? 'GIF' : 'PNG'}
@@ -977,11 +1176,21 @@ export default function SharePage({ profile }: Props) {
                           <div className="h-[3px] w-[30px] rounded-full bg-white/40" />
                         </div>
                         <div className="absolute left-0 right-0 flex justify-center" style={{ top: '38px' }}>
-                          <div className="w-[48px] h-[48px] rounded-full overflow-hidden" style={{ boxShadow: `0 0 0 2px ${selectedColor.ring[0]}, 0 0 0 3.5px ${selectedColor.ring[1] ?? selectedColor.ring[0]}60` }}>
-                            {profile?.pfp
-                              ? <img src={profile.pfp} alt="" className="w-full h-full object-cover" />
-                              : <div className="w-full h-full bg-gray-600 flex items-center justify-center text-white font-bold text-base">{profile?.username?.[0]?.toUpperCase() ?? '?'}</div>
-                            }
+                          <div className="relative">
+                            {isPro && (
+                              <img
+                                src="/assets/crown.svg"
+                                alt=""
+                                className="absolute -top-3 -left-2.5 w-6 h-6 object-contain pointer-events-none drop-shadow-sm z-10"
+                                style={{ transform: 'rotate(-18deg)' }}
+                              />
+                            )}
+                            <div className="w-[48px] h-[48px] rounded-full overflow-hidden" style={{ boxShadow: `0 0 0 2px ${selectedColor.ring[0]}, 0 0 0 3.5px ${selectedColor.ring[1] ?? selectedColor.ring[0]}60` }}>
+                              {profile?.pfp
+                                ? <img src={profile.pfp} alt="" className="w-full h-full object-cover" />
+                                : <div className="w-full h-full bg-gray-600 flex items-center justify-center text-white font-bold text-base">{profile?.username?.[0]?.toUpperCase() ?? '?'}</div>
+                              }
+                            </div>
                           </div>
                         </div>
                         <div className="absolute left-0 right-0 text-center" style={{ top: '96px' }}>
@@ -1035,7 +1244,7 @@ export default function SharePage({ profile }: Props) {
                       <button
                         onClick={() => {
                           if (shareMode === 'gif') handleShareGif()
-                          else handleShareCard(selectedCard)
+                          else handleShareCard()
                         }}
                         className="w-full py-[17px] rounded-full text-white font-bold text-[16px] active:scale-95 transition-all flex items-center justify-center gap-2"
                         style={{
@@ -1046,7 +1255,7 @@ export default function SharePage({ profile }: Props) {
                         <svg width="17" height="17" fill="none" viewBox="0 0 24 24">
                           <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
-                        {shareMode === 'gif' ? 'Generate & Share GIF' : 'Share this card'}
+                        {shareMode === 'gif' ? (t.shareGifReply || 'Partager la réponse GIF') : (t.share || 'Partager')}
                       </button>
                     </div>
                   </div>
@@ -1064,8 +1273,8 @@ export default function SharePage({ profile }: Props) {
           <div className="absolute inset-0 backdrop-enter" style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }} onClick={() => setEditingPrompt(false)} />
           <div className="dialog-enter relative w-[320px] bg-white rounded-[24px] p-6 flex flex-col gap-4 shadow-2xl">
             <div className="flex flex-col gap-1">
-              <p className="text-center text-[17px] font-bold text-[#0D0D0D]">Edit your message</p>
-              <p className="text-center text-[12px] text-[#888]">This shows on your share card</p>
+              <p className="text-center text-[17px] font-bold text-[#0D0D0D]">{t.editYourMessage || 'Modifier ton message'}</p>
+              <p className="text-center text-[12px] text-[#888]">{t.showsOnYourShareCard || 'Ceci apparaît sur ta carte de partage'}</p>
             </div>
             <textarea
               autoFocus
@@ -1077,8 +1286,8 @@ export default function SharePage({ profile }: Props) {
             />
             <p className="text-right text-[11px] text-[#AAA] -mt-2">{tempPrompt.length}/120</p>
             <div className="flex gap-2">
-              <button onClick={() => setEditingPrompt(false)} className="flex-1 h-[44px] rounded-[14px] bg-[#F2F2F7] text-[#666] text-[14px] font-semibold active:scale-95 transition-transform">Cancel</button>
-              <button onClick={() => { setPromptText(tempPrompt); setEditingPrompt(false) }} className="flex-1 h-[44px] rounded-[14px] bg-[#0D0D0D] text-white text-[14px] font-bold active:scale-95 transition-transform">Save</button>
+              <button onClick={() => setEditingPrompt(false)} className="flex-1 h-[44px] rounded-[14px] bg-[#F2F2F7] text-[#666] text-[14px] font-semibold active:scale-95 transition-transform">{t.cancel || 'Annuler'}</button>
+              <button onClick={() => { setPromptText(tempPrompt); setEditingPrompt(false) }} className="flex-1 h-[44px] rounded-[14px] bg-[#0D0D0D] text-white text-[14px] font-bold active:scale-95 transition-transform">{t.save || 'Enregistrer'}</button>
             </div>
           </div>
         </div>,
@@ -1093,8 +1302,8 @@ export default function SharePage({ profile }: Props) {
             <div className="relative z-10 overflow-y-auto" style={{ maxHeight: '80vh' }}>
               <div className="flex justify-center pt-3 pb-2"><div className="w-10 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.15)' }} /></div>
               <div className="px-5 pb-2">
-                <p className="text-white text-[21px] font-extrabold tracking-tight">Choose your game</p>
-                <p className="text-[#555] text-[12px] mt-0.5">Each game changes what appears on your share card</p>
+                <p className="text-white text-[21px] font-extrabold tracking-tight">{t.chooseYourGame || 'Choisis ton jeu'}</p>
+                <p className="text-[#555] text-[12px] mt-0.5">{t.eachGameChanges || 'Chaque jeu change ce qui apparaît sur ta carte de partage'}</p>
               </div>
               <div className="flex flex-col gap-2 px-5 pb-10 pt-2">
                 {ALL_CARD_TYPES.map(game => {
@@ -1140,22 +1349,174 @@ export default function SharePage({ profile }: Props) {
               <div className="w-10 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.15)' }} />
             </div>
             <div className="mb-5">
-              <p className="text-white font-extrabold text-[18px]">{shareReady.isGif ? 'GIF ready!' : 'Image ready!'}</p>
-              <p className="text-[#555] text-[12px] mt-0.5">Tap below — then pick your app from the share menu</p>
+              <p className="text-white font-extrabold text-[18px]">{shareReady.isGif ? (t.gifReady || 'GIF prêt !') : (t.imageReady || 'Image prête !')}</p>
+              <p className="text-[#555] text-[12px] mt-0.5">
+                {shareReady.platform === 'snapchat'
+                  ? (locale === 'fr'
+                      ? 'Ton lien est copié ! Appuie ci-dessous pour ouvrir dans l’éditeur Snapchat.'
+                      : 'Your link is copied! Tap below to open in the Snapchat editor.')
+                  : shareReady.platform === 'whatsapp'
+                  ? (t.tapToShare || 'Appuie ci-dessous — puis choisis ton app dans le menu de partage')
+                  : (t.tapToShare || 'Appuie ci-dessous — puis choisis ton app dans le menu de partage')}
+              </p>
             </div>
             <button
               onClick={handleShareReady}
               className="w-full py-[17px] rounded-full font-extrabold text-[17px] active:scale-95 transition-transform mb-3"
               style={{ background: '#ffffff', color: '#0D0D0D' }}
             >
-              Share image + link
+              {shareReady.platform === 'snapchat'
+                ? (locale === 'fr' ? 'Ouvrir dans Snapchat' : 'Open in Snapchat')
+                : shareReady.platform === 'whatsapp'
+                ? (t.shareImageAndLink || 'Partager image + lien')
+                : (t.share || 'Partager')}
             </button>
             <button
               onClick={() => setShareReady(null)}
               className="w-full py-3 text-[#555] text-[14px] font-semibold active:opacity-70 transition-opacity"
             >
-              Cancel
+              {t.cancel || 'Annuler'}
             </button>
+          </div>
+        </div>,
+        portalTarget
+      )}
+
+      {/* ── How to share on Snapchat popup modal ── */}
+      {showHowToModal && portalTarget && createPortal(
+        <div
+          className="fixed inset-0 z-[120] flex items-start justify-center pt-8 sm:pt-12 px-4 pb-6 overflow-y-auto animate-in fade-in duration-200"
+          style={{
+            background: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+          }}
+          onClick={() => setShowHowToModal(false)}
+          onTouchStart={e => e.stopPropagation()}
+          onTouchEnd={e => e.stopPropagation()}
+        >
+          <div
+            className="relative w-full max-w-sm bg-[#161618] border border-white/10 rounded-[32px] overflow-hidden shadow-2xl text-white my-auto sm:my-0 animate-in zoom-in-95 duration-200 flex flex-col"
+            onClick={e => e.stopPropagation()}
+            style={{
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.08)',
+            }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-white/[0.08]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-[#FFFC00] flex items-center justify-center shadow-sm">
+                  <img src="/assets/social_media_icons/snapshat_icon.svg" alt="Snapchat" className="w-4 h-4 object-contain brightness-0" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-[15px] tracking-tight text-white leading-none">
+                    {locale === 'fr' ? 'Partager sur Snapchat' : 'Share to Snapchat'}
+                  </h3>
+                  <p className="text-[11px] text-white/50 mt-1">
+                    {locale === 'fr' ? 'Tutoriel vidéo' : 'Video tutorial'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHowToModal(false)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 flex items-center justify-center transition-all text-white/70 hover:text-white"
+                aria-label="Fermer"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Video Player Container */}
+            <div className="px-5 pt-4 pb-2">
+              <div className="relative w-full aspect-[9/16] max-h-[340px] rounded-[22px] overflow-hidden bg-black/60 border border-white/10 flex items-center justify-center">
+                <video
+                  src="/assets/how-to-share.mp4"
+                  controls
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.currentTarget
+                    target.style.display = 'none'
+                    const parent = target.parentElement
+                    if (parent) {
+                      const fallback = parent.querySelector('.snap-video-fallback')
+                      if (fallback) (fallback as HTMLElement).style.display = 'flex'
+                    }
+                  }}
+                />
+                {/* Fallback state when video is being added */}
+                <div className="snap-video-fallback hidden absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-gradient-to-b from-[#1C1C20] to-[#121214]">
+                  <div className="w-14 h-14 rounded-2xl bg-[#FFFC00]/15 border border-[#FFFC00]/30 flex items-center justify-center mb-3 shadow-lg shadow-[#FFFC00]/10">
+                    <img src="/assets/social_media_icons/snapshat_icon.svg" alt="Snapchat" className="w-8 h-8" />
+                  </div>
+                  <p className="font-extrabold text-[15px] text-white mb-1.5">
+                    {locale === 'fr' ? 'Vidéo guide Snapchat' : 'Snapchat Video Guide'}
+                  </p>
+                  <p className="text-[12px] text-white/60 leading-relaxed max-w-[220px]">
+                    {locale === 'fr'
+                      ? 'how-to-share.mp4 s’affichera ici dès son ajout dans public/assets/.'
+                      : 'how-to-share.mp4 will play here once placed in public/assets/.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* 3 Step instructions */}
+            <div className="px-5 py-3 space-y-2.5">
+              <div className="flex items-start gap-3">
+                <div className="w-5 h-5 rounded-full bg-white/10 text-white font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                  1
+                </div>
+                <p className="text-[12px] text-white/80 leading-snug">
+                  {locale === 'fr' ? (
+                    <>Ton lien TBH est <strong>automatiquement copié</strong> dès que tu appuies sur Snapchat.</>
+                  ) : (
+                    <>Your TBH link is <strong>automatically copied</strong> when you tap Snapchat.</>
+                  )}
+                </p>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-5 h-5 rounded-full bg-white/10 text-white font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                  2
+                </div>
+                <p className="text-[12px] text-white/80 leading-snug">
+                  {locale === 'fr' ? (
+                    <>L&apos;image est <strong>enregistrée dans tes photos</strong> (et copiée dans le presse-papier).</>
+                  ) : (
+                    <>The card is <strong>saved to your photos</strong> (and copied to your clipboard).</>
+                  )}
+                </p>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-5 h-5 rounded-full bg-white/10 text-white font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                  3
+                </div>
+                <p className="text-[12px] text-white/80 leading-snug">
+                  {locale === 'fr' ? (
+                    <>Dans Snapchat, choisis l&apos;image dans ta pellicule (ou colle-la) et appuie sur le <strong>trombone 📎</strong> pour joindre ton lien !</>
+                  ) : (
+                    <>In Snapchat, pick the card from camera roll (or paste it) and tap the <strong>paperclip 📎</strong> to attach your link!</>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* Confirm action */}
+            <div className="px-5 pb-5 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowHowToModal(false)}
+                className="w-full py-3.5 rounded-[18px] bg-white text-black font-extrabold text-[14px] active:scale-[0.98] transition-transform"
+              >
+                {locale === 'fr' ? "C'est compris !" : "Got it!"}
+              </button>
+            </div>
           </div>
         </div>,
         portalTarget

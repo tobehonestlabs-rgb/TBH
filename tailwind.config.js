@@ -7,6 +7,10 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['var(--font-outfit)', 'Outfit', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        outfit: ['var(--font-outfit)', 'Outfit', 'sans-serif'],
+      },
       colors: {
         // Rainbow accent colors
         rainbow: {

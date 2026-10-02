@@ -65,7 +65,48 @@ export async function GET(_req: NextRequest) {
       .order('last_message_at', { ascending: false, nullsFirst: false })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ conversations: data ?? [], userId: user.id })
+
+    // If any conversation has original_message_id, fetch those messages' content
+    const convs = data ?? []
+    const origIds = Array.from(new Set(convs.map((c: any) => c.original_message_id).filter(Boolean)))
+    let origMap: Record<string, string> = {}
+    if (origIds.length > 0) {
+      const { data: msgs } = await supabaseAdmin
+        .from('messages')
+        .select('message_id, content')
+        .in('message_id', origIds)
+      if (msgs) {
+        for (const m of msgs) origMap[m.message_id] = m.content ?? ''
+      }
+    }
+
+    // Fetch the last message sender for each conversation to identify who sent the last message
+    let lastSenderMap: Record<string, string> = {}
+    if (convs.length > 0) {
+      const convIds = convs.map((c: any) => c.id)
+      const { data: lastMsgs } = await supabaseAdmin
+        .from('conversation_messages')
+        .select('conversation_id, sender_id, created_at')
+        .in('conversation_id', convIds)
+        .order('created_at', { ascending: false })
+
+      if (lastMsgs) {
+        for (const m of lastMsgs) {
+          if (!lastSenderMap[m.conversation_id]) {
+            lastSenderMap[m.conversation_id] = m.sender_id
+          }
+        }
+      }
+    }
+
+    // attach original_message_content and last_sender_id to each conversation
+    const enriched = convs.map((c: any) => ({
+      ...c,
+      original_message_content: origMap[c.original_message_id] ?? null,
+      last_sender_id: lastSenderMap[c.id] ?? null,
+    }))
+
+    return NextResponse.json({ conversations: enriched, userId: user.id })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
