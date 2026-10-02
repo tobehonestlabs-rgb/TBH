@@ -157,20 +157,20 @@ const svgGroupsData = [
   ],
 ];
 
-// ─── Positions fixes pour chaque groupe ───
+// ─── Positions fixes pour chaque groupe (Espaces aérés et disposition aux 4 coins) ───
 const getFixedPositions = (groupIndex: number) => {
   const offsets = [
-    { top: 12, left: 4 },   // Groupe 1
-    { top: 8, left: 6 },    // Groupe 2
-    { top: 15, left: 3 },   // Groupe 3
+    { top1: 6, left1: 3, bottom2: 6, left2: 4, top3: 6, right3: 3, bottom4: 6, right4: 4 },
+    { top1: 8, left1: 5, bottom2: 5, left2: 3, top3: 8, right3: 5, bottom4: 5, right4: 3 },
+    { top1: 5, left1: 4, bottom2: 8, left2: 5, top3: 5, right3: 4, bottom4: 8, right4: 5 },
   ];
   const off = offsets[groupIndex % offsets.length];
 
   return [
-    { top: `${off.top}%`, left: `${off.left}%`, right: undefined, bottom: undefined },
-    { top: `${off.top + 38}%`, left: `${off.left + 2}%`, right: undefined, bottom: undefined },
-    { top: `${off.top + 4}%`, left: undefined, right: `${off.left + 2}%`, bottom: undefined },
-    { top: `${off.top + 42}%`, left: undefined, right: `${off.left}%`, bottom: undefined },
+    { top: `${off.top1}%`, left: `${off.left1}%`, right: undefined, bottom: undefined },
+    { top: undefined, left: `${off.left2}%`, right: undefined, bottom: `${off.bottom2}%` },
+    { top: `${off.top3}%`, left: undefined, right: `${off.right3}%`, bottom: undefined },
+    { top: undefined, left: undefined, right: `${off.right4}%`, bottom: `${off.bottom4}%` },
   ];
 };
 
@@ -221,10 +221,22 @@ const LandingPage: React.FC = () => {
   const heroSvgsRef = useRef<(HTMLImageElement | null)[]>([]);
   const featureSvgsRef = useRef<(HTMLImageElement | null)[]>([]);
 
-  // ─── Références pour le mockup ───
+  // ─── Références et état pour le mockup chat simulé ───
+  type ChatMessageItem = {
+    id: string;
+    sender: string;
+    text: string;
+    time: string;
+    type: 'received' | 'sent';
+  };
+
   const chatBodyRef = useRef<HTMLDivElement>(null);
-  const typingIndicatorRef = useRef<HTMLDivElement>(null);
-  const conversationTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [chatMessages, setChatMessages] = useState<ChatMessageItem[]>([]);
+  const [isTyping, setIsTyping] = useState(false);
+
+  const convIndexRef = useRef(0);
+  const msgIndexRef = useRef(0);
+  const chatTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // ─── Références pour l'effet "follow cursor" ───
   const heroContentRef = useRef<HTMLDivElement>(null);
@@ -235,11 +247,6 @@ const LandingPage: React.FC = () => {
   // ─── État du slider ───
   const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
-
-  // ─── État du mockup ───
-  const [currentConvIndex, setCurrentConvIndex] = useState(0);
-  const [msgIndex, setMsgIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(true);
 
   // ─── État pour l'effet "follow cursor" ───
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -271,16 +278,6 @@ const LandingPage: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // ─── Fade-in des SVGs ───
-  useEffect(() => {
-    const svgs = document.querySelectorAll('.svg-deco, .svg-feature, .slider-svg');
-    svgs.forEach((el, i) => {
-      const delay = 100 + i * 120;
-      setTimeout(() => {
-        el.classList.add('loaded');
-      }, delay);
-    });
-  }, []);
 
   // ─── Effet "follow cursor" ───
   useEffect(() => {
@@ -393,90 +390,78 @@ const LandingPage: React.FC = () => {
     };
   }, [handleHeroMove, handleHeroLeave, handleFeatureMove, handleFeatureLeave]);
 
-  // ─── Fonctions du mockup chat ───
-  const addMessage = useCallback((msg: any) => {
-    if (!chatBodyRef.current) return;
-    const div = document.createElement('div');
-    div.className = `message ${msg.type}`;
-    div.innerHTML = `
-      <span class="sender">${msg.sender}</span>
-      <span class="text">${msg.text}</span>
-      <span class="time">${msg.time}</span>
-    `;
-    chatBodyRef.current.insertBefore(div, typingIndicatorRef.current);
-    chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
-  }, []);
-
-  const clearChat = useCallback(() => {
-    if (!chatBodyRef.current) return;
-    const messages = chatBodyRef.current.querySelectorAll('.message');
-    messages.forEach((el) => el.remove());
-    if (typingIndicatorRef.current) {
-      typingIndicatorRef.current.style.display = 'none';
-    }
-  }, []);
-
-  // ─── Déroulement récursif des messages ───
-  const showNextMessage = useCallback(() => {
-    const conv = conversations[currentConvIndex];
-    if (!conv || msgIndex >= conv.length) {
-      conversationTimerRef.current = setTimeout(() => {
-        setCurrentConvIndex((prev) => (prev + 1) % conversations.length);
-        setMsgIndex(0);
-        clearChat();
-        conversationTimerRef.current = setTimeout(() => {
-          setIsPlaying(true);
-          showNextMessage();
-        }, 500);
-      }, PAUSE_BETWEEN_CONVERSATIONS);
-      return;
-    }
-
-    const msg = conv[msgIndex];
-    const isReceived = msg.type === 'received';
-
-    if (isReceived) {
-      if (typingIndicatorRef.current) {
-        typingIndicatorRef.current.style.display = 'flex';
-      }
-      if (chatBodyRef.current) {
-        chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
-      }
-
-      conversationTimerRef.current = setTimeout(() => {
-        if (typingIndicatorRef.current) {
-          typingIndicatorRef.current.style.display = 'none';
-        }
-        addMessage(msg);
-        setMsgIndex((prev) => prev + 1);
-        const delay = MIN_DELAY_BETWEEN_MSGS + Math.random() * (MAX_DELAY_BETWEEN_MSGS - MIN_DELAY_BETWEEN_MSGS);
-        conversationTimerRef.current = setTimeout(showNextMessage, delay);
-      }, TYPING_DURATION);
-    } else {
-      addMessage(msg);
-      setMsgIndex((prev) => prev + 1);
-      const delay = MIN_DELAY_BETWEEN_MSGS + Math.random() * (MAX_DELAY_BETWEEN_MSGS - MIN_DELAY_BETWEEN_MSGS);
-      conversationTimerRef.current = setTimeout(showNextMessage, delay);
-    }
-  }, [currentConvIndex, msgIndex, conversations, addMessage, clearChat]);
-
-  // Relance la conversation lors d'un changement de langue ou au montage
+  // ─── Simulation fluide de conversation à 2 sens (reçu, envoyé, reçu...) ───
   useEffect(() => {
-    clearChat();
-    setCurrentConvIndex(0);
-    setMsgIndex(0);
-    if (conversationTimerRef.current) {
-      clearTimeout(conversationTimerRef.current);
-    }
-    conversationTimerRef.current = setTimeout(showNextMessage, INITIAL_DELAY);
+    let cancelled = false;
+    convIndexRef.current = 0;
+    msgIndexRef.current = 0;
+    setChatMessages([]);
+    setIsTyping(false);
 
-    return () => {
-      if (conversationTimerRef.current) {
-        clearTimeout(conversationTimerRef.current);
-        conversationTimerRef.current = null;
+    const step = () => {
+      if (cancelled) return;
+      const currentConv = conversations[convIndexRef.current];
+      if (!currentConv) return;
+
+      if (msgIndexRef.current >= currentConv.length) {
+        // Fin de la conversation : pause pour lecture, puis conversation suivante
+        chatTimerRef.current = setTimeout(() => {
+          if (cancelled) return;
+          setChatMessages([]);
+          setIsTyping(false);
+          convIndexRef.current = (convIndexRef.current + 1) % conversations.length;
+          msgIndexRef.current = 0;
+          chatTimerRef.current = setTimeout(step, 800);
+        }, PAUSE_BETWEEN_CONVERSATIONS);
+        return;
+      }
+
+      const nextMsg = currentConv[msgIndexRef.current];
+      const isReceived = nextMsg.type === 'received';
+
+      if (isReceived) {
+        // Message reçu : afficher l'indicateur de frappe puis le message
+        setIsTyping(true);
+        chatTimerRef.current = setTimeout(() => {
+          if (cancelled) return;
+          setIsTyping(false);
+          setChatMessages((prev) => [
+            ...prev,
+            { ...nextMsg, id: `${convIndexRef.current}-${msgIndexRef.current}-${Date.now()}` },
+          ]);
+          msgIndexRef.current += 1;
+          const delay = MIN_DELAY_BETWEEN_MSGS + Math.random() * 500;
+          chatTimerRef.current = setTimeout(step, delay);
+        }, TYPING_DURATION);
+      } else {
+        // Message envoyé ("Moi") : réponse après un court délai naturel
+        chatTimerRef.current = setTimeout(() => {
+          if (cancelled) return;
+          setChatMessages((prev) => [
+            ...prev,
+            { ...nextMsg, id: `${convIndexRef.current}-${msgIndexRef.current}-${Date.now()}` },
+          ]);
+          msgIndexRef.current += 1;
+          const delay = MIN_DELAY_BETWEEN_MSGS + Math.random() * 500;
+          chatTimerRef.current = setTimeout(step, delay);
+        }, 750);
       }
     };
-  }, [locale]);
+
+    chatTimerRef.current = setTimeout(step, INITIAL_DELAY);
+
+    return () => {
+      cancelled = true;
+      if (chatTimerRef.current) clearTimeout(chatTimerRef.current);
+    };
+  }, [conversations]);
+
+  // Défilement automatique vers le bas à chaque nouveau message ou indicateur de saisie
+  useEffect(() => {
+    if (chatBodyRef.current) {
+      chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
+    }
+  }, [chatMessages, isTyping]);
 
   // ─── Ticker idées de jeux ───
   const gameIdeas = content.gameIdeas;
@@ -532,10 +517,10 @@ const LandingPage: React.FC = () => {
           left: 0;
           width: 100%;
           padding: 16px 32px;
-          background: rgba(0, 0, 0, 0.82);
+          background: rgba(0, 0, 0, 0.88);
           backdrop-filter: blur(20px);
           -webkit-backdrop-filter: blur(20px);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          border: none;
           box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
           z-index: 1000;
           transform: translateY(-100%);
@@ -640,7 +625,7 @@ const LandingPage: React.FC = () => {
           position: relative;
           overflow: hidden;
           box-shadow: 0 24px 60px -15px rgba(0, 0, 0, 0.7);
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          border: none;
           transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
 
@@ -701,13 +686,8 @@ const LandingPage: React.FC = () => {
         .svg-deco {
           position: absolute;
           pointer-events: none;
-          opacity: 0;
-          transition: opacity 0.8s ease;
-          will-change: transform;
-        }
-
-        .svg-deco.loaded {
           opacity: 1;
+          will-change: transform;
         }
 
         .svg-1 {
@@ -750,8 +730,6 @@ const LandingPage: React.FC = () => {
           position: relative;
           background: transparent;
           margin-bottom: 4px;
-          mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
-          -webkit-mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
         }
 
         .game-ideas-track {
@@ -814,13 +792,8 @@ const LandingPage: React.FC = () => {
         .svg-feature {
           position: absolute;
           pointer-events: none;
-          opacity: 0;
-          transition: opacity 0.8s ease;
-          will-change: transform;
-        }
-
-        .svg-feature.loaded {
           opacity: 1;
+          will-change: transform;
         }
 
         .svg-5 {
@@ -851,20 +824,22 @@ const LandingPage: React.FC = () => {
           transition: transform 0.25s cubic-bezier(0.2, 0.6, 0.3, 1);
         }
 
-        /* ─── BLOC 3 : SLIDER SVG ─── */
+        /* ─── BLOC 3 : SLIDER SVG (AGRANDI & SANS PADDING INTERNE) ─── */
         .block-3 {
           background: #09090B;
-          min-height: 480px;
+          min-height: 600px;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 60px 32px;
+          padding: 0 !important;
+          border: none !important;
+          overflow: hidden;
         }
 
         .slider-container {
           width: 100%;
-          max-width: 1120px;
-          height: 320px;
+          max-width: 100%;
+          height: 500px;
           overflow: hidden;
           position: relative;
         }
@@ -879,6 +854,7 @@ const LandingPage: React.FC = () => {
 
         .slider-group {
           flex: 0 0 100%;
+          width: 100%;
           position: relative;
           height: 100%;
           display: flex;
@@ -889,13 +865,8 @@ const LandingPage: React.FC = () => {
         .slider-svg {
           position: absolute;
           pointer-events: none;
-          opacity: 0;
-          transition: opacity 0.8s ease;
-          will-change: transform;
-        }
-
-        .slider-svg.loaded {
           opacity: 1;
+          will-change: transform;
         }
 
         .slider-svg.floating {
@@ -1045,7 +1016,7 @@ const LandingPage: React.FC = () => {
           justify-content: space-between;
           padding: 8px 18px 12px 18px;
           background: #F9F9FA;
-          border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+          border: none;
         }
 
         .chat-header .back {
@@ -1132,10 +1103,10 @@ const LandingPage: React.FC = () => {
           font-size: 14.5px;
           line-height: 1.42;
           word-wrap: break-word;
-          opacity: 0;
-          transform: translateY(12px);
-          animation: messageIn 0.35s ease forwards;
+          opacity: 1;
+          border: none;
           position: relative;
+          animation: messageIn 0.35s ease forwards;
         }
 
         .message.received {
@@ -1143,7 +1114,7 @@ const LandingPage: React.FC = () => {
           background: #F2F2F7;
           color: #0D0D0D;
           border-radius: 20px 20px 20px 6px;
-          border: 1px solid rgba(0, 0, 0, 0.03);
+          border: none;
         }
 
         .message.sent {
@@ -1151,42 +1122,43 @@ const LandingPage: React.FC = () => {
           background: linear-gradient(135deg, #FF6B6B, #FF431D);
           color: #FFFFFF;
           border-radius: 20px 20px 6px 20px;
+          border: none;
           box-shadow: 0 4px 14px rgba(255, 67, 29, 0.25);
         }
 
         .message .sender {
-          font-size: 10.5px;
-          font-weight: 700;
-          opacity: 0.65;
+          font-size: 11px;
+          font-weight: 750;
+          opacity: 1;
           margin-bottom: 3px;
           display: block;
           letter-spacing: 0.2px;
         }
 
-        .message.received .sender { color: #555555; }
-        .message.sent .sender     { color: rgba(255, 255, 255, 0.8); }
+        .message.received .sender { color: #222222; }
+        .message.sent .sender     { color: #FFFFFF; }
 
         .message .text {
           display: block;
         }
 
         .message .time {
-          font-size: 9.5px;
-          opacity: 0.55;
+          font-size: 10px;
+          opacity: 1;
           margin-top: 5px;
           text-align: right;
           display: block;
         }
 
-        .message.received .time { color: #888888; }
-        .message.sent .time     { color: rgba(255, 255, 255, 0.7); }
+        .message.received .time { color: #666666; }
+        .message.sent .time     { color: #FFFFFF; }
 
         .typing-indicator {
           align-self: flex-start;
           background: #F2F2F7;
           padding: 12px 18px;
           border-radius: 20px 20px 20px 6px;
-          display: none;
+          display: flex;
           gap: 5px;
           align-items: center;
           margin-top: 4px;
@@ -1219,7 +1191,7 @@ const LandingPage: React.FC = () => {
           gap: 10px;
           padding: 12px 14px 14px 14px;
           background: #FFFFFF;
-          border-top: 1px solid rgba(0, 0, 0, 0.06);
+          border: none;
         }
 
         .chat-footer .input-field {
@@ -1258,7 +1230,7 @@ const LandingPage: React.FC = () => {
           background: #000000;
           border-radius: 2px;
           margin: 6px auto 8px auto;
-          opacity: 0.8;
+          opacity: 1;
         }
 
         .chat-body::-webkit-scrollbar { width: 3px; }
@@ -1289,10 +1261,10 @@ const LandingPage: React.FC = () => {
           transform: scale(0.97);
         }
 
-        /* ─── FOOTER ÉPURÉ & MODERNE ─── */
+        /* ─── FOOTER ÉPURÉ & MODERNE (SANS BORDURES) ─── */
         .site-footer {
           background: #000000;
-          border-top: 1px solid rgba(255, 255, 255, 0.08);
+          border: none;
           padding: 70px 24px 44px 24px;
         }
 
@@ -1326,7 +1298,8 @@ const LandingPage: React.FC = () => {
         }
 
         .footer-brand p {
-          color: rgba(255, 255, 255, 0.55);
+          color: #D1D1D6;
+          opacity: 1;
           font-size: 15px;
           line-height: 1.5;
           margin: 0;
@@ -1345,7 +1318,8 @@ const LandingPage: React.FC = () => {
         }
 
         .footer-links-column h4 {
-          color: rgba(255, 255, 255, 0.9);
+          color: #FFFFFF;
+          opacity: 1;
           font-size: 13px;
           font-weight: 750;
           letter-spacing: 0.8px;
@@ -1354,7 +1328,8 @@ const LandingPage: React.FC = () => {
         }
 
         .footer-links-column a {
-          color: rgba(255, 255, 255, 0.45);
+          color: #E5E5EA;
+          opacity: 1;
           text-decoration: none;
           font-size: 15px;
           font-weight: 450;
@@ -1367,7 +1342,7 @@ const LandingPage: React.FC = () => {
         }
 
         .footer-bottom {
-          border-top: 1px solid rgba(255, 255, 255, 0.08);
+          border: none;
           padding-top: 28px;
           display: flex;
           justify-content: space-between;
@@ -1377,7 +1352,8 @@ const LandingPage: React.FC = () => {
         }
 
         .footer-bottom p {
-          color: rgba(255, 255, 255, 0.35);
+          color: #AEAEB2;
+          opacity: 1;
           font-size: 13.5px;
           margin: 0;
         }
@@ -1388,7 +1364,8 @@ const LandingPage: React.FC = () => {
         }
 
         .footer-bottom-legal a {
-          color: rgba(255, 255, 255, 0.35);
+          color: #AEAEB2;
+          opacity: 1;
           text-decoration: none;
           font-size: 13.5px;
           transition: color 0.2s ease;
@@ -1416,11 +1393,13 @@ const LandingPage: React.FC = () => {
             padding: 56px 24px;
           }
           .block-3 {
-            min-height: 400px;
-            padding: 40px 20px;
+            min-height: 480px;
+            padding: 0 !important;
+            border: none !important;
           }
           .slider-container {
-            height: 240px;
+            height: 380px;
+            width: 100%;
           }
           .slider-svg {
             width: clamp(140px, 35vw, 240px) !important;
@@ -1705,13 +1684,22 @@ const LandingPage: React.FC = () => {
                   <span className="actions">⋯</span>
                 </div>
 
-                {/* Corps de la conversation */}
+                {/* Corps de la conversation simulée alternée */}
                 <div className="chat-body" ref={chatBodyRef}>
-                  <div className="typing-indicator" ref={typingIndicatorRef}>
-                    <span className="dot"></span>
-                    <span className="dot"></span>
-                    <span className="dot"></span>
-                  </div>
+                  {chatMessages.map((msg) => (
+                    <div key={msg.id} className={`message ${msg.type}`}>
+                      <span className="sender">{msg.sender}</span>
+                      <span className="text">{msg.text}</span>
+                      <span className="time">{msg.time}</span>
+                    </div>
+                  ))}
+                  {isTyping && (
+                    <div className="typing-indicator">
+                      <span className="dot"></span>
+                      <span className="dot"></span>
+                      <span className="dot"></span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Champ de saisie */}

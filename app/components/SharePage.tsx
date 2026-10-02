@@ -273,11 +273,14 @@ async function generateShareCard(
     const ctx = canvas.getContext('2d')!
 
     const hasFilter = supportsCanvasFilter()
+    const isPro = !!profile?.active_subscription &&
+      (!((profile as any)?.subscription_end) || new Date((profile as any).subscription_end).getTime() > Date.now())
 
-    const [pfpImg, whiteLogo, whiteArrows] = await Promise.all([
+    const [pfpImg, whiteLogo, whiteArrows, crownImg] = await Promise.all([
       profile.pfp ? loadImage(profile.pfp).catch(() => null) : Promise.resolve(null),
       loadWhiteSvg(`${window.location.origin}/assets/TBH_Title_Logo.svg`).catch(() => null),
       loadWhiteSvg(`${window.location.origin}/assets/arrows.svg`).catch(() => null),
+      isPro ? loadImage(`${window.location.origin}/assets/crown.svg`).catch(() => null) : Promise.resolve(null),
     ])
 
     let blurTmp: HTMLCanvasElement | null = null
@@ -352,6 +355,21 @@ async function generateShareCard(
       ctx.restore()
     }
 
+    // 7b. Couronne TBH Pro (légèrement en haut à gauche du profil, inclinée de manière réaliste)
+    if (isPro && crownImg) {
+      const crownW = 180
+      const crownH = (crownW * crownImg.height) / (crownImg.width || 1)
+      const crownX = cx - ringR * 0.52
+      const crownY = cy - ringR + 10
+      ctx.save()
+      ctx.translate(crownX, crownY)
+      ctx.rotate((-18 * Math.PI) / 180)
+      ctx.shadowColor = 'rgba(0,0,0,0.45)'
+      ctx.shadowBlur = 16
+      ctx.drawImage(crownImg, -crownW / 2, -crownH / 2, crownW, crownH)
+      ctx.restore()
+    }
+
     // 8. Username
     ctx.fillStyle = '#FFFFFF'
     ctx.font = 'bold 72px -apple-system, BlinkMacSystemFont, sans-serif'
@@ -417,10 +435,14 @@ async function generateShareGif(
 
   const hasFilter = supportsCanvasFilter()
 
-  const [pfpImg, whiteLogo, whiteArrows] = await Promise.all([
+  const isPro = !!profile?.active_subscription &&
+    (!((profile as any)?.subscription_end) || new Date((profile as any).subscription_end).getTime() > Date.now())
+
+  const [pfpImg, whiteLogo, whiteArrows, crownImg] = await Promise.all([
     profile.pfp ? loadImage(profile.pfp).catch(() => null) : Promise.resolve(null),
     loadWhiteSvg(`${window.location.origin}/assets/TBH_Title_Logo.svg`).catch(() => null),
     loadWhiteSvg(`${window.location.origin}/assets/arrows.svg`).catch(() => null),
+    isPro ? loadImage(`${window.location.origin}/assets/crown.svg`).catch(() => null) : Promise.resolve(null),
   ])
 
   let blurTmp: HTMLCanvasElement | null = null
@@ -513,6 +535,21 @@ async function generateShareGif(
       ctx.restore()
     }
 
+    // Couronne TBH Pro pour GIF (légèrement en haut à gauche du profil)
+    if (isPro && crownImg) {
+      const crownW = 90
+      const crownH = (crownW * crownImg.height) / (crownImg.width || 1)
+      const crownX = cx - ringR * 0.52
+      const crownY = cy - ringR + 5
+      ctx.save()
+      ctx.translate(crownX, crownY)
+      ctx.rotate((-18 * Math.PI) / 180)
+      ctx.shadowColor = 'rgba(0,0,0,0.45)'
+      ctx.shadowBlur = 8
+      ctx.drawImage(crownImg, -crownW / 2, -crownH / 2, crownW, crownH)
+      ctx.restore()
+    }
+
     // Username
     ctx.fillStyle = '#FFFFFF'
     ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, sans-serif'
@@ -579,6 +616,8 @@ async function generateShareGif(
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function SharePage({ profile }: Props) {
   const { t, locale } = useTranslation()
+  const isPro = !!profile?.active_subscription &&
+    (!((profile as any)?.subscription_end) || new Date((profile as any).subscription_end).getTime() > Date.now())
   const [copied, setCopied]               = useState(false)
   const [promptText, setPromptText]       = useState('Send me an anonymous photo/message')
   const [editingPrompt, setEditingPrompt] = useState(false)
@@ -915,6 +954,14 @@ export default function SharePage({ profile }: Props) {
           <div className="relative z-10 flex flex-col justify-center h-full px-5 gap-2">
             <div className="flex items-center gap-3">
               <div className="relative w-[52px] h-[52px] flex-shrink-0">
+                {isPro && (
+                  <img
+                    src="/assets/crown.svg"
+                    alt="TBH Pro Crown"
+                    className="absolute -top-3.5 -left-2.5 w-7 h-7 object-contain pointer-events-none drop-shadow-md z-20"
+                    style={{ transform: 'rotate(-18deg)' }}
+                  />
+                )}
                 <div className="absolute inset-0 rounded-full" style={{ padding: '2.5px', background: 'linear-gradient(135deg, #FF6B6B, #ff4b15, #e654ae, #ff4d4d)', borderRadius: '50%' }}>
                   <div className="w-full h-full rounded-full overflow-hidden bg-gray-700">
                     {profile?.pfp
@@ -1129,11 +1176,21 @@ export default function SharePage({ profile }: Props) {
                           <div className="h-[3px] w-[30px] rounded-full bg-white/40" />
                         </div>
                         <div className="absolute left-0 right-0 flex justify-center" style={{ top: '38px' }}>
-                          <div className="w-[48px] h-[48px] rounded-full overflow-hidden" style={{ boxShadow: `0 0 0 2px ${selectedColor.ring[0]}, 0 0 0 3.5px ${selectedColor.ring[1] ?? selectedColor.ring[0]}60` }}>
-                            {profile?.pfp
-                              ? <img src={profile.pfp} alt="" className="w-full h-full object-cover" />
-                              : <div className="w-full h-full bg-gray-600 flex items-center justify-center text-white font-bold text-base">{profile?.username?.[0]?.toUpperCase() ?? '?'}</div>
-                            }
+                          <div className="relative">
+                            {isPro && (
+                              <img
+                                src="/assets/crown.svg"
+                                alt=""
+                                className="absolute -top-3 -left-2.5 w-6 h-6 object-contain pointer-events-none drop-shadow-sm z-10"
+                                style={{ transform: 'rotate(-18deg)' }}
+                              />
+                            )}
+                            <div className="w-[48px] h-[48px] rounded-full overflow-hidden" style={{ boxShadow: `0 0 0 2px ${selectedColor.ring[0]}, 0 0 0 3.5px ${selectedColor.ring[1] ?? selectedColor.ring[0]}60` }}>
+                              {profile?.pfp
+                                ? <img src={profile.pfp} alt="" className="w-full h-full object-cover" />
+                                : <div className="w-full h-full bg-gray-600 flex items-center justify-center text-white font-bold text-base">{profile?.username?.[0]?.toUpperCase() ?? '?'}</div>
+                              }
+                            </div>
                           </div>
                         </div>
                         <div className="absolute left-0 right-0 text-center" style={{ top: '96px' }}>
