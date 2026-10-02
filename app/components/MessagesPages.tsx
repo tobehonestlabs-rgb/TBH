@@ -8,7 +8,7 @@ import { getT, useTranslation } from '@/lib/i18n'
 import InsightsMap from './InsightsMap'
 import GifPicker, { GifResult } from './GifPicker'
 import TBHProScreen from './TBHProScreen'
-import SharePlatformSheet from './SharePlatformSheet'
+import SharePlatformSheet, { type SharePlatformChoice } from './SharePlatformSheet'
 import { extractPhotoUrls } from '@/lib/chatImages'
 
 type Message = {
@@ -1207,7 +1207,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
     setTimeout(() => URL.revokeObjectURL(url), 10000)
   }
 
-  const handleSendReply = async (platform: 'whatsapp' | 'instagram') => {
+  const handleSendReply = async (platform: SharePlatformChoice) => {
     if (shareInFlightRef.current || replySending) return
     const blobToUse = replyMode === 'text' ? replyCardBlob : replyMode === 'gif' ? gifCardBlob : photoCardBlob
     // The button is disabled until this is non-null, but guard anyway —
@@ -1217,7 +1217,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
     shareInFlightRef.current = true
     setReplySending(true)
     try {
-      await shareBlob(blobToUse, 'tbh-reply.png')
+      await shareBlob(blobToUse, 'tbh-reply.png', { includeText: platform !== 'snapchat' })
 
       // Reset UI after share completes (even if user cancels)
       setShowReply(false)
@@ -1308,7 +1308,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
     closeSheet()
   }
 
-  const handleShare = async (platform: 'whatsapp' | 'instagram') => {
+  const handleShare = async (platform: SharePlatformChoice) => {
     if (!selectedMsg || shareInFlightRef.current) return
     shareInFlightRef.current = true
     setSharing(true)
@@ -1323,7 +1323,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
         )
       }
       if (!blobToUse) return
-      await shareBlob(blobToUse, 'tbh.png')
+      await shareBlob(blobToUse, 'tbh.png', { includeText: platform !== 'snapchat' })
     } catch (e: any) {
       if (e?.name !== 'AbortError') console.error('Share failed', e)
     } finally {
@@ -1332,7 +1332,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
     }
   }
 
-  const handlePlatformSelect = (platform: 'whatsapp' | 'instagram') => {
+  const handlePlatformSelect = (platform: SharePlatformChoice) => {
     const type = pendingShareType
     setShowPlatformSheet(false)
     if (type === 'message') handleShare(platform)
