@@ -33,6 +33,7 @@ type Props = {
   onUnreadChange: (hasUnread: boolean) => void
   isActive: boolean
   profile: { active_subscription: boolean; subscription_end?: string | null } | null
+  onOpenChat?: (conversationId: string) => void
 }
 
 function timeAgo(iso: string): string {
@@ -885,18 +886,7 @@ async function generatePhotoReplyCard(
   })
 }
 
-type ConvMsg = {
-  id: string
-  sender_id: string
-  content: string | null
-  gif_url?: string | null
-  image_url?: string | null
-  photos?: string[] | string | null
-  created_at: string
-  is_read: boolean
-}
-
-export default function MessagesPage({ onUnreadChange, isActive, profile }: Props) {
+export default function MessagesPage({ onUnreadChange, isActive, profile, onOpenChat }: Props) {
   const isPro = !!profile?.active_subscription &&
     (!profile.subscription_end || new Date(profile.subscription_end).getTime() > Date.now())
   const { t } = useTranslation()
@@ -911,6 +901,8 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
   const [showInsights, setShowInsights] = useState(false)
   const [senderCount, setSenderCount]   = useState<number | null>(null)
   const [loadingInsights, setLoadingInsights] = useState(false)
+  const [approxLocation, setApproxLocation]   = useState<string | null>(null)
+  const approxLocationCacheRef = useRef<Record<string, string>>({})
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
   const [userPfp, setUserPfp]           = useState<string | null>(null)
   const [userLink, setUserLink]         = useState('')
@@ -941,7 +933,6 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
   const [photoPreview, setPhotoPreview]       = useState<string | null>(null)
   const [photoCardBlob, setPhotoCardBlob]       = useState<Blob | null>(null)
   const [showGifPicker, setShowGifPicker]       = useState(false)
-  const [showConvGifPicker, setShowConvGifPicker] = useState(false)
 
   // Reply-card pre-generation (text mode) — generated ahead of the tap so
   // navigator.share() fires immediately inside the user gesture. Each token
@@ -953,15 +944,6 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
   const replyGenTokenRef = useRef(0)
   const gifGenPromiseRef = useRef<Promise<Blob> | null>(null)
   const gifGenTokenRef = useRef(0)
-
-  // Conversation
-  const [convId, setConvId]           = useState<string | null>(null)
-  const [showConv, setShowConv]       = useState(false)
-  const [convMsgs, setConvMsgs]       = useState<ConvMsg[]>([])
-  const [convInput, setConvInput]     = useState('')
-  const [convSending, setConvSending] = useState(false)
-  const convBottomRef = useRef<HTMLDivElement>(null)
-  const convChannelRef = useRef<ReturnType<typeof supabaseClient.channel> | null>(null)
 
   const getLogoSrc = () => `${window.location.origin}/assets/TBH_Title_Logo.svg`
   const getArrowsSrc = () => `${window.location.origin}/assets/arrows.svg`
@@ -1025,7 +1007,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
     }
     setSelectedMsg(msg); setSheetClosing(false); setImageBlurred(true)
     setShowFullscreen(false); setShowReply(false); setReplyText('')
-    setShowInsights(false); setSenderCount(null); setShowConv(false); setConvId(null)
+    setShowInsights(false); setSenderCount(null); setApproxLocation(null)
     setMessageCardBlob(null); setSharing(false); setReplySending(false)
     setReplyCardBlob(null); replyGenPromiseRef.current = null
     setGifCardBlob(null); gifGenPromiseRef.current = null
@@ -1033,12 +1015,10 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
   }
 
   const closeSheet = () => {
-    setSheetClosing(true); setShowFullscreen(false); setShowConv(false)
-    setShowConvGifPicker(false); setShowGifPicker(false)
-    if (convChannelRef.current) { supabaseClient.removeChannel(convChannelRef.current).catch(() => {}); convChannelRef.current = null }
+    setSheetClosing(true); setShowFullscreen(false); setShowGifPicker(false)
     setTimeout(() => {
       setSelectedMsg(null); setSheetClosing(false); setShowReply(false)
-      setReplyText(''); setShowInsights(false); setSenderCount(null); setConvId(null)
+      setReplyText(''); setShowInsights(false); setSenderCount(null); setApproxLocation(null)
       setMessageCardBlob(null)
       setReplyMode('text'); setSelectedGif(null); setGifCardBlob(null)
       setSelectedPhoto(null); setPhotoPreview(null); setPhotoCardBlob(null)
@@ -1049,6 +1029,27 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
   const loadInsights = async () => {
     if (!selectedMsg) return
     setShowInsights(true)
+
+    // Reverse geocoding for approximate neighborhood/arrondissement
+    const lat = selectedMsg.latitude ? parseFloat(String(selectedMsg.latitude)) : NaN
+    const lon = selectedMsg.longitude ? parseFloat(String(selectedMsg.longitude)) : NaN
+    if (!isNaN(lat) && !isNaN(lon)) {
+      const cacheKey = `${lat.toFixed(2)},${lon.toFixed(2)}`
+      if (approxLocationCacheRef.current[cacheKey]) {
+        setApproxLocation(approxLocationCacheRef.current[cacheKey])
+      } else {
+        fetch(`/api/geo/reverse?lat=${lat}&lon=${lon}`)
+          .then(r => r.json())
+          .then(data => {
+            if (data?.approximateLocation) {
+              approxLocationCacheRef.current[cacheKey] = data.approximateLocation
+              setApproxLocation(data.approximateLocation)
+            }
+          })
+          .catch(() => {})
+      }
+    }
+
     if (selectedMsg.ip_address && userIdRef.current && senderCount === null) {
       setLoadingInsights(true)
       const { count } = await supabaseClient
@@ -1059,32 +1060,6 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
       setSenderCount(count ?? 0)
       setLoadingInsights(false)
     }
-  }
-
-  const subscribeConv = (cid: string) => {
-    if (convChannelRef.current) { supabaseClient.removeChannel(convChannelRef.current).catch(() => {}); convChannelRef.current = null }
-    const ch = supabaseClient.channel(`conv-msg-${cid}`)
-    ch
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversation_messages', filter: `conversation_id=eq.${cid}` }, payload => {
-        const raw = payload.new as any
-        const parsedPhotos = extractPhotoUrls(raw.photos, raw.image_url)
-        const m: ConvMsg = {
-          ...raw,
-          photos: parsedPhotos,
-          image_url: raw.image_url || (parsedPhotos.length > 0 ? parsedPhotos[0] : null),
-        }
-        setConvMsgs(prev => prev.find(x => x.id === m.id) ? prev : [...prev, m])
-        setTimeout(() => convBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
-        if (userIdRef.current && m.sender_id !== userIdRef.current) {
-          apiFetch(`/api/conversations/${cid}/read`, { method: 'POST' }).catch(() => {})
-        }
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_messages', filter: `conversation_id=eq.${cid}` }, payload => {
-        const updated = payload.new as ConvMsg
-        setConvMsgs(prev => prev.map(m => m.id === updated.id ? { ...m, is_read: updated.is_read } : m))
-      })
-      .subscribe()
-    convChannelRef.current = ch
   }
 
   // Pre-generate message share card whenever a message is opened
@@ -1237,69 +1212,29 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
     }
   }
 
-  const sendConvGif = async (gif: GifResult) => {
-    if (!convId || convSending) return
-    setConvSending(true)
-    setShowConvGifPicker(false)
-    try {
-      const res = await apiFetch(`/api/conversations/${convId}/messages`, {
-        method: 'POST',
-        body: JSON.stringify({ gif_url: gif.url }),
-      })
-      const { message } = await res.json()
-      if (message) {
-        setConvMsgs(prev => prev.find(m => m.id === message.id) ? prev : [...prev, message])
-        setTimeout(() => convBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
-      }
-    } catch {}
-    setConvSending(false)
-  }
-
   const startConversation = async () => {
     if (!selectedMsg) return
-    if (convId) { setShowConv(true); return }
     try {
       const res = await apiFetch('/api/conversations', {
         method: 'POST',
         body: JSON.stringify({ original_message_id: selectedMsg.message_id, sender_ip: selectedMsg.ip_address ?? null }),
       })
       const { conversation } = await res.json()
-      if (!conversation) return
-      setConvId(conversation.id)
-      const mRes = await apiFetch(`/api/conversations/${conversation.id}/messages`)
-      const { messages: ms } = await mRes.json()
-      const fetched: ConvMsg[] = (ms ?? []).map((msg: any) => {
-        const parsedPhotos = extractPhotoUrls(msg.photos, msg.image_url)
-        return {
-          ...msg,
-          photos: parsedPhotos,
-          image_url: msg.image_url || (parsedPhotos.length > 0 ? parsedPhotos[0] : null),
-        }
-      })
-      setConvMsgs(fetched)
-      apiFetch(`/api/conversations/${conversation.id}/read`, { method: 'POST' }).catch(() => {})
-      subscribeConv(conversation.id)
-      setShowConv(true)
-      setTimeout(() => convBottomRef.current?.scrollIntoView(), 50)
-    } catch {}
-  }
+      if (!conversation?.id) return
 
-  const sendConvMsg = async () => {
-    if (!convInput.trim() || !convId || convSending) return
-    setConvSending(true)
-    const text = convInput.trim(); setConvInput('')
-    try {
-      const res = await apiFetch(`/api/conversations/${convId}/messages`, {
-        method: 'POST',
-        body: JSON.stringify({ content: text }),
-      })
-      const { message } = await res.json()
-      if (message) {
-        setConvMsgs(prev => prev.find(m => m.id === message.id) ? prev : [...prev, message])
-        setTimeout(() => convBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+      // Close message sheet
+      setSelectedMsg(null)
+      setShowFullscreen(false)
+      setShowInsights(false)
+      setShowReply(false)
+
+      // Open unified ChatPage with this conversation
+      if (onOpenChat) {
+        onOpenChat(conversation.id)
       }
-    } catch {}
-    setConvSending(false)
+    } catch (err) {
+      console.error('Failed to open chat:', err)
+    }
   }
 
   const handleReport = async () => {
@@ -1433,7 +1368,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
             <div className="flex-1 overflow-y-auto">
 
               {/* ── Main message view ── */}
-              {!showInsights && !showConv && (
+              {!showInsights && (
                 <div className="px-5 pt-3 pb-4 slide-from-left">
                   {!showReply ? (
                     <>
@@ -1645,7 +1580,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
               )}
 
               {/* ── Insights panel ── */}
-              {showInsights && !showConv && (
+              {showInsights && (
                 <div className="px-5 pt-3 pb-6 slide-from-right">
                   <button onClick={() => setShowInsights(false)} className="flex items-center gap-1.5 text-[#ADADAD] text-[13px] mb-5 active:opacity-60">
                     <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7" stroke="#ADADAD" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -1656,13 +1591,15 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                   <p className="text-[13px] text-[#ADADAD] mb-5">{t.approximateInfo || 'Informations approximatives basées sur les données réseau'}</p>
 
                   <div className="flex flex-col gap-2.5 mb-4">
-                    {/* Location */}
+                    {/* Approximate Location */}
                     <div className="rounded-[22px] px-4 py-4" style={{ background: '#F7F7F9' }}>
                       <p className="text-[10px] font-semibold text-[#ADADAD] uppercase tracking-widest mb-2">{t.location || 'Localisation'}</p>
                       <p className="text-[17px] font-bold text-[#0D0D0D]">
-                        {[selectedMsg.city, selectedMsg.country].filter(Boolean).join(', ') || (t.unknown || 'Inconnu')}
+                        {approxLocation || [selectedMsg.city, selectedMsg.country].filter(Boolean).join(', ') || (t.unknown || 'Inconnu')}
                       </p>
-                      {selectedMsg.region && <p className="text-[12px] text-[#ADADAD] mt-0.5">{selectedMsg.region}</p>}
+                      <p className="text-[12px] text-[#ADADAD] mt-0.5">
+                        {t.approximateZone || 'Zone approximative (quartier / arrondissement)'}
+                      </p>
                     </div>
 
                     {/* IP */}
@@ -1709,6 +1646,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                             city={selectedMsg?.city ?? undefined}
                             country={selectedMsg?.country ?? undefined}
                             region={selectedMsg?.region ?? undefined}
+                            approximateLocation={approxLocation ?? undefined}
                           />
                         </div>
                       )
@@ -1725,120 +1663,10 @@ export default function MessagesPage({ onUnreadChange, isActive, profile }: Prop
                   </button>
                 </div>
               )}
-
-              {/* ── Conversation thread ── */}
-              {showConv && (() => {
-                const myId = userIdRef.current
-                const lastReadSentId = [...convMsgs].reverse().find(m => m.sender_id === myId && m.is_read)?.id
-                return (
-                  <div className="flex flex-col slide-from-right" style={{ height: '100%' }}>
-                    <div className="px-5 pt-2 pb-3 border-b border-[#F0F0F0] flex-shrink-0">
-                      <button onClick={() => setShowConv(false)} className="flex items-center gap-1.5 text-[#ADADAD] text-[13px] py-1 active:opacity-60 mb-1">
-                        <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7" stroke="#ADADAD" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        {t.back || 'Retour'}
-                      </button>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-[16px] font-bold text-[#0D0D0D]">{t.anonymousSender || 'Expéditeur anonyme'}</p>
-                          <p className="text-[11px] text-[#ADADAD]">{t.privateConversation || 'Conversation privée'}</p>
-                        </div>
-                        <div className="w-2 h-2 rounded-full bg-[#2AC642]" />
-                      </div>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-1.5">
-                      {convMsgs.length === 0 && (
-                        <p className="text-[14px] text-[#ADADAD] text-center mt-8">{t.startTheConversation || 'Commencer la conversation'}</p>
-                      )}
-                      {convMsgs.map((m, i) => {
-                        const isMine = m.sender_id === myId
-                        const isLastMine = isMine && convMsgs.slice(i + 1).every(n => n.sender_id !== myId)
-                        const photoUrls = extractPhotoUrls(m.photos, m.image_url)
-                        return (
-                          <div key={m.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
-                            {m.gif_url ? (
-                              <img src={m.gif_url} alt="GIF" className="max-w-[220px] rounded-[16px] block" style={{ border: isMine ? '2px solid rgba(255,107,107,0.3)' : '2px solid #E8E8E8' }} />
-                            ) : photoUrls.length > 0 ? (
-                              <div className="flex max-w-[220px] flex-col gap-2">
-                                {m.content && (
-                                  <div
-                                    className="px-4 py-3"
-                                    style={{
-                                      background: isMine ? '#0D0D0D' : '#F2F2F2',
-                                      borderRadius: isMine ? '20px 20px 5px 20px' : '20px 20px 20px 5px',
-                                    }}
-                                  >
-                                    <p style={{ color: isMine ? '#FFF' : '#0D0D0D', fontSize: '15px', lineHeight: '1.4' }}>{m.content}</p>
-                                  </div>
-                                )}
-                                {photoUrls.map((photoUrl) => (
-                                  <img
-                                    key={`${m.id}-${photoUrl}`}
-                                    src={photoUrl}
-                                    alt="Photo"
-                                    className="max-w-[220px] rounded-[16px] block object-cover"
-                                    style={{ border: isMine ? '2px solid rgba(255,107,107,0.3)' : '2px solid #E8E8E8' }}
-                                  />
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="max-w-[78%] px-4 py-3"
-                                style={{
-                                  background: isMine ? '#0D0D0D' : '#F2F2F2',
-                                  borderRadius: isMine ? '20px 20px 5px 20px' : '20px 20px 20px 5px',
-                                }}>
-                                <p style={{ color: isMine ? '#FFF' : '#0D0D0D', fontSize: '15px', lineHeight: '1.4' }}>{m.content}</p>
-                              </div>
-                            )}
-                            {(isLastMine || (i === convMsgs.length - 1 && !isMine)) && (
-                              <div className={`flex items-center gap-1 mt-0.5 px-1 ${isMine ? 'flex-row-reverse' : ''}`}>
-                                <span className="text-[10px] text-[#C8C8C8]">{timeAgo(m.created_at)}</span>
-                                {isMine && m.id === lastReadSentId && <span className="text-[10px] text-[#2AC642] font-medium">{t.readIndicator || 'Lu'}</span>}
-                                {isMine && m.id !== lastReadSentId && isLastMine && <span className="text-[10px] text-[#C8C8C8]">{t.sentIndicator || 'Envoyé'}</span>}
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
-                      <div ref={convBottomRef} />
-                    </div>
-
-                    <div className="px-4 pb-6 pt-2 border-t border-[#F0F0F0] flex-shrink-0">
-                      {showConvGifPicker && (
-                        <div className="relative h-0 mb-[316px]">
-                          <GifPicker
-                            onSelect={gif => sendConvGif(gif)}
-                            onClose={() => setShowConvGifPicker(false)}
-                          />
-                        </div>
-                      )}
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setShowConvGifPicker(p => !p)}
-                          className="w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition-transform flex-shrink-0 text-[18px]"
-                          style={{ background: showConvGifPicker ? '#0D0D0D' : '#F5F5F5' }}
-                        >
-                          <span style={{ filter: showConvGifPicker ? 'brightness(0) invert(1)' : 'none' }}>🎬</span>
-                        </button>
-                        <input
-                          value={convInput} onChange={e => setConvInput(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendConvMsg() } }}
-                          placeholder={t.messagePlaceholder || 'Message…'} maxLength={500}
-                          className="flex-1 rounded-full bg-[#F5F5F5] px-4 py-3 text-[15px] text-[#0D0D0D] outline-none"
-                          style={{ fontFamily: 'inherit' }}
-                        />
-                        <button onClick={sendConvMsg} disabled={!convInput.trim() || convSending} className="w-10 h-10 rounded-full bg-[#0D0D0D] flex items-center justify-center active:scale-90 transition-transform disabled:opacity-30 flex-shrink-0">
-                          <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })()}
             </div>
 
             {/* Bottom buttons — main view only */}
-            {!showInsights && !showConv && !showReply && (
+            {!showInsights && !showReply && (
               <div className="px-5 pb-8 pt-2.5 flex gap-3 border-t border-[#F0F0F0] flex-shrink-0">
                 <button onClick={() => setShowReply(true)} className="flex-1 py-[15px] rounded-full bg-[#0D0D0D] text-white font-bold text-[15px] active:scale-95 transition-transform">{t.reply}</button>
                 <button

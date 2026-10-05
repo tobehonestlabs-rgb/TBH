@@ -9,6 +9,7 @@ type Props = {
   city?: string
   country?: string
   region?: string
+  approximateLocation?: string
 }
 
 function ensureCss(id: string, href: string) {
@@ -52,6 +53,7 @@ export default function InsightsMap({
   city,
   country,
   region,
+  approximateLocation,
 }: Props) {
   const { t } = useTranslation()
   const inlineContainerRef = useRef<HTMLDivElement>(null)
@@ -63,8 +65,11 @@ export default function InsightsMap({
   const [showFullscreen, setShowFullscreen] = useState(false)
   const [token, setToken] = useState<string | null>(null)
 
-  const latitude = typeof rawLat === 'number' ? rawLat : parseFloat(String(rawLat ?? ''))
-  const longitude = typeof rawLon === 'number' ? rawLon : parseFloat(String(rawLon ?? ''))
+  const parsedLat = typeof rawLat === 'number' ? rawLat : parseFloat(String(rawLat ?? ''))
+  const parsedLon = typeof rawLon === 'number' ? rawLon : parseFloat(String(rawLon ?? ''))
+  // Fuzz coordinates to 2 decimal places (~1.1 km neighborhood resolution, never pinpoint GPS)
+  const latitude = !isNaN(parsedLat) ? Math.round(parsedLat * 100) / 100 : NaN
+  const longitude = !isNaN(parsedLon) ? Math.round(parsedLon * 100) / 100 : NaN
 
   // Fetch token once
   useEffect(() => {
@@ -120,7 +125,7 @@ export default function InsightsMap({
           center: [longitude, latitude],
           zoom: zoomLevel,
           minZoom: 2,
-          maxZoom: 19,
+          maxZoom: 14,
           interactive,
           attributionControl: false,
           scrollZoom: interactive,
@@ -164,7 +169,7 @@ export default function InsightsMap({
               },
             })
 
-            // Translucent white fill
+            // Translucent white fill representing the approximate area
             map.addLayer({
               id: 'sender-circle-fill',
               type: 'fill',
@@ -174,22 +179,6 @@ export default function InsightsMap({
                 'fill-opacity': 0.16,
               },
             })
-
-            // White glowing center pulse marker
-            const el = document.createElement('div')
-            el.className = 'tbh-white-glow-wrapper'
-            el.innerHTML = `
-              <div class="tbh-glow-pin">
-                <div class="tbh-pulse-ring"></div>
-                <div class="tbh-pulse-ring-2"></div>
-                <div class="tbh-glow-aura"></div>
-                <div class="tbh-white-dot"></div>
-              </div>
-            `
-
-            new mapboxgl.Marker({ element: el })
-              .setLngLat([longitude, latitude])
-              .addTo(map)
           } catch (err) {
             console.warn('[InsightsMap] Failed to add Mapbox layers:', err)
           }
@@ -216,7 +205,7 @@ export default function InsightsMap({
         center: [latitude, longitude],
         zoom: zoomLevel,
         minZoom: 2,
-        maxZoom: 19,
+        maxZoom: 14,
         zoomControl: false,
         attributionControl: false,
         dragging: interactive,
@@ -227,7 +216,7 @@ export default function InsightsMap({
 
       L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         subdomains: 'abcd',
-        maxZoom: 19,
+        maxZoom: 14,
       }).addTo(map)
 
       // Glowing position area (approximate sender zone)
@@ -242,27 +231,7 @@ export default function InsightsMap({
         className: 'tbh-glow-area-circle',
       }).addTo(map)
 
-      // White glowing center dot marker
-      const glowDotIcon = L.divIcon({
-        className: 'tbh-white-glow-wrapper',
-        html: `
-          <div class="tbh-glow-pin">
-            <div class="tbh-pulse-ring"></div>
-            <div class="tbh-pulse-ring-2"></div>
-            <div class="tbh-glow-aura"></div>
-            <div class="tbh-white-dot"></div>
-          </div>
-        `,
-        iconSize: [44, 44],
-        iconAnchor: [22, 22],
-      })
-
-      L.marker([latitude, longitude], {
-        icon: glowDotIcon,
-        interactive: false,
-      }).addTo(map)
-
-      // Frame position area and glow dot nicely
+      // Frame position area nicely
       map.fitBounds(areaCircle.getBounds(), {
         padding: interactive ? [40, 40] : [15, 15],
         maxZoom: 13,
@@ -410,7 +379,7 @@ export default function InsightsMap({
     }
   }
 
-  const locationTitle = [city, region, country].filter(Boolean).join(', ')
+  const locationTitle = approximateLocation || [city, region, country].filter(Boolean).join(', ')
 
   if (isNaN(latitude) || isNaN(longitude)) {
     return (

@@ -23,15 +23,25 @@ export async function POST(req: NextRequest) {
       if (mapping?.user_id) participant_2 = mapping.user_id
     }
 
-    // Return existing conversation or create
-    const { data: existing } = await supabaseAdmin
-      .from('conversations')
-      .select('*')
-      .eq('original_message_id', original_message_id)
-      .eq('participant_1', user.id)
-      .single()
+    // Fetch original message content if available
+    let original_message_content: string | null = null
+    if (original_message_id) {
+      const { data: origMsg } = await supabaseAdmin
+        .from('messages')
+        .select('content')
+        .eq('message_id', original_message_id)
+        .single()
+      if (origMsg) original_message_content = origMsg.content ?? null
+    }
 
-    if (existing) return NextResponse.json({ conversation: existing })
+    if (existing) {
+      return NextResponse.json({
+        conversation: {
+          ...existing,
+          original_message_content: original_message_content || (existing as any).original_message_content || null,
+        },
+      })
+    }
 
     const { data: created, error } = await supabaseAdmin
       .from('conversations')
@@ -45,7 +55,12 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ conversation: created })
+    return NextResponse.json({
+      conversation: {
+        ...created,
+        original_message_content,
+      },
+    })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

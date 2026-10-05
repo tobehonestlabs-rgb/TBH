@@ -18,7 +18,13 @@ export default function HomePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [hasUnread, setHasUnread] = useState(false)
   const [hasUnreadChat, setHasUnreadChat] = useState(false)
+  const [targetConvId, setTargetConvId] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  const handleOpenChat = (conversationId: string) => {
+    setTargetConvId(conversationId)
+    setActiveTab(2)
+  }
  
   const tabs = [t.tabPlay || 'Partager', t.tabMessages || 'Messages', t.tabChat || 'Chat']
  
@@ -140,12 +146,22 @@ export default function HomePage() {
           </div>
           <div className="relative overflow-hidden" style={{ width: '33.333%', flexShrink: 0, height: '100%' }}>
             <div className="h-full overflow-y-auto">
-              <MessagesPage onUnreadChange={setHasUnread} isActive={activeTab === 1} profile={profile} />
+              <MessagesPage
+                onUnreadChange={setHasUnread}
+                isActive={activeTab === 1}
+                profile={profile}
+                onOpenChat={handleOpenChat}
+              />
             </div>
           </div>
           <div className="relative overflow-hidden" style={{ width: '33.333%', flexShrink: 0, height: '100%' }}>
             <div className="h-full overflow-y-auto">
-              <ChatPage onUnreadChange={setHasUnreadChat} profile={profile} />
+              <ChatPage
+                onUnreadChange={setHasUnreadChat}
+                profile={profile}
+                initialConversationId={targetConvId}
+                onClearInitialConversation={() => setTargetConvId(null)}
+              />
             </div>
           </div>
         </div>

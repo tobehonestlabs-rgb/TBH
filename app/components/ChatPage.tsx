@@ -744,9 +744,13 @@ function MessageBubbleRow({
 export default function ChatPage({
   onUnreadChange,
   profile,
+  initialConversationId,
+  onClearInitialConversation,
 }: {
   onUnreadChange?: (has: boolean) => void
   profile?: UserProfile | null
+  initialConversationId?: string | null
+  onClearInitialConversation?: () => void
 }) {
   const { t } = useTranslation()
   const [convs, setConvs]           = useState<Conversation[]>([])
@@ -856,7 +860,7 @@ export default function ChatPage({
   const [animatingIds, setAnimatingIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
-    setPortalTarget(document.getElementById('app-shell'))
+    setPortalTarget(document.getElementById('app-shell') || document.body)
     setFavorites(loadFavorites())
     setConvNames(loadNames())
     setLastSeenAt(loadLastSeen())
@@ -1136,9 +1140,53 @@ export default function ChatPage({
     setMsgs([])
     setShowGifPicker(false)
     setShowMenu(false)
+    onClearInitialConversation?.()
     // Refresh list on close to pick up any new last_message_at
     fetchConvs()
   }
+
+  // Auto-open target conversation if opened from ReadPageScreen
+  useEffect(() => {
+    if (!initialConversationId) return
+    let active = true
+
+    const openTarget = async () => {
+      if (selectedRef.current?.id === initialConversationId) return
+
+      let list = convs
+      if (list.length === 0) {
+        list = await fetchConvs()
+      }
+      let found = list.find(c => c.id === initialConversationId)
+      if (!found) {
+        list = await fetchConvs()
+        found = list.find(c => c.id === initialConversationId)
+      }
+
+      if (!active) return
+
+      if (found) {
+        openConv(found)
+      } else {
+        const placeholderConv: Conversation = {
+          id: initialConversationId,
+          created_at: new Date().toISOString(),
+          last_message_at: null,
+          last_message: null,
+          original_message_id: null,
+          participant_1: myUserIdRef.current,
+          participant_2: null,
+        }
+        openConv(placeholderConv)
+      }
+    }
+
+    openTarget()
+
+    return () => {
+      active = false
+    }
+  }, [initialConversationId, convs, fetchConvs])
 
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
