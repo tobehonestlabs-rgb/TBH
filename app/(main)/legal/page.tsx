@@ -53,9 +53,9 @@ export default function LegalPage() {
             </div>
 
             <div>
-              <h2 className="font-bold text-black mb-3 text-sm uppercase">4. Account Control</h2>
+              <h2 className="font-bold text-black mb-3 text-sm uppercase">4. Account Control & Deletion</h2>
               <p>
-                You are <span className="font-bold text-black">free to log out</span> of your account at any time. While automated "Delete Account" functionality is currently in development, you may contact our support to request manual data removal.
+                You are <span className="font-bold text-black">free to log out</span> of your account at any time. To request the complete and permanent deletion of your account and all associated messages and data, visit our <Link href="/account-deletion" className="font-bold text-black underline">Account Deletion page</Link> or email tobehonestlabs@gmail.com.
               </p>
             </div>
           </div>
