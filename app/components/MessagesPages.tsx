@@ -957,7 +957,7 @@ export default function MessagesPage({ onUnreadChange, isActive, profile, onOpen
     if (!isActive && selectedMsg) {
       setSelectedMsg(null); setSheetClosing(false); setShowReply(false)
       setReplyText(''); setShowFullscreen(false); setShowInsights(false)
-      setSenderCount(null); setShowConv(false); setConvId(null)
+      setSenderCount(null)
     }
   }, [isActive]) // eslint-disable-line react-hooks/exhaustive-deps
 
