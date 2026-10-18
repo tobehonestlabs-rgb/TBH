@@ -34,14 +34,48 @@ export async function POST(req: NextRequest) {
       req.headers.get('cf-connecting-ip') ||
       null
 
-    const country  = (formData.get('country')  as string | null) || req.headers.get('x-vercel-ip-country') || null
-    const city     = (formData.get('city')     as string | null) || req.headers.get('x-vercel-ip-city') || null
-    const region   = (formData.get('region')   as string | null) || req.headers.get('x-vercel-ip-country-region') || null
-    const latitude = (formData.get('latitude') as string | null) || req.headers.get('x-vercel-ip-latitude') || null
-    const longitude= (formData.get('longitude')as string | null) || req.headers.get('x-vercel-ip-longitude') || null
+    let country   = (formData.get('country')   as string | null) || req.headers.get('x-vercel-ip-country') || null
+    let city      = (formData.get('city')      as string | null) || req.headers.get('x-vercel-ip-city') || null
+    let region    = (formData.get('region')    as string | null) || req.headers.get('x-vercel-ip-country-region') || null
+    let latitude  = (formData.get('latitude')  as string | null) || req.headers.get('x-vercel-ip-latitude') || null
+    let longitude = (formData.get('longitude') as string | null) || req.headers.get('x-vercel-ip-longitude') || null
     const browser_name       = (formData.get('browser_name')       as string | null) || null
     const device_fingerprint = (formData.get('device_fingerprint') as string | null) || null
     const phone_type         = (formData.get('phone_type')         as string | null) || null
+
+    // If coordinates or city are missing, fallback to IP-based lookup
+    if (!latitude || !longitude || !city) {
+      try {
+        const isPrivate = !ipAddress ||
+          ipAddress === '127.0.0.1' ||
+          ipAddress === '::1' ||
+          ipAddress === 'localhost' ||
+          ipAddress.startsWith('192.168.') ||
+          ipAddress.startsWith('10.')
+
+        const geoUrl = !isPrivate
+          ? `http://ip-api.com/json/${ipAddress}?fields=status,country,regionName,city,lat,lon`
+          : 'http://ip-api.com/json/?fields=status,country,regionName,city,lat,lon'
+
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 2500)
+        const res = await fetch(geoUrl, { signal: controller.signal })
+        clearTimeout(timeoutId)
+
+        if (res.ok) {
+          const data = await res.json()
+          if (data && data.status === 'success') {
+            country   = country   || data.country || null
+            city      = city      || data.city || null
+            region    = region    || data.regionName || null
+            latitude  = latitude  || (data.lat != null ? String(data.lat) : null)
+            longitude = longitude || (data.lon != null ? String(data.lon) : null)
+          }
+        }
+      } catch {
+        // Fallback silently
+      }
+    }
 
     // 1) Look up receiverId from slug
     const { data: user, error: userError } = await supabaseAdmin
@@ -92,6 +126,7 @@ export async function POST(req: NextRequest) {
         from_user: null,
         content: message,
         media_url: imageUrl ?? null,
+        photos: imageUrl ?? null,
         contains_media: imageUrl != null,
         message_id: messageId,
         ip_address: ipAddress,
