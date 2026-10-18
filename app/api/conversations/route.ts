@@ -34,6 +34,14 @@ export async function POST(req: NextRequest) {
       if (origMsg) original_message_content = origMsg.content ?? null
     }
 
+    // Check if conversation already exists
+    const { data: existing } = await supabaseAdmin
+      .from('conversations')
+      .select('*')
+      .eq('original_message_id', original_message_id)
+      .eq('participant_1', user.id)
+      .maybeSingle()
+
     if (existing) {
       return NextResponse.json({
         conversation: {
