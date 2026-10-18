@@ -96,6 +96,7 @@ export type T = {
   backToMessage: string
   senderInsights: string
   approximateInfo: string
+  approximateZone?: string
   location: string
   unknown: string
   ipAddress: string
@@ -313,6 +314,7 @@ const en: T = {
   backToMessage: 'Back to message',
   senderInsights: 'Sender Insights',
   approximateInfo: 'Approximate information based on network data',
+  approximateZone: 'Approximate area (neighborhood / district)',
   location: 'Location',
   unknown: 'Unknown',
   ipAddress: 'IP Address',
@@ -528,6 +530,7 @@ const fr: T = {
   backToMessage: 'Retour au message',
   senderInsights: 'Infos sur l\'expéditeur',
   approximateInfo: 'Informations approximatives basées sur les données réseau',
+  approximateZone: 'Zone approximative (quartier / arrondissement)',
   location: 'Localisation',
   unknown: 'Inconnu',
   ipAddress: 'Adresse IP',
@@ -743,6 +746,7 @@ const es: T = {
   backToMessage: 'Volver al mensaje',
   senderInsights: 'Información del remitente',
   approximateInfo: 'Información aproximada basada en datos de red',
+  approximateZone: 'Zona aproximada (barrio / distrito)',
   location: 'Ubicación',
   unknown: 'Desconocido',
   ipAddress: 'Dirección IP',
