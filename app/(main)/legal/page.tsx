@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Image from 'next/image'
 import Link from 'next/link'
@@ -24,7 +24,7 @@ export default function LegalPage() {
         {/* --- TERMS OF SERVICE --- */}
         <section>
           <h1 className="text-4xl font-black tracking-tighter mb-8 italic">Terms of Service</h1>
-          <p className="text-xs text-gray-400 mb-8 font-semibold uppercase tracking-widest">Last Updated: April 28, 2026</p>
+          <p className="text-xs text-gray-400 mb-8 font-semibold uppercase tracking-widest">Last Updated: October 25, 2026</p>
           
           <div className="space-y-8 text-[15px] leading-relaxed text-gray-600">
             <p>
@@ -34,7 +34,7 @@ export default function LegalPage() {
             <div>
               <h2 className="font-bold text-black mb-3 text-sm uppercase">1. User Responsibility</h2>
               <p>
-                TBH is a medium for receiving messages and other media from other anynonymous users. You acknowledge that <span className="font-bold text-black text-gray-800">you are solely responsible</span> for your interactions and any content sent to you by acquaintances or third parties. We provide the platform; you manage your link and your inbox.
+                TBH is a medium for receiving messages and other media from other anonymous users. You acknowledge that <span className="font-bold text-black text-gray-800">you are solely responsible</span> for your interactions and any content sent to you by acquaintances or third parties. We provide the platform; you manage your link and your inbox.
               </p>
             </div>
 
@@ -48,12 +48,25 @@ export default function LegalPage() {
             <div>
               <h2 className="font-bold text-black mb-3 text-sm uppercase">3. Sensitive & Sexual Content</h2>
               <p>
-                TBH is built for respectful connection. <span className="font-bold text-black">Users are completely responsible</span> if they receive or engage with sexual content. We do not proactively monitor private messages, but we will cooperate with legal requests regarding illegal activity.
+                TBH is built for respectful connection. Adult, sexually suggestive, or explicit content sent without consent is strictly prohibited. We reserve the right to immediately suspend or ban accounts that transmit prohibited or unsolicited explicit material.
+              </p>
+            </div>
+
+            {/* --- CHILD SAFETY STANDARDS (CSAE / CSAM) --- */}
+            <div id="child-safety" className="bg-red-50 border border-red-200 rounded-2xl p-6 space-y-3 text-red-950">
+              <h2 className="font-bold text-black mb-1 text-sm uppercase tracking-wide">
+                4. Child Safety & Zero Tolerance for CSAE / CSAM
+              </h2>
+              <p className="text-[14px] leading-relaxed text-red-900">
+                TBH maintains a <span className="font-bold text-black">strict Zero-Tolerance Policy</span> regarding Child Sexual Abuse Material (CSAM) and Child Sexual Exploitation and Abuse (CSAE). Any attempt to produce, solicit, store, or transmit CSAM, or to groom or endanger minors, will result in immediate and permanent account deletion, IP and device bans, and mandatory reporting to the <span className="font-bold text-black">National Center for Missing & Exploited Children (NCMEC)</span> and global law enforcement authorities.
+              </p>
+              <p className="text-[13px] pt-1 font-semibold">
+                Read our full, dedicated standards: <Link href="/safety" className="underline font-bold text-black hover:text-red-700">TBH Child Safety & Protection Policy →</Link>
               </p>
             </div>
 
             <div>
-              <h2 className="font-bold text-black mb-3 text-sm uppercase">4. Account Control & Deletion</h2>
+              <h2 className="font-bold text-black mb-3 text-sm uppercase">5. Account Control & Deletion</h2>
               <p>
                 You are <span className="font-bold text-black">free to log out</span> of your account at any time. To request the complete and permanent deletion of your account and all associated messages and data, visit our <Link href="/account-deletion" className="font-bold text-black underline">Account Deletion page</Link> or email tobehonestlabs@gmail.com.
               </p>
