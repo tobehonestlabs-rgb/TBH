@@ -63,7 +63,7 @@ export default function ImageEditor({
   src,
   onDone,
   onCancel,
-  accentColor = '#ff3f1d',
+  accentColor = '#FFFFFF',
   font = "-apple-system, 'SF Pro Display', BlinkMacSystemFont, sans-serif",
 }: Props) {
   const { t } = useTranslation()
@@ -457,7 +457,9 @@ export default function ImageEditor({
               onClick={applyCrop}
               style={{
                 flex: 1.4, height: '46px', borderRadius: '14px',
-                background: accentColor, border: 'none', color: '#fff',
+                background: accentColor === '#FFFFFF' ? '#FFFFFF' : accentColor,
+                border: 'none',
+                color: accentColor === '#FFFFFF' ? '#000000' : '#fff',
                 fontSize: '14px', fontWeight: 800, cursor: 'pointer', fontFamily: font,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
               }}

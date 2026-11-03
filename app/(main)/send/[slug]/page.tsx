@@ -129,8 +129,8 @@ export default function SendMessagePage() {
   const fingerprintRef = useRef<string | null>(null)
   const phoneTypeRef   = useRef<string | null>(null)
 
-  const themeGradient = 'linear-gradient(180deg, #0D0D0D 45%, #ff431dcb 85%, #ff4a1d 100%)'
-  const accentColor = '#ff3f1d'
+  const themeGradient = 'linear-gradient(180deg, #000000 0%, #09090B 50%, #0D0D0D 100%)'
+  const accentColor = '#FFFFFF'
   const font = "-apple-system, 'SF Pro Display', BlinkMacSystemFont, sans-serif"
 
   const btnPress   = (e: React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement>) =>
@@ -179,8 +179,9 @@ export default function SendMessagePage() {
 
   useEffect(() => {
     if (!slug) return
+    const cleanSlug = decodeURIComponent(slug as string).trim()
     supabaseClient
-      .from('users_table').select('username, pfp').eq('slug', slug).single()
+      .from('users_table').select('username, pfp').eq('slug', cleanSlug).single()
       .then(({ data }) => { if (data) setRecipient(data) })
   }, [slug])
 
@@ -297,11 +298,12 @@ export default function SendMessagePage() {
           {/* Sent card */}
           <div style={{
             width: '100%', maxWidth: '360px',
-            background: 'rgba(35,35,35,0.85)',
+            background: 'rgba(18,18,20,0.85)',
+            border: '1px solid rgba(255,255,255,0.08)',
             backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)',
             borderRadius: '32px', padding: '36px 24px',
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
-            boxShadow: '0 40px 80px rgba(0,0,0,0.5)',
+            boxShadow: '0 40px 80px rgba(0,0,0,0.6)',
             animation: 'fadeUp 0.5s ease',
           }}>
             {recipient?.pfp && (
@@ -358,8 +360,9 @@ export default function SendMessagePage() {
               onMouseDown={btnPress} onMouseUp={btnRelease}
               onTouchStart={btnPress} onTouchEnd={btnRelease}
               style={{
-                width: '100%', padding: '18px', borderRadius: '99px', border: 'none',
-                background: '#0D0D0D', color: 'white', fontSize: '16px', fontWeight: '800',
+                width: '100%', padding: '18px', borderRadius: '99px',
+                border: '1px solid rgba(255,255,255,0.15)',
+                background: 'rgba(255,255,255,0.08)', color: '#FFFFFF', fontSize: '16px', fontWeight: '800',
                 cursor: 'pointer', transition: 'transform 0.12s ease', fontFamily: font,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
               }}
@@ -376,14 +379,15 @@ export default function SendMessagePage() {
               onTouchStart={btnPress} onTouchEnd={btnRelease}
               style={{
                 width: '100%', padding: '18px', borderRadius: '99px', border: 'none',
-                background: accentColor, color: 'white', fontSize: '16px', fontWeight: '800',
+                background: '#FFFFFF', color: '#000000', fontSize: '16px', fontWeight: '800',
                 cursor: 'pointer', transition: 'transform 0.12s ease', fontFamily: font,
+                boxShadow: '0 8px 24px rgba(255,255,255,0.12)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
               }}
             >
               <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
-                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="#000000" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="#000000" strokeWidth="2" strokeLinecap="round"/>
               </svg>
               {t.getMyLink}
             </button>
@@ -428,10 +432,11 @@ export default function SendMessagePage() {
           onSubmit={handleSubmit}
           style={{
             width: '100%', maxWidth: '400px',
-            background: 'rgba(30,30,30,0.85)',
+            background: 'rgba(18,18,20,0.85)',
+            border: '1px solid rgba(255,255,255,0.08)',
             backdropFilter: 'blur(50px)', WebkitBackdropFilter: 'blur(50px)',
             borderRadius: '32px', padding: '24px',
-            boxShadow: '0 32px 100px rgba(0,0,0,0.5)',
+            boxShadow: '0 32px 100px rgba(0,0,0,0.6)',
             display: 'flex', flexDirection: 'column', gap: '20px',
           }}
         >
@@ -549,7 +554,7 @@ export default function SendMessagePage() {
             </button>
           )}
 
-          {error && <p style={{ color: '#ff6b6b', fontSize: '13px', margin: 0 }}>{error}</p>}
+          {error && <p style={{ color: '#F87171', fontSize: '13px', margin: 0 }}>{error}</p>}
         </form>
 
         {/* Send button */}
@@ -564,9 +569,11 @@ export default function SendMessagePage() {
             className={isSubmitting ? 'send-btn-loading' : ''}
             style={{
               width: '100%', padding: '20px', borderRadius: '99px', border: 'none',
-              background: message.trim() ? '#0D0D0D' : 'rgba(255,255,255,0.1)',
-              color: 'white', fontSize: '18px', fontWeight: '800',
-              transition: 'transform 0.12s ease, background 0.2s ease',
+              background: message.trim() ? '#FFFFFF' : 'rgba(255,255,255,0.08)',
+              color: message.trim() ? '#000000' : 'rgba(255,255,255,0.3)',
+              boxShadow: message.trim() ? '0 10px 30px rgba(255,255,255,0.15)' : 'none',
+              fontSize: '18px', fontWeight: '800',
+              transition: 'transform 0.12s ease, background 0.2s ease, box-shadow 0.2s ease, color 0.2s ease',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
               cursor: isSubmitting ? 'not-allowed' : message.trim() ? 'pointer' : 'default',
               fontFamily: font,
@@ -592,7 +599,8 @@ export default function SendMessagePage() {
             onTouchStart={btnPress} onTouchEnd={btnRelease}
             style={{
               padding: '12px 28px', borderRadius: '99px',
-              background: 'rgba(255,255,255,0.1)', border: 'none',
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.12)',
               color: 'white', fontSize: '14px', fontWeight: '700',
               cursor: 'pointer', fontFamily: font, transition: 'transform 0.12s ease',
               display: 'flex', alignItems: 'center', gap: '6px',

@@ -550,8 +550,8 @@ const LandingPage: React.FC = () => {
         .cta-btn {
           position: relative;
           overflow: hidden;
-          background: linear-gradient(135deg, #FF6B6B, #FF431D);
-          border: none;
+          background: #FFFFFF;
+          border: 1px solid rgba(255, 255, 255, 0.15);
           color: #000000;
           padding: 16px 44px;
           border-radius: 40px;
@@ -560,7 +560,7 @@ const LandingPage: React.FC = () => {
           cursor: pointer;
           letter-spacing: 0.2px;
           transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s ease, color 0.4s ease;
-          box-shadow: 0 8px 24px rgba(255, 67, 29, 0.28);
+          box-shadow: 0 8px 24px rgba(255, 255, 255, 0.12);
           z-index: 1;
         }
 
@@ -571,7 +571,7 @@ const LandingPage: React.FC = () => {
           left: 0;
           width: 100%;
           height: 100%;
-          background: #000000;
+          background: #18181B;
           border-radius: 50%;
           transform: translate(var(--x, -50%), var(--y, -50%)) scale(0);
           transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -586,7 +586,7 @@ const LandingPage: React.FC = () => {
         .cta-btn:hover {
           color: #FFFFFF;
           transform: translateY(-2px);
-          box-shadow: 0 12px 32px rgba(255, 67, 29, 0.4);
+          box-shadow: 0 12px 32px rgba(255, 255, 255, 0.22);
         }
 
         .cta-btn:active {
@@ -596,7 +596,7 @@ const LandingPage: React.FC = () => {
         .navbar-inline .cta-btn {
           background: #FFFFFF;
           color: #000000;
-          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+          box-shadow: 0 6px 20px rgba(255, 255, 255, 0.12);
         }
 
         .navbar-inline .cta-btn::before {
@@ -605,7 +605,7 @@ const LandingPage: React.FC = () => {
 
         .navbar-inline .cta-btn:hover {
           color: #FFFFFF;
-          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+          box-shadow: 0 8px 24px rgba(255, 255, 255, 0.25);
         }
 
         /* ─── CONTENEUR PRINCIPAL PLUS RESPIRANT ─── */
@@ -631,11 +631,11 @@ const LandingPage: React.FC = () => {
 
         /* ─── BLOC 1 : HERO ─── */
         .block-1 {
-          background: linear-gradient(145deg, #EBD38F 0%, #FEA05C 35%, #FC554F 70%, #FB673F 100%);
+          background: linear-gradient(180deg, #121215 0%, #09090B 100%);
           min-height: 560px;
           display: flex;
           flex-direction: column;
-          border: none;
+          border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .hero-content {
@@ -755,10 +755,10 @@ const LandingPage: React.FC = () => {
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background: #FF6B6B;
+          background: #FFFFFF;
           margin-right: 16px;
           display: inline-block;
-          box-shadow: 0 0 10px rgba(255, 107, 107, 0.7);
+          box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
         }
 
         @keyframes scroll-ideas {
@@ -775,6 +775,7 @@ const LandingPage: React.FC = () => {
           justify-content: center;
           text-align: center;
           padding: 80px 44px;
+          border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .block-features .feature-text {
@@ -832,7 +833,7 @@ const LandingPage: React.FC = () => {
           align-items: center;
           justify-content: center;
           padding: 0 !important;
-          border: none !important;
+          border: 1px solid rgba(255, 255, 255, 0.08) !important;
           overflow: hidden;
         }
 
@@ -898,7 +899,7 @@ const LandingPage: React.FC = () => {
 
         /* ─── BLOC 4 : BAS DE PAGE AVEC MOCKUP IPHONE MODERNE ─── */
         .block-4 {
-          background: linear-gradient(145deg, #EBD38F 0%, #FEA05C 35%, #FC554F 70%, #FB673F 100%);
+          background: linear-gradient(180deg, #121215 0%, #09090B 100%);
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -906,7 +907,7 @@ const LandingPage: React.FC = () => {
           padding: 68px 36px 60px 36px;
           min-height: 720px;
           gap: 44px;
-          border: none;
+          border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .phone-mockup-wrapper {
@@ -1026,10 +1027,10 @@ const LandingPage: React.FC = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          color: #FF431D;
+          color: #000000;
           font-size: 19px;
           font-weight: 700;
-          background: rgba(255, 67, 29, 0.08);
+          background: rgba(0, 0, 0, 0.06);
           cursor: default;
         }
 
@@ -1043,14 +1044,14 @@ const LandingPage: React.FC = () => {
           width: 32px;
           height: 32px;
           border-radius: 50%;
-          background: linear-gradient(135deg, #FF6B6B, #FF431D);
+          background: #000000;
           display: flex;
           align-items: center;
           justify-content: center;
           color: #FFFFFF;
           font-weight: 800;
           font-size: 12px;
-          box-shadow: 0 2px 8px rgba(255, 67, 29, 0.3);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
         .chat-header .title {
@@ -1119,11 +1120,11 @@ const LandingPage: React.FC = () => {
 
         .message.sent {
           align-self: flex-end;
-          background: linear-gradient(135deg, #FF6B6B, #FF431D);
+          background: #000000;
           color: #FFFFFF;
           border-radius: 20px 20px 6px 20px;
           border: none;
-          box-shadow: 0 4px 14px rgba(255, 67, 29, 0.25);
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
         }
 
         .message .sender {
@@ -1208,7 +1209,7 @@ const LandingPage: React.FC = () => {
         .chat-footer .input-field::placeholder { color: #8E8E93; }
 
         .chat-footer .send-btn {
-          background: linear-gradient(135deg, #FF6B6B, #FF431D);
+          background: #000000;
           border: none;
           border-radius: 50%;
           width: 40px;
@@ -1220,7 +1221,7 @@ const LandingPage: React.FC = () => {
           font-size: 16px;
           cursor: default;
           flex-shrink: 0;
-          box-shadow: 0 4px 12px rgba(255, 67, 29, 0.35);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
 
         /* Barre d'accueil iPhone */
@@ -1239,22 +1240,23 @@ const LandingPage: React.FC = () => {
 
         /* Bouton "Rejoins le fun" */
         .block-4 .cta-btn {
-          background: #0D0D0D;
-          color: #FFFFFF;
+          background: #FFFFFF;
+          color: #000000;
           font-size: 20px;
           padding: 18px 52px;
           border-radius: 40px;
-          border: none;
+          border: 1px solid rgba(255, 255, 255, 0.2);
           cursor: pointer;
           font-weight: 800;
           letter-spacing: 0.3px;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-          transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s ease;
+          box-shadow: 0 10px 30px rgba(255, 255, 255, 0.12);
+          transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s ease, background 0.2s ease, color 0.2s ease;
         }
 
         .block-4 .cta-btn:hover {
           transform: translateY(-3px) scale(1.02);
-          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+          background: #E4E4E7;
+          box-shadow: 0 16px 40px rgba(255, 255, 255, 0.22);
         }
 
         .block-4 .cta-btn:active {
@@ -1337,7 +1339,7 @@ const LandingPage: React.FC = () => {
         }
 
         .footer-links-column a:hover {
-          color: #FF6B6B;
+          color: #FFFFFF;
           transform: translateX(2px);
         }
 

@@ -78,10 +78,11 @@ export async function POST(req: NextRequest) {
     }
 
     // 1) Look up receiverId from slug
+    const cleanSlug = decodeURIComponent(slug.trim())
     const { data: user, error: userError } = await supabaseAdmin
       .from(USERS_TABLE)
       .select('user_id')
-      .eq('slug', slug)
+      .eq('slug', cleanSlug)
       .single()
 
     if (userError || !user) {
