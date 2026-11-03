@@ -23,15 +23,33 @@ export async function POST(req: NextRequest) {
       if (mapping?.user_id) participant_2 = mapping.user_id
     }
 
-    // Return existing conversation or create
+    // Fetch original message content if available
+    let original_message_content: string | null = null
+    if (original_message_id) {
+      const { data: origMsg } = await supabaseAdmin
+        .from('messages')
+        .select('content')
+        .eq('message_id', original_message_id)
+        .single()
+      if (origMsg) original_message_content = origMsg.content ?? null
+    }
+
+    // Check if conversation already exists
     const { data: existing } = await supabaseAdmin
       .from('conversations')
       .select('*')
       .eq('original_message_id', original_message_id)
       .eq('participant_1', user.id)
-      .single()
+      .maybeSingle()
 
-    if (existing) return NextResponse.json({ conversation: existing })
+    if (existing) {
+      return NextResponse.json({
+        conversation: {
+          ...existing,
+          original_message_content: original_message_content || (existing as any).original_message_content || null,
+        },
+      })
+    }
 
     const { data: created, error } = await supabaseAdmin
       .from('conversations')
@@ -45,7 +63,12 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ conversation: created })
+    return NextResponse.json({
+      conversation: {
+        ...created,
+        original_message_content,
+      },
+    })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
@@ -65,7 +88,48 @@ export async function GET(_req: NextRequest) {
       .order('last_message_at', { ascending: false, nullsFirst: false })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ conversations: data ?? [], userId: user.id })
+
+    // If any conversation has original_message_id, fetch those messages' content
+    const convs = data ?? []
+    const origIds = Array.from(new Set(convs.map((c: any) => c.original_message_id).filter(Boolean)))
+    let origMap: Record<string, string> = {}
+    if (origIds.length > 0) {
+      const { data: msgs } = await supabaseAdmin
+        .from('messages')
+        .select('message_id, content')
+        .in('message_id', origIds)
+      if (msgs) {
+        for (const m of msgs) origMap[m.message_id] = m.content ?? ''
+      }
+    }
+
+    // Fetch the last message sender for each conversation to identify who sent the last message
+    let lastSenderMap: Record<string, string> = {}
+    if (convs.length > 0) {
+      const convIds = convs.map((c: any) => c.id)
+      const { data: lastMsgs } = await supabaseAdmin
+        .from('conversation_messages')
+        .select('conversation_id, sender_id, created_at')
+        .in('conversation_id', convIds)
+        .order('created_at', { ascending: false })
+
+      if (lastMsgs) {
+        for (const m of lastMsgs) {
+          if (!lastSenderMap[m.conversation_id]) {
+            lastSenderMap[m.conversation_id] = m.sender_id
+          }
+        }
+      }
+    }
+
+    // attach original_message_content and last_sender_id to each conversation
+    const enriched = convs.map((c: any) => ({
+      ...c,
+      original_message_content: origMap[c.original_message_id] ?? null,
+      last_sender_id: lastSenderMap[c.id] ?? null,
+    }))
+
+    return NextResponse.json({ conversations: enriched, userId: user.id })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

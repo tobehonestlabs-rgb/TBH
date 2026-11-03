@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState, useEffect } from 'react'
+import { useTranslation } from '@/lib/i18n'
 
 type Tool = 'pen' | 'censor' | 'crop'
 
@@ -62,9 +63,10 @@ export default function ImageEditor({
   src,
   onDone,
   onCancel,
-  accentColor = '#ff3f1d',
+  accentColor = '#FFFFFF',
   font = "-apple-system, 'SF Pro Display', BlinkMacSystemFont, sans-serif",
 }: Props) {
+  const { t } = useTranslation()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
 
@@ -344,7 +346,7 @@ export default function ImageEditor({
         </button>
 
         <span style={{ color: '#fff', fontWeight: 700, fontSize: '15px', letterSpacing: '-0.2px' }}>
-          Edit photo
+          {t.editPhotoTitle || 'Edit photo'}
         </span>
 
         <button
@@ -357,7 +359,7 @@ export default function ImageEditor({
             letterSpacing: '-0.1px',
           }}
         >
-          Done
+          {t.doneBtn || 'Done'}
         </button>
       </div>
 
@@ -448,20 +450,22 @@ export default function ImageEditor({
                 fontSize: '14px', fontWeight: 700, cursor: 'pointer', fontFamily: font,
               }}
             >
-              Reset
+              {t.resetBtn || 'Reset'}
             </button>
             <button
               className="ime-btn"
               onClick={applyCrop}
               style={{
                 flex: 1.4, height: '46px', borderRadius: '14px',
-                background: accentColor, border: 'none', color: '#fff',
+                background: accentColor === '#FFFFFF' ? '#FFFFFF' : accentColor,
+                border: 'none',
+                color: accentColor === '#FFFFFF' ? '#000000' : '#fff',
                 fontSize: '14px', fontWeight: 800, cursor: 'pointer', fontFamily: font,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
               }}
             >
               <CheckIcon size={14} />
-              Apply crop
+              {t.applyCropBtn || 'Apply crop'}
             </button>
           </div>
         )}
@@ -535,9 +539,9 @@ export default function ImageEditor({
           gap: '4px',
         }}>
           {([
-            ['pen', PenIcon, 'Draw'],
-            ['censor', CensorIcon, 'Censor'],
-            ['crop', CropIcon, 'Crop'],
+            ['pen', PenIcon, t.drawTool || 'Draw'],
+            ['censor', CensorIcon, t.censorTool || 'Censor'],
+            ['crop', CropIcon, t.cropTool || 'Crop'],
           ] as [Tool, typeof PenIcon, string][]).map(([t, Icon, label]) => {
             const active = tool === t
             return (
@@ -575,7 +579,7 @@ export default function ImageEditor({
           }}
         >
           <UndoIcon size={14} />
-          Undo
+          {t.undoBtn || 'Undo'}
         </button>
       </div>
     </div>

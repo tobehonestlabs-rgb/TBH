@@ -1,5 +1,18 @@
 # TBH
 
+## Payments
+
+Configure these Vercel environment variables:
+
+- `GENIUSPAY_API_KEY`, `GENIUSPAY_API_SECRET`, and `GENIUSPAY_WEBHOOK_SECRET` for GeniusPay.
+- `GlobalPriceAmount` and `GlobalCurrency` for GeniusPay checkout outside Africa.
+- `Africa_Amount` and `Africa_Currency` for GeniusPay checkout in Africa.
+- `NEXT_PUBLIC_APP_URL=https://tbhonest.net`.
+
+Configure GeniusPay's webhook URL as `https://tbhonest.net/api/geniuspay/webhook` and subscribe to `payment.success`. GeniusPay's hosted checkout is a one-time payment; each successful checkout grants 30 days of access, and renewals must currently be initiated again by the customer. Set the amounts and currencies to values accepted by your GeniusPay account. Vercel's country header selects the Africa settings for African visitors; all other or missing country codes use the Global settings.
+
+The Lemon Squeezy checkout has been removed. Its webhook endpoint remains available only to process lifecycle events for existing subscriptions.
+
 
 
 ## Getting started

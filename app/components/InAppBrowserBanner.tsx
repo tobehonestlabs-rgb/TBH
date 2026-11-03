@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslation } from '@/lib/i18n'
 
 type Browser = 'instagram' | 'whatsapp' | 'facebook' | null
 
@@ -40,6 +41,7 @@ function Step({ n, text }: { n: number; text: string }) {
 }
 
 export default function InAppBrowserBanner() {
+  const { t } = useTranslation()
   const [browser, setBrowser] = useState<Browser>(null)
   const [copied, setCopied] = useState(false)
 
@@ -94,24 +96,23 @@ export default function InAppBrowserBanner() {
 
         <div style={{ textAlign: 'center' }}>
           <p style={{ fontSize: '19px', fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>
-            Open in {targetBrowser}
+            {t.openInBrowser ? `${t.openInBrowser} (${targetBrowser})` : `Open in ${targetBrowser}`}
           </p>
           <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', margin: 0, lineHeight: 1.6 }}>
-            {BROWSER_NAMES[browser]}&apos;s browser doesn&apos;t support sign-in.
-            Open this page in {targetBrowser} to continue.
+            {BROWSER_NAMES[browser]} {t.openInBrowserDesc || "doesn't support sign-in. Open this page in external browser to continue."}
           </p>
         </div>
 
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {ios ? (
             <>
-              <Step n={1} text={`Tap ${menuIcon} in the top-right corner`} />
-              <Step n={2} text={`Select "Open in ${targetBrowser}"`} />
+              <Step n={1} text={t.openInBrowserStep1Ios ? t.openInBrowserStep1Ios.replace('{menu}', menuIcon) : `Tap ${menuIcon} in the top-right corner`} />
+              <Step n={2} text={t.openInBrowserStep2Ios || `Select "Open in ${targetBrowser}"`} />
             </>
           ) : (
             <>
-              <Step n={1} text="Tap the menu (⋮) in the top-right corner" />
-              <Step n={2} text={`Select "Open in ${targetBrowser}"`} />
+              <Step n={1} text={t.openInBrowserStep1Android || 'Tap the menu (⋮) in the top-right corner'} />
+              <Step n={2} text={t.openInBrowserStep2Android || `Select "Open in ${targetBrowser}"`} />
             </>
           )}
         </div>
@@ -126,7 +127,7 @@ export default function InAppBrowserBanner() {
             transition: 'all 0.2s ease',
           }}
         >
-          {copied ? 'Link copied!' : 'Copy link to open manually'}
+          {copied ? (t.linkCopied || 'Link copied!') : (t.copyLinkManual || 'Copy link to open manually')}
         </button>
       </div>
     </div>
