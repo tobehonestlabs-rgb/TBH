@@ -68,7 +68,7 @@ export default function AccountDeletionPage() {
                 <li className="flex items-start gap-3">
                   <span className="flex-shrink-0 w-6 h-6 rounded-full bg-black text-white text-xs font-bold flex items-center justify-center mt-0.5">3</span>
                   <span>
-                    State your TBH username or link (<span className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">tbhonest.net/send/yourname</span>) and specify the reason for your departure (this helps us improve TBH).
+                    State your TBH username or link (<span className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">tbht.link/send/yourname</span>) and specify the reason for your departure (this helps us improve TBH).
                   </span>
                 </li>
               </ol>

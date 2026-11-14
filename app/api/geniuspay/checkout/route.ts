@@ -3,7 +3,7 @@ import { getPaymentRequestUser } from '@/lib/paymentRequestUser'
 import { isAfricanCountry } from '@/lib/paymentRegion'
 
 const API_URL = 'https://pay.genius.ci/api/v1/merchant/payments'
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://tbhonest.net'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://tbht.link'
 
 export async function POST(request: NextRequest) {
   const apiKey = process.env.GENIUSPAY_API_KEY

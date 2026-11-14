@@ -134,7 +134,7 @@ export default function AuthPage() {
     setLoading(true)
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `https://tbhonest.net/auth/callback` },
+      options: { redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : `https://tbht.link/auth/callback` },
     })
     if (error) { console.error('Google login error:', error.message); setLoading(false) }
   }
@@ -146,7 +146,7 @@ export default function AuthPage() {
     try {
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
-        options: { shouldCreateUser: true, emailRedirectTo: `https://tbhonest.net/auth/callback` },
+        options: { shouldCreateUser: true, emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : `https://tbht.link/auth/callback` },
       })
       if (error) throw error
       setOtpSent(true)

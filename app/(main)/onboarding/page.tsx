@@ -132,7 +132,7 @@ const handleFinish = async () => {
 
     await supabaseClient.from(SHARE_LINKS_TABLE).insert({
       user_id: user.id,
-      dynamic_link: `tbhonest.net/send/${user_slug}`,
+      dynamic_link: `tbht.link/send/${user_slug}`,
       created_at: now,
     })
 

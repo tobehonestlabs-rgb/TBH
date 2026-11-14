@@ -99,7 +99,7 @@ export default function SettingsPage() {
             <div className="flex-1 min-w-0">
               <p className="text-[18px] font-bold text-white truncate">@{username || '...'}</p>
               {slug && (
-                <p className="text-[12px] text-white/40 truncate mt-0.5">tbhonest.net/send/{slug}</p>
+                <p className="text-[12px] text-white/40 truncate mt-0.5">tbht.link/send/{slug}</p>
               )}
             </div>
             <button

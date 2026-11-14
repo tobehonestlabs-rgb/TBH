@@ -165,7 +165,7 @@ export default function EditProfilePage() {
                 className="mt-2 self-start inline-block px-3 py-1 rounded-full text-[11px] font-semibold text-white/60"
                 style={{ background: 'rgba(255,255,255,0.08)' }}
               >
-                tbhonest.net/send/{username || '...'}
+                tbht.link/send/{username || '...'}
               </div>
             </div>
           </div>

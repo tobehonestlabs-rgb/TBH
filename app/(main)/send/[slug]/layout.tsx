@@ -9,8 +9,8 @@ export async function generateMetadata({
   const slug = resolved?.slug || 'anonyme'
   const title = `Envoie un message anonyme à @${slug} sur TBH`
   const description = `Écris un message anonyme à @${slug}. 100% anonyme, sans inscription requise.`
-  const url = `https://tbhonest.net/send/${slug}`
-  const iconUrl = 'https://tbhonest.net/icons/icon-512.png'
+  const url = `https://tbht.link/send/${slug}`
+  const iconUrl = 'https://tbht.link/icons/icon-512.png'
 
   return {
     title,

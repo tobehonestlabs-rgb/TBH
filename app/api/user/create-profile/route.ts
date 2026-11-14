@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     await supabaseAdmin.from(SHARE_LINKS_TABLE).insert({
       user_id: user.id,
-      dynamic_link: `tbhonest.net/send/${slug.trim()}`,
+      dynamic_link: `tbht.link/send/${slug.trim()}`,
       created_at: now,
     }).then(({ error }) => {
       if (error) console.error('[create-profile] share_links insert error:', error)

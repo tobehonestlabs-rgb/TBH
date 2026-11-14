@@ -432,7 +432,7 @@ async function generateChatShareCard({
       ctx.fillStyle = 'rgba(255, 255, 255, 0.45)'
       ctx.font = '500 24px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
       ctx.textAlign = 'center'
-      ctx.fillText(`tbhonest.net/send/${slug}`, W / 2, curY + btnH + 42)
+      ctx.fillText(`tbht.link/send/${slug}`, W / 2, curY + btnH + 42)
     }
 
     canvas.toBlob((blob) => resolve(blob || new Blob()), 'image/png', 1)
@@ -1441,7 +1441,7 @@ export default function ChatPage({
       })
       const file = new File([blob], 'tbh-chat-card.png', { type: 'image/png' })
       const shareLink = profile?.slug
-        ? `${typeof window !== 'undefined' ? window.location.origin : 'https://tbhonest.net'}/send/${profile.slug}`
+        ? `${typeof window !== 'undefined' ? window.location.origin : 'https://tbht.link'}/send/${profile.slug}`
         : ''
 
       // Copy link to clipboard so user can easily attach it in Snapchat / Stories

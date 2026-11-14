@@ -401,7 +401,7 @@ async function generateShareCard(
     ctx.fillStyle = 'rgba(255,255,255,0.6)'
     ctx.font = '40px -apple-system, BlinkMacSystemFont, sans-serif'
     ctx.textAlign = 'center'
-    ctx.fillText(`tbhonest.net/send/${profile.slug}`, W / 2, linkY + 40)
+    ctx.fillText(`tbht.link/send/${profile.slug}`, W / 2, linkY + 40)
 
     // 11. Arrows below link text
     if (whiteArrows) {
@@ -581,7 +581,7 @@ async function generateShareGif(
     ctx.fillStyle = 'rgba(255,255,255,0.6)'
     ctx.font = '20px -apple-system, BlinkMacSystemFont, sans-serif'
     ctx.textAlign = 'center'
-    ctx.fillText(`tbhonest.net/send/${profile.slug}`, W / 2, linkY + 20)
+    ctx.fillText(`tbht.link/send/${profile.slug}`, W / 2, linkY + 20)
 
     // Arrows
     if (whiteArrows) {
@@ -667,7 +667,7 @@ export default function SharePage({ profile }: Props) {
   }, [profile, promptText, selectedCard, selectedColor])
 
   const shareLink = profile?.slug
-    ? `${typeof window !== 'undefined' ? window.location.origin : 'https://tbhonest.net'}/send/${profile.slug}`
+    ? `${typeof window !== 'undefined' ? window.location.origin : 'https://tbht.link'}/send/${profile.slug}`
     : ''
 
   const pendingPlatformLabel = PLATFORMS.find(p => p.id === pendingPlatform)?.label ?? ''
@@ -1205,7 +1205,7 @@ export default function SharePage({ profile }: Props) {
                           <img src="/assets/arrows.svg" alt="" className="w-9 h-3 object-contain" style={{ filter: 'brightness(0) invert(1) opacity(0.6)' }} />
                         </div>
                         <div className="absolute bottom-3 left-0 right-0 text-center">
-                          <p className="text-white/40" style={{ fontSize: '4.5px' }}>tbhonest.net/send/{profile?.slug}</p>
+                          <p className="text-white/40" style={{ fontSize: '4.5px' }}>tbht.link/send/{profile?.slug}</p>
                         </div>
                         {shareMode === 'gif' && (
                           <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded-md" style={{ background: '#FFD60A' }}>
