@@ -6,6 +6,19 @@ import './landing.css'
 
 const A = '/assets'
 
+// ─── Motion & Decorative Assets ───────────────────────────────────────────────
+const OBJ = {
+  basketball: `${A}/objects/basketball.svg`,
+  paperPlane: `${A}/objects/paper-plane.svg`,
+  can: `${A}/objects/can.svg`,
+  crown: `${A}/objects/crown.svg`,
+  discord: `${A}/objects/discord.svg`,
+  disk: `${A}/objects/disk.svg`,
+  earphones: `${A}/objects/earphones.svg`,
+  snap: `${A}/objects/snap_logo.svg`,
+  whatsapp: `${A}/objects/whatsapp_logo.svg`,
+}
+
 // ─── Prompts Data ─────────────────────────────────────────────────────────────
 const prompts = [
   [
@@ -49,12 +62,12 @@ const faqs = [
   ],
 ]
 
-// ─── Floating People Configuration ────────────────────────────────────────────
+// ─── Floating People Configuration (Fast Loading PNGs) ────────────────────────
 const PEOPLE = [
   {
     id: 'lucie',
     name: 'Lucie',
-    src: `${A}/people/Lucie.svg`,
+    src: `${A}/people/Lucie.png`,
     className: 'person-lucie',
     baseRot: -6,
     animDelay: 0,
@@ -63,7 +76,7 @@ const PEOPLE = [
   {
     id: 'helton',
     name: 'Helton',
-    src: `${A}/people/Helton.svg`,
+    src: `${A}/people/Helton.png`,
     className: 'person-helton',
     baseRot: 5,
     animDelay: 1.2,
@@ -72,7 +85,7 @@ const PEOPLE = [
   {
     id: 'ella',
     name: 'Ella',
-    src: `${A}/people/Ella.svg`,
+    src: `${A}/people/Ella.png`,
     className: 'person-ella',
     baseRot: 7,
     animDelay: 0.6,
@@ -81,7 +94,7 @@ const PEOPLE = [
   {
     id: 'annasthasie',
     name: 'Annasthasie',
-    src: `${A}/people/Annasthasie.svg`,
+    src: `${A}/people/Annasthasie.png`,
     className: 'person-annasthasie',
     baseRot: -5,
     animDelay: 1.8,
@@ -90,7 +103,7 @@ const PEOPLE = [
   {
     id: 'yvhann',
     name: 'Yvhann',
-    src: `${A}/people/Yvhann.svg`,
+    src: `${A}/people/Yvhann.png`,
     className: 'person-yvhann',
     baseRot: 4,
     animDelay: 0.9,
@@ -211,113 +224,6 @@ function DownloadButton({ dark = false }: { dark?: boolean }) {
   )
 }
 
-// ─── High-Fidelity Phone Mockup Component ─────────────────────────────────────
-function Phone({
-  kind,
-  compact = false,
-  className = "",
-}: {
-  kind: "profile" | "inbox"
-  compact?: boolean
-  className?: string
-}) {
-  const profile = kind === "profile"
-  return (
-    <div
-      className={`phone ${profile ? "phone--profile" : "phone--inbox"} ${
-        compact ? "phone--compact" : ""
-      } ${className}`}
-    >
-      <div className="phone-screen">
-        {profile ? (
-          /* Profile Screen Mockup */
-          <div className="mockup-inner">
-            <div className="mockup-header">
-              <span className="mockup-chip">tbh</span>
-              <span style={{ fontSize: '11px', color: '#30D158' }}>● Live</span>
-            </div>
-            <img
-              src="/assets/people/Lucie.svg"
-              alt="Profile"
-              className="mockup-pfp"
-            />
-            <h4 className="mockup-name">Lucie</h4>
-            <p className="mockup-handle">@lucie_tbh</p>
-
-            <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div className="mockup-inbox-item">
-                <div className="mockup-inbox-tag">Question anonyme</div>
-                <div className="mockup-inbox-text">"Avoue tu penses à qui en ce moment ? 👀"</div>
-              </div>
-              <div className="mockup-link-pill">
-                <span style={{ color: '#fff', fontWeight: 600 }}>tbht.link/send/lucie</span>
-                <span style={{ color: '#8e8e93' }}>Partager ↗</span>
-              </div>
-            </div>
-          </div>
-        ) : (
-          /* Inbox Screen Mockup */
-          <div className="mockup-inner">
-            <div className="mockup-header">
-              <span style={{ fontWeight: 800, fontSize: '15px', color: '#fff' }}>Boîte de réception</span>
-              <span className="mockup-chip" style={{ background: '#fff', color: '#0d0d0d', fontWeight: 700 }}>14 nouveaux</span>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
-              <div className="mockup-inbox-item">
-                <div className="mockup-inbox-tag">Il y a 2m · Secret</div>
-                <div className="mockup-inbox-text">"Ton rire illumine littéralement toute la pièce ✨"</div>
-              </div>
-
-              <div className="mockup-inbox-item">
-                <div className="mockup-inbox-tag">Il y a 14m · Flirt</div>
-                <div className="mockup-inbox-text">"J'ai un crush sur toi depuis le début de l'année 🤫"</div>
-              </div>
-
-              <div className="mockup-inbox-item" style={{ opacity: 0.85 }}>
-                <div className="mockup-inbox-tag">Il y a 1h · Question</div>
-                <div className="mockup-inbox-text">"Quelle est ta plus grande peur inavouée ?"</div>
-              </div>
-            </div>
-
-            <div style={{ marginTop: 'auto', padding: '10px 0', textAlign: 'center' }}>
-              <span style={{ fontSize: '11px', color: '#8e8e93' }}>Chatter en direct avec les réponses →</span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Modern Sleek Phone Bezel Frame */}
-      <svg
-        className="phone-frame"
-        viewBox="0 0 320 650"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <rect
-          x="4"
-          y="4"
-          width="312"
-          height="642"
-          rx="44"
-          stroke="url(#frame_stroke)"
-          strokeWidth="6"
-        />
-        {/* Dynamic Island */}
-        <rect x="110" y="16" width="100" height="26" rx="13" fill="#000" />
-        <circle cx="190" cy="29" r="5" fill="#18181b" />
-        <defs>
-          <linearGradient id="frame_stroke" x1="0" y1="0" x2="320" y2="650" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#55555c" />
-            <stop offset="0.5" stopColor="#222226" />
-            <stop offset="1" stopColor="#44444a" />
-          </linearGradient>
-        </defs>
-      </svg>
-    </div>
-  )
-}
-
 function Label({
   children,
   light = false,
@@ -326,20 +232,30 @@ function Label({
   light?: boolean
 }) {
   return (
-    <p className={`eyebrow ${light ? "eyebrow--light" : ""}`}>{children}</p>
+    <p className={`eyebrow ${light ? 'eyebrow--light' : ''}`}>{children}</p>
   )
 }
 
 // ─── Main Landing Page Component ──────────────────────────────────────────────
 export default function LandingPage() {
-  const router = useRouter()
   const [copied, setCopied] = useState(false)
   const [selectedPrompt, setSelectedPrompt] = useState(1)
   const [openFaq, setOpenFaq] = useState(0)
+  const [scrolled, setScrolled] = useState(false)
+
+  // Track scroll position to drop the navbar down gracefully
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 40)
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    handleScroll()
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   const copyLink = async () => {
     try {
-      await navigator.clipboard.writeText("https://tbht.link/send/yourname")
+      await navigator.clipboard.writeText('https://tbht.link/send/yourname')
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1800)
     } catch {
@@ -349,8 +265,8 @@ export default function LandingPage() {
 
   return (
     <main className="landing-main">
-      {/* ── 1. HERO SECTION ──────────────────────────────────────────── */}
-      <section className="hero" id="top">
+      {/* ── Fixed Sticky Navigation (Drops down on scroll) ─────────────── */}
+      <header className={`nav-wrapper ${scrolled ? 'nav-wrapper--scrolled' : ''}`}>
         <nav className="nav shell" aria-label="Main navigation">
           <a href="#top" aria-label="TBH home">
             <img
@@ -367,7 +283,10 @@ export default function LandingPage() {
           </div>
           <DownloadButton />
         </nav>
+      </header>
 
+      {/* ── 1. HERO SECTION ──────────────────────────────────────────── */}
+      <section className="hero" id="top">
         <div className="hero-content shell">
           {/* Floating People Cards in Hero (PC cursor constrained orbit) */}
           <div className="hero-people-layer">
@@ -395,26 +314,38 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="hero-stage" aria-label="TBH app preview">
+          <div className="hero-stage" aria-label="TBH Hero Stage">
             <div className="halo" />
-            <Phone
-              kind="profile"
-              compact
-              className="hero-phone hero-phone--profile"
-            />
-            <Phone
-              kind="inbox"
-              compact
-              className="hero-phone hero-phone--inbox"
-            />
+            
+            {/* Centerpiece honest talk prompt card */}
+            <div className="hero-center-card floating">
+              <div className="hero-card-header">
+                <span className="hero-card-badge">tbh • anonymous</span>
+                <span className="hero-card-status">● Live</span>
+              </div>
+              <p className="hero-card-question">
+                "Tell me something you've never told me before."
+              </p>
+              <div className="hero-card-footer">
+                <span>14 unread honest replies</span>
+                <span className="hero-card-action">Reply ↗</span>
+              </div>
+            </div>
+
+            {/* Motion Assets */}
             <img
               className="basketball hero-ball floating"
-              src={`${A}/basketBall.svg`}
+              src={OBJ.basketball}
               alt=""
             />
             <img
               className="paper-plane hero-plane drifting"
-              src={`${A}/BrokenHeart.svg`}
+              src={OBJ.paperPlane}
+              alt=""
+            />
+            <img
+              className="hero-earphones floating"
+              src={OBJ.earphones}
               alt=""
             />
           </div>
@@ -440,19 +371,19 @@ export default function LandingPage() {
           <div className="steps">
             {[
               [
-                "01",
-                "Put your link out there.",
-                "Get your TBH link and share it in your story, your bio, or a chat.",
+                '01',
+                'Put your link out there.',
+                'Get your TBH link and share it in your story, your bio, or a chat.',
               ],
               [
-                "02",
-                "Let the messages in.",
-                "People open your link and send you an anonymous message. Find their replies in your inbox.",
+                '02',
+                'Let the messages in.',
+                'People open your link and send you an anonymous message. Find their replies in your inbox.',
               ],
               [
-                "03",
-                "Keep the chat going.",
-                "Open a reply and chat. A little curiosity can turn into a real conversation.",
+                '03',
+                'Keep the chat going.',
+                'Open a reply and chat. A little curiosity can turn into a real conversation.',
               ],
             ].map(([number, title, text]) => (
               <article className="step" key={number}>
@@ -485,20 +416,41 @@ export default function LandingPage() {
                 <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
               </svg>
               <span>tbht.link/send/…</span>
-              <small>{copied ? "COPIED ✓" : "YOUR TBH LINK"}</small>
+              <small>{copied ? 'COPIED ✓' : 'YOUR TBH LINK'}</small>
             </button>
             <p className="microcopy">Your story. Your bio. Your group chat.</p>
           </div>
-          <div className="product-stage product-stage--share">
-            <Phone
-              kind="profile"
-              className="feature-phone feature-phone--left"
-            />
-            <img className="metal-can floating" src={`${A}/crown.svg`} alt="" />
-            <div className="product-caption">
-              <span>THE APP / SHARE YOUR LINK</span>
-              <span>01—03</span>
+
+          <div className="stage-share-composition">
+            <div className="share-central-card">
+              <div className="share-card-top">
+                <img src={PEOPLE[0].src} alt="Lucie" className="share-avatar" />
+                <div>
+                  <h4>tbht.link/send/lucie</h4>
+                  <span>Ready for honest thoughts</span>
+                </div>
+              </div>
+              <div className="share-channels">
+                <div className="share-channel-pill">
+                  <img src={OBJ.snap} alt="Snapchat" />
+                  <span>Snap Story</span>
+                </div>
+                <div className="share-channel-pill">
+                  <img src={OBJ.whatsapp} alt="WhatsApp" />
+                  <span>WhatsApp Status</span>
+                </div>
+                <div className="share-channel-pill">
+                  <img src={OBJ.discord} alt="Discord" />
+                  <span>Discord Bio & DM</span>
+                </div>
+              </div>
             </div>
+
+            {/* Motion & Channel Decorative Badges */}
+            <img className="floating-can floating" src={OBJ.can} alt="" />
+            <img className="floating-snap drifting" src={OBJ.snap} alt="" />
+            <img className="floating-whatsapp floating" src={OBJ.whatsapp} alt="" />
+            <img className="floating-discord drifting" src={OBJ.discord} alt="" />
           </div>
         </div>
       </section>
@@ -506,20 +458,39 @@ export default function LandingPage() {
       {/* ── 4. STORY: INBOX ──────────────────────────────────────────── */}
       <section className="story story--inbox">
         <div className="shell story-grid story-grid--reverse">
-          <div className="product-stage product-stage--inbox">
-            <Phone
-              kind="inbox"
-              className="feature-phone feature-phone--right"
-            />
+          <div className="stage-inbox-composition">
+            <div className="inbox-card-stack">
+              <div className="inbox-float-card card-top">
+                <div className="inbox-tag">2m ago • Secret</div>
+                <div className="inbox-text">"Ton rire illumine littéralement toute la pièce ✨"</div>
+                <div className="inbox-reply-btn">Chat anonymously →</div>
+              </div>
+
+              <div className="inbox-float-card card-middle">
+                <div className="inbox-tag">14m ago • Flirt</div>
+                <div className="inbox-text">"J'ai un crush sur toi depuis le début de l'année 🤫"</div>
+                <div className="inbox-reply-btn">Chat anonymously →</div>
+              </div>
+
+              <div className="inbox-float-card card-bottom">
+                <div className="inbox-tag">1h ago • Question</div>
+                <div className="inbox-text">"Quelle est ta plus grande peur inavouée ?"</div>
+                <div className="inbox-reply-btn">Chat anonymously →</div>
+              </div>
+            </div>
+
             <img
-              className="basketball inbox-ball floating"
-              src={`${A}/basketBall.svg`}
+              className="inbox-ball-float floating"
+              src={OBJ.basketball}
               alt=""
             />
-            <div className="product-caption product-caption--dark">
-              <span>THE APP / YOUR REPLIES IN ONE PLACE</span>
-            </div>
+            <img
+              className="inbox-crown-float drifting"
+              src={OBJ.crown}
+              alt=""
+            />
           </div>
+
           <div className="story-copy">
             <Label>02 / A LITTLE MYSTERY IN YOUR INBOX</Label>
             <h2>
@@ -564,8 +535,23 @@ export default function LandingPage() {
               <span>A conversation</span>
             </div>
           </div>
-          <div className="chat-art">
-            <img className="drifting" src={`${A}/BrokenHeart.svg`} alt="" />
+
+          <div className="chat-art-composition">
+            <div className="chat-bubbles-card floating">
+              <div className="chat-bubble chat-bubble--incoming">
+                <span className="bubble-sender">Anonymous</span>
+                <p>"J'avais trop peur de venir te parler en vrai..."</p>
+              </div>
+              <div className="chat-bubble chat-bubble--outgoing">
+                <p>"Fallait pas ! Tu aurais dû venir me voir haha 😅"</p>
+              </div>
+              <div className="chat-bubble chat-bubble--incoming">
+                <p>"Promis la prochaine fois je viens ! 👀"</p>
+              </div>
+            </div>
+
+            <img className="floating-disk rotating" src={OBJ.disk} alt="" />
+            <img className="floating-earphones drifting" src={OBJ.earphones} alt="" />
           </div>
         </div>
       </section>
@@ -591,7 +577,7 @@ export default function LandingPage() {
             {prompts.map(([label, title, foot], index) => (
               <button
                 className={`prompt-card ${
-                  selectedPrompt === index ? "prompt-card--active" : ""
+                  selectedPrompt === index ? 'prompt-card--active' : ''
                 }`}
                 key={label}
                 onClick={() => setSelectedPrompt(index)}
@@ -644,10 +630,10 @@ export default function LandingPage() {
                     onClick={() => setOpenFaq(open ? -1 : index)}
                   >
                     <span>{question}</span>
-                    <i>{open ? "−" : "+"}</i>
+                    <i>{open ? '−' : '+'}</i>
                   </button>
                   <div
-                    className={`faq-answer ${open ? "faq-answer--open" : ""}`}
+                    className={`faq-answer ${open ? 'faq-answer--open' : ''}`}
                   >
                     <p>{answer}</p>
                   </div>
@@ -660,8 +646,8 @@ export default function LandingPage() {
 
       {/* ── 9. DOWNLOAD CTA ──────────────────────────────────────────── */}
       <section className="cta" id="download">
-        <img className="cta-plane drifting" src={`${A}/BrokenHeart.svg`} alt="" />
-        <img className="cta-can floating" src={`${A}/crown.svg`} alt="" />
+        <img className="cta-plane drifting" src={OBJ.paperPlane} alt="" />
+        <img className="cta-can floating" src={OBJ.can} alt="" />
         <Label>YOUR NEXT CONVERSATION STARTS HERE</Label>
         <h2>
           Go on.

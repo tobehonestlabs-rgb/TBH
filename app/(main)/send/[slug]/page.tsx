@@ -34,11 +34,11 @@ const SUGGESTIONS_FR = [
 ]
 
 const SEND_PEOPLE = [
-  { id: 'lucie', src: '/assets/people/Lucie.svg', size: 140, x: 3, y: 12, rot: -8, delay: 0 },
-  { id: 'ella', src: '/assets/people/Ella.svg', size: 130, x: 86, y: 8, rot: 10, delay: 1.2 },
-  { id: 'helton', src: '/assets/people/Helton.svg', size: 145, x: 4, y: 64, rot: 7, delay: 0.8 },
-  { id: 'annasthasie', src: '/assets/people/Annasthasie.svg', size: 135, x: 84, y: 58, rot: -7, delay: 1.6 },
-  { id: 'yvhann', src: '/assets/people/Yvhann.svg', size: 125, x: 48, y: 88, rot: 4, delay: 2.2 },
+  { id: 'lucie', src: '/assets/people/Lucie.png', size: 140, x: 3, y: 12, rot: -8, delay: 0 },
+  { id: 'ella', src: '/assets/people/Ella.png', size: 130, x: 86, y: 8, rot: 10, delay: 1.2 },
+  { id: 'helton', src: '/assets/people/Helton.png', size: 145, x: 4, y: 64, rot: 7, delay: 0.8 },
+  { id: 'annasthasie', src: '/assets/people/Annasthasie.png', size: 135, x: 84, y: 58, rot: -7, delay: 1.6 },
+  { id: 'yvhann', src: '/assets/people/Yvhann.png', size: 125, x: 48, y: 88, rot: 4, delay: 2.2 },
 ]
 
 const GLOBAL_STYLES = `
