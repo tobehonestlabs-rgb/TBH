@@ -33,15 +33,12 @@ const SUGGESTIONS_FR = [
   "Je pourrais te parler pendant des heures",
 ]
 
-const FLOATING_EMOJIS = [
-  { src: '/assets/poop.svg',    size: 90,  x: 5,  y: 8,  rot: -15, dur: 7.2, delay: 0   },
-  { src: '/assets/hot.svg',     size: 110, x: 75, y: 5,  rot: 12,  dur: 8.5, delay: 1.2 },
-  { src: '/assets/nerd.svg',    size: 85,  x: 85, y: 35, rot: -8,  dur: 6.8, delay: 0.5 },
-  { src: '/assets/Deamon.svg',  size: 120, x: 3,  y: 52, rot: 18,  dur: 9.1, delay: 2.1 },
-  { src: '/assets/Excited.svg', size: 95,  x: 78, y: 65, rot: -20, dur: 7.6, delay: 0.8 },
-  { src: '/assets/Skull.svg',   size: 80,  x: 12, y: 78, rot: 10,  dur: 8.0, delay: 1.7 },
-  { src: '/assets/hot.svg',     size: 70,  x: 58, y: 88, rot: -12, dur: 6.5, delay: 3.0 },
-  { src: '/assets/poop.svg',    size: 75,  x: 42, y: 2,  rot: 22,  dur: 7.9, delay: 2.5 },
+const SEND_PEOPLE = [
+  { id: 'lucie', src: '/assets/people/Lucie.svg', size: 140, x: 3, y: 12, rot: -8, delay: 0 },
+  { id: 'ella', src: '/assets/people/Ella.svg', size: 130, x: 86, y: 8, rot: 10, delay: 1.2 },
+  { id: 'helton', src: '/assets/people/Helton.svg', size: 145, x: 4, y: 64, rot: 7, delay: 0.8 },
+  { id: 'annasthasie', src: '/assets/people/Annasthasie.svg', size: 135, x: 84, y: 58, rot: -7, delay: 1.6 },
+  { id: 'yvhann', src: '/assets/people/Yvhann.svg', size: 125, x: 48, y: 88, rot: 4, delay: 2.2 },
 ]
 
 const GLOBAL_STYLES = `
@@ -65,9 +62,10 @@ const GLOBAL_STYLES = `
     animation: send-shimmer 1.4s linear infinite !important;
   }
   @keyframes floaty {
-    0%, 100% { transform: translateY(0px);   }
-    50%       { transform: translateY(-18px); }
+    0%, 100% { transform: translateY(0px) rotate(var(--rot, 0deg));   }
+    50%       { transform: translateY(-16px) rotate(calc(var(--rot, 0deg) + 2deg)); }
   }
+  .floating-person { animation: floaty 6s ease-in-out infinite; will-change: transform; }
   @keyframes fadeUp {
     from { opacity: 0; transform: translateY(30px); }
     to   { opacity: 1; transform: translateY(0);    }
@@ -291,6 +289,31 @@ export default function SendMessagePage() {
       }}>
         <style>{GLOBAL_STYLES}</style>
 
+        {/* Floating People in Background */}
+        <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, overflow: 'hidden' }}>
+          {SEND_PEOPLE.map(p => (
+            <div
+              key={p.id}
+              className="floating-person"
+              style={{
+                position: 'absolute',
+                left: `${p.x}%`,
+                top: `${p.y}%`,
+                width: `${p.size}px`,
+                height: `${Math.round((p.size * 330) / 239)}px`,
+                borderRadius: '16px',
+                opacity: 0.32,
+                filter: 'drop-shadow(0 16px 32px rgba(0,0,0,0.5))',
+                transform: `rotate(${p.rot}deg)`,
+                animationDelay: `${p.delay}s`,
+                ['--rot' as any]: `${p.rot}deg`,
+              }}
+            >
+              <img src={p.src} alt="" style={{ width: '100%', height: '100%', borderRadius: '16px', display: 'block' }} />
+            </div>
+          ))}
+        </div>
+
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', width: '100%' }}>
 
           <img src="/assets/TBH_Title_Logo.svg" alt="TBH" style={{ height: '48px', filter: 'invert(1)' }} />
@@ -417,6 +440,31 @@ export default function SendMessagePage() {
     }}>
       <InAppBrowserBanner />
       <style>{GLOBAL_STYLES}</style>
+
+      {/* Floating People in Background */}
+      <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, overflow: 'hidden' }}>
+        {SEND_PEOPLE.map(p => (
+          <div
+            key={p.id}
+            className="floating-person"
+            style={{
+              position: 'absolute',
+              left: `${p.x}%`,
+              top: `${p.y}%`,
+              width: `${p.size}px`,
+              height: `${Math.round((p.size * 330) / 239)}px`,
+              borderRadius: '16px',
+              opacity: 0.32,
+              filter: 'drop-shadow(0 16px 32px rgba(0,0,0,0.5))',
+              transform: `rotate(${p.rot}deg)`,
+              animationDelay: `${p.delay}s`,
+              ['--rot' as any]: `${p.rot}deg`,
+            }}
+          >
+            <img src={p.src} alt="" style={{ width: '100%', height: '100%', borderRadius: '16px', display: 'block' }} />
+          </div>
+        ))}
+      </div>
 
       <div style={{ position: 'relative', zIndex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
 
