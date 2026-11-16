@@ -56,16 +56,21 @@
 .nav-links { display: flex; gap: 40px; color: #d9d9dd; font-size: 14px; }
 .nav-links a, .footer-links a { transition: opacity .2s ease; }
 .nav-links a:hover, .footer-links a:hover { opacity: .55; }
-.download-button {
-  height: 54px; border: 0; border-radius: 100px; padding: 0 28px;
-  display: inline-flex; align-items: center; gap: 16px;
+
+/* ── Android Logo Button ─────────────────────────────────────────── */
+.android-button {
+  height: 52px; border: 0; border-radius: 100px; padding: 0 24px;
+  display: inline-flex; align-items: center; gap: 12px;
   color: #151517; background: linear-gradient(180deg, #ffffff 0%, #babbbd 100%);
   font-family: 'Inter:Semi Bold', sans-serif; font-size: 15px; font-weight: 600;
   transition: transform .25s ease, box-shadow .25s ease; white-space: nowrap; cursor: pointer;
+  text-decoration: none;
 }
-.download-button:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35); }
-.download-button--dark { color: #fff; background: #151517; }
-.button-arrow { font-family: 'Inter:Regular', sans-serif; font-size: 20px; font-weight: 400; }
+.android-button:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35); }
+.android-button--dark { color: #fff; background: #151517; }
+.android-btn-icon { width: 22px; height: 22px; display: block; object-fit: contain; }
+.android-button--dark .android-btn-icon { filter: invert(1); }
+.button-arrow { font-family: 'Inter:Regular', sans-serif; font-size: 18px; font-weight: 400; }
 
 /* ── Hero ─────────────────────────────────────────────────────────── */
 .hero {
@@ -78,7 +83,7 @@
 }
 
 .hero-content {
-  min-height: 780px;
+  min-height: 800px;
   display: grid;
   grid-template-columns: 1.05fr 1fr;
   align-items: center;
@@ -95,7 +100,7 @@
 
 .hero-stage {
   position: relative;
-  height: 680px;
+  height: 700px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -145,93 +150,40 @@
   pointer-events: none;
 }
 
-/* Default sizes for the 5 people */
-.person-lucie {
+/* Default sizes and positions for the 5 hero figures */
+/* 1. Anna replaces Lucie at top-left */
+.person-anna {
   width: 175px; height: 242px;
-  left: -35px; top: 70px;
+  left: -35px; top: 60px;
 }
+/* 2. Helton at bottom-left */
 .person-helton {
   width: 185px; height: 255px;
-  left: 30px; bottom: 30px;
+  left: 20px; bottom: 40px;
 }
+/* 3. Ella at top-right */
 .person-ella {
   width: 165px; height: 228px;
-  right: -20px; top: 60px;
+  right: -15px; top: 50px;
 }
-.person-annasthasie {
+/* 4. Hollow replaces Ana at middle-right */
+.person-hollow {
   width: 180px; height: 248px;
-  right: -40px; top: 380px;
+  right: -35px; top: 360px;
 }
+/* 5. Yvann prominently at bottom-right */
 .person-yvhann {
-  width: 170px; height: 247px;
-  right: 180px; bottom: -20px;
+  width: 175px; height: 254px;
+  right: 170px; bottom: 20px;
+  display: block;
 }
 
-/* ── Hero Center Stage & Motion Assets ───────────────────────────── */
-.hero-center-card {
-  width: 380px;
-  max-width: 90%;
-  padding: 32px 28px;
-  border-radius: 28px;
-  background: rgba(22, 22, 26, 0.78);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  z-index: 4;
-}
-
-.hero-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.hero-card-badge {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: #a6a6ac;
-}
-
-.hero-card-status {
-  font-size: 12px;
-  font-weight: 600;
-  color: #30D158;
-}
-
-.hero-card-question {
-  font-size: 22px;
-  font-weight: 600;
-  line-height: 1.35;
-  color: #ffffff;
-  letter-spacing: -0.4px;
-}
-
-.hero-card-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 13px;
-  color: #8e8e93;
-}
-
-.hero-card-action {
-  color: #ffffff;
-  font-weight: 600;
-}
-
+/* ── Hero Motion Assets ──────────────────────────────────────────── */
 .hero-ball {
   position: absolute;
   width: 145px;
   height: 145px;
-  right: 15px;
+  right: 40px;
   top: 30px;
   z-index: 6;
   filter: drop-shadow(0 20px 30px rgba(0,0,0,0.4));
@@ -242,8 +194,8 @@
   position: absolute;
   width: 195px;
   height: 195px;
-  left: -20px;
-  bottom: 50px;
+  left: 20px;
+  bottom: 60px;
   z-index: 6;
   filter: drop-shadow(0 20px 35px rgba(0,0,0,0.45));
   pointer-events: none;
@@ -253,8 +205,31 @@
   position: absolute;
   width: 130px;
   height: 130px;
-  right: 45px;
-  bottom: 60px;
+  right: 50px;
+  bottom: 80px;
+  z-index: 6;
+  filter: drop-shadow(0 15px 25px rgba(0,0,0,0.35));
+  pointer-events: none;
+}
+
+.hero-crown {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  left: 140px;
+  top: 40px;
+  z-index: 6;
+  filter: drop-shadow(0 15px 25px rgba(0,0,0,0.35));
+  pointer-events: none;
+}
+
+.hero-disk {
+  position: absolute;
+  width: 135px;
+  height: 135px;
+  left: 50%;
+  top: 45%;
+  transform: translate(-50%, -50%);
   z-index: 6;
   filter: drop-shadow(0 15px 25px rgba(0,0,0,0.35));
   pointer-events: none;
@@ -377,6 +352,7 @@
 .share-channel-pill img {
   width: 24px;
   height: 24px;
+  object-fit: contain;
 }
 
 .floating-can {
@@ -390,7 +366,7 @@
   pointer-events: none;
 }
 
-.floating-snap {
+.floating-instagram {
   position: absolute;
   width: 85px;
   height: 85px;
@@ -401,7 +377,7 @@
   pointer-events: none;
 }
 
-.floating-whatsapp {
+.floating-snap {
   position: absolute;
   width: 80px;
   height: 80px;
@@ -412,7 +388,7 @@
   pointer-events: none;
 }
 
-.floating-discord {
+.floating-whatsapp {
   position: absolute;
   width: 85px;
   height: 85px;
@@ -609,49 +585,12 @@
   pointer-events: none;
 }
 
-/* ── Section: Prompts ─────────────────────────────────────────────── */
-.prompts { padding: 120px 0; background: #ececee; }
-.prompts-intro { display: grid; grid-template-columns: 500px 1fr; gap: 120px; align-items: start; margin-bottom: 56px; }
-.prompts-intro h2 { font-size: 56px; line-height: 1.02; letter-spacing: -2.4px; }
-.prompts-intro p { color: #626267; font-size: 19px; line-height: 1.55; }
-.prompt-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
-.prompt-card {
-  height: 250px; padding: 28px; border-radius: 24px; border: 0;
-  display: flex; flex-direction: column; justify-content: space-between; text-align: left;
-  background: #fbfbfd; color: #151517; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
-  transition: transform .25s ease, box-shadow .25s ease; cursor: pointer;
-}
-.prompt-card:hover { transform: translateY(-4px); box-shadow: 0 16px 36px rgba(0, 0, 0, 0.08); }
-.prompt-card--active { background: #151517; color: #fff; }
-.prompt-card small { font-size: 11px; letter-spacing: 1px; color: #8a8a8e; }
-.prompt-card--active small { color: #9c9ca2; }
-.prompt-card strong { font-family: 'Outfit:Regular', sans-serif; font-size: 24px; line-height: 1.25; font-weight: 400; }
-.prompt-card span { font-size: 13px; color: #8a8a8e; }
-
 /* ── Section: Kindness ────────────────────────────────────────────── */
-.kindness { padding: 40px 0 100px; background: #ececee; }
+.kindness { padding: 90px 0 100px; background: #ececee; }
 .kindness-inner { display: grid; grid-template-columns: 500px 1fr; gap: 120px; align-items: start; }
 .kindness h2 { font-size: 48px; letter-spacing: -2px; }
 .kindness p { color: #626267; font-size: 19px; line-height: 1.6; margin-bottom: 16px; }
 .kindness strong { display: block; font-size: 19px; font-weight: 600; }
-
-/* ── Section: FAQ ─────────────────────────────────────────────────── */
-.faq { padding: 120px 0; background: #ececee; }
-.faq-grid { display: grid; grid-template-columns: 460px 1fr; gap: 100px; align-items: start; }
-.faq-intro h2 { font-size: 56px; line-height: 1.02; letter-spacing: -2.4px; }
-.faq-intro p { color: #626267; font-size: 18px; margin-top: 20px; }
-.faq-list { display: flex; flex-direction: column; }
-.faq-item { border-top: 1px solid #c5c6ca; }
-.faq-item:last-child { border-bottom: 1px solid #c5c6ca; }
-.faq-item button {
-  width: 100%; padding: 28px 0; display: flex; justify-content: space-between; align-items: center;
-  background: none; border: 0; text-align: left; cursor: pointer; color: #151517;
-}
-.faq-item button span { font-family: 'Outfit:Regular', sans-serif; font-size: 26px; }
-.faq-item button i { font-size: 24px; font-style: normal; color: #626267; }
-.faq-answer { max-height: 0; overflow: hidden; transition: max-height .35s ease, opacity .3s ease; opacity: 0; }
-.faq-answer--open { max-height: 220px; opacity: 1; padding-bottom: 28px; }
-.faq-answer p { color: #626267; font-size: 17px; line-height: 1.6; }
 
 /* ── Section: CTA ─────────────────────────────────────────────────── */
 .cta {
@@ -704,8 +643,7 @@ footer { padding: 56px 0; background: #bfc0c4; }
   .hero-stage { height: 580px; }
   .story-grid, .story-grid--reverse, .story-grid--chat { gap: 40px; grid-template-columns: 1fr; text-align: center; }
   .story-copy { align-items: center; }
-  .prompts-intro { grid-template-columns: 1.4fr 1fr; gap: 60px; }
-  .kindness-inner, .faq-grid { gap: 60px; grid-template-columns: 1fr; }
+  .kindness-inner { gap: 60px; grid-template-columns: 1fr; }
 }
 
 @media (max-width: 760px) {
@@ -713,7 +651,7 @@ footer { padding: 56px 0; background: #bfc0c4; }
   .nav { height: 80px; }
   .logo--light { width: 70px; height: auto; }
   .nav-links { display: none; }
-  .nav .download-button { height: 44px; padding: 0 18px; font-size: 13px; }
+  .nav .android-button { height: 44px; padding: 0 16px; font-size: 13px; }
   .hero { padding-top: 80px; }
   .hero-content { display: flex; flex-direction: column; align-items: stretch; padding-top: 30px; height: auto; }
   .hero-copy h1 { font-size: clamp(52px, 15vw, 72px); letter-spacing: -3px; }
@@ -722,21 +660,23 @@ footer { padding: 56px 0; background: #bfc0c4; }
   .hero-stage { width: 100%; height: 500px; margin-top: 20px; }
   
   /* People on mobile */
-  .person-lucie { width: 120px; height: 165px; left: -10px; top: 20px; }
-  .person-helton { width: 130px; height: 175px; left: 10px; bottom: 10px; }
-  .person-ella { width: 115px; height: 158px; right: -10px; top: 20px; }
-  .person-annasthasie { width: 125px; height: 170px; right: -15px; top: 240px; }
-  .person-yvhann { display: none; }
+  .person-anna { width: 110px; height: 152px; left: -10px; top: 20px; }
+  .person-helton { width: 115px; height: 158px; left: 10px; bottom: 20px; }
+  .person-ella { width: 105px; height: 145px; right: -10px; top: 20px; }
+  .person-hollow { width: 110px; height: 150px; right: -15px; top: 230px; }
+  .person-yvhann { width: 110px; height: 155px; right: 80px; bottom: 10px; display: block !important; }
 
-  .hero-ball { width: 90px; height: 90px; right: 0; top: 10px; }
+  .hero-ball { width: 90px; height: 90px; right: 10px; top: 10px; }
   .hero-plane { width: 120px; height: 120px; left: -10px; bottom: 20px; }
   .hero-earphones { width: 85px; height: 85px; right: 10px; bottom: 30px; }
+  .hero-crown { width: 80px; height: 80px; left: 60px; top: 10px; }
+  .hero-disk { width: 90px; height: 90px; }
 
   .promise { height: auto; min-height: 150px; padding: 30px 0; align-items: flex-start; gap: 24px; flex-direction: column; }
   .promise > div { width: 100%; justify-content: space-between; gap: 8px; font-size: 16px; }
   .how { padding: 76px 0; }
   .section-intro { display: flex; flex-direction: column; gap: 24px; }
-  .section-intro h2, .story-copy h2, .story-grid--chat .story-copy h2, .prompts-intro h2, .faq-intro h2 { font-size: 44px; }
+  .section-intro h2, .story-copy h2, .story-grid--chat .story-copy h2 { font-size: 44px; }
   .steps { grid-template-columns: 1fr; gap: 40px; }
   
   .story-grid, .story-grid--reverse, .story-grid--chat { min-height: auto; padding: 70px 0; display: flex; flex-direction: column; gap: 40px; }
@@ -745,7 +685,7 @@ footer { padding: 56px 0; background: #bfc0c4; }
   
   .stage-share-composition { height: 460px; }
   .floating-can { width: 120px; height: 140px; }
-  .floating-snap, .floating-whatsapp, .floating-discord { width: 60px; height: 60px; }
+  .floating-instagram, .floating-snap, .floating-whatsapp { width: 60px; height: 60px; }
 
   .stage-inbox-composition { height: 480px; }
   .inbox-ball-float { width: 100px; height: 100px; }
@@ -755,16 +695,9 @@ footer { padding: 56px 0; background: #bfc0c4; }
   .floating-disk { width: 100px; height: 100px; }
   .floating-earphones { width: 90px; height: 90px; }
 
-  .prompts { padding: 80px 0; }
-  .prompts-intro { display: flex; flex-direction: column; align-items: flex-start; gap: 24px; }
-  .prompt-cards { grid-template-columns: 1fr; }
-  .prompt-card { height: 230px; }
-  .kindness { padding-bottom: 70px; }
+  .kindness { padding: 70px 0; }
   .kindness-inner { display: flex; flex-direction: column; align-items: flex-start; gap: 32px; }
   .kindness h2 { font-size: 40px; }
-  .faq { padding: 80px 0; }
-  .faq-grid { grid-template-columns: 1fr; gap: 56px; }
-  .faq-item button span { font-size: 21px; padding-right: 20px; }
   .cta { height: 560px; padding: 60px 0; }
   .cta h2 { font-size: 52px; letter-spacing: -2.5px; }
   .cta-plane { left: -40px; top: 220px; width: 140px; height: 140px; }

@@ -12,63 +12,23 @@ const OBJ = {
   paperPlane: `${A}/objects/paper-plane.svg`,
   can: `${A}/objects/can.svg`,
   crown: `${A}/objects/crown.svg`,
-  discord: `${A}/objects/discord.svg`,
   disk: `${A}/objects/disk.svg`,
   earphones: `${A}/objects/earphones.svg`,
   snap: `${A}/objects/snap_logo.svg`,
   whatsapp: `${A}/objects/whatsapp_logo.svg`,
+  instagram: `${A}/objects/instagram.svg`,
+  android: `${A}/objects/android.svg`,
+  hollow: `${A}/objects/hollow_yvann.svg`,
 }
 
-// ─── Prompts Data ─────────────────────────────────────────────────────────────
-const prompts = [
-  [
-    'A LITTLE CURIOSITY',
-    'What was your first impression of me?',
-    'Start with a question.',
-  ],
-  [
-    'SOMETHING UNSAID',
-    'Tell me something you’ve never told me.',
-    'Make room for honesty.',
-  ],
-  [
-    'JUST FOR FUN',
-    'Be honest. What’s my most iconic habit?',
-    'Keep it light.',
-  ],
-]
-
-// ─── FAQ Data ─────────────────────────────────────────────────────────────────
-const faqs = [
-  [
-    'What is TBH?',
-    'TBH is an app for sharing an anonymous-message link, receiving replies, and chatting with those replies.',
-  ],
-  [
-    'How do I start receiving messages?',
-    'Get your link in TBH and share it. People can open that link to send you an anonymous message.',
-  ],
-  [
-    'Where can I share my TBH link?',
-    'Try a social bio, a story, or a chat. Share it wherever you want to invite people to message you.',
-  ],
-  [
-    'Where do my replies appear?',
-    'Open the Inbox in TBH to see the replies to your link. Open a message to read it.',
-  ],
-  [
-    'Can I chat with my replies?',
-    'Yes. TBH lets you chat with your replies, so the conversation can continue after the first message.',
-  ],
-]
-
-// ─── Floating People Configuration (Fast Loading PNGs) ────────────────────────
+// ─── Floating People Configuration ────────────────────────────────────────────
+// Anna replaces Lucie at top-left; Hollow replaces Ana at mid-right; Yvann prominently at bottom-right
 const PEOPLE = [
   {
-    id: 'lucie',
-    name: 'Lucie',
-    src: `${A}/people/Lucie.png`,
-    className: 'person-lucie',
+    id: 'anna',
+    name: 'Anna',
+    src: `${A}/people/Annasthasie.png`,
+    className: 'person-anna',
     baseRot: -6,
     animDelay: 0,
     maxRadius: 36,
@@ -92,17 +52,17 @@ const PEOPLE = [
     maxRadius: 38,
   },
   {
-    id: 'annasthasie',
-    name: 'Annasthasie',
-    src: `${A}/people/Annasthasie.png`,
-    className: 'person-annasthasie',
+    id: 'hollow',
+    name: 'Hollow',
+    src: OBJ.hollow,
+    className: 'person-hollow',
     baseRot: -5,
     animDelay: 1.8,
     maxRadius: 35,
   },
   {
     id: 'yvhann',
-    name: 'Yvhann',
+    name: 'Yvann',
     src: `${A}/people/Yvhann.png`,
     className: 'person-yvhann',
     baseRot: 4,
@@ -203,12 +163,12 @@ function FloatingHeroPersonCard({
   )
 }
 
-// ─── Download Button ──────────────────────────────────────────────────────────
-function DownloadButton({ dark = false }: { dark?: boolean }) {
+// ─── Android Button Component ─────────────────────────────────────────────────
+function AndroidButton({ dark = false }: { dark?: boolean }) {
   const router = useRouter()
   return (
     <button
-      className={`download-button ${dark ? 'download-button--dark' : ''}`}
+      className={`android-button ${dark ? 'android-button--dark' : ''}`}
       onClick={() => {
         const el = document.querySelector('#download')
         if (el) {
@@ -217,8 +177,15 @@ function DownloadButton({ dark = false }: { dark?: boolean }) {
           router.push('/sign-up')
         }
       }}
+      aria-label="TBH on Android"
+      title="Download TBH on Android"
     >
-      <span>Download TBH</span>
+      <img
+        src={OBJ.android}
+        alt="Android"
+        className="android-btn-icon"
+      />
+      <span>Android</span>
       <span className="button-arrow">↗</span>
     </button>
   )
@@ -239,8 +206,6 @@ function Label({
 // ─── Main Landing Page Component ──────────────────────────────────────────────
 export default function LandingPage() {
   const [copied, setCopied] = useState(false)
-  const [selectedPrompt, setSelectedPrompt] = useState(1)
-  const [openFaq, setOpenFaq] = useState(0)
   const [scrolled, setScrolled] = useState(false)
 
   // Track scroll position to drop the navbar down gracefully
@@ -279,9 +244,8 @@ export default function LandingPage() {
           <div className="nav-links">
             <a href="#how">How it works</a>
             <a href="#app">The app</a>
-            <a href="#faq">FAQ</a>
           </div>
-          <DownloadButton />
+          <AndroidButton />
         </nav>
       </header>
 
@@ -309,43 +273,38 @@ export default function LandingPage() {
               into a conversation.
             </p>
             <div className="hero-actions">
-              <DownloadButton />
+              <AndroidButton />
               <a href="#how">See how it works ↓</a>
             </div>
           </div>
 
           <div className="hero-stage" aria-label="TBH Hero Stage">
             <div className="halo" />
-            
-            {/* Centerpiece honest talk prompt card */}
-            <div className="hero-center-card floating">
-              <div className="hero-card-header">
-                <span className="hero-card-badge">tbh • anonymous</span>
-                <span className="hero-card-status">● Live</span>
-              </div>
-              <p className="hero-card-question">
-                "Tell me something you've never told me before."
-              </p>
-              <div className="hero-card-footer">
-                <span>14 unread honest replies</span>
-                <span className="hero-card-action">Reply ↗</span>
-              </div>
-            </div>
 
-            {/* Motion Assets */}
+            {/* Motion Decorative Assets in Hero */}
             <img
-              className="basketball hero-ball floating"
+              className="hero-ball floating"
               src={OBJ.basketball}
               alt=""
             />
             <img
-              className="paper-plane hero-plane drifting"
+              className="hero-plane drifting"
               src={OBJ.paperPlane}
               alt=""
             />
             <img
-              className="hero-earphones floating"
+              className="hero-crown floating"
+              src={OBJ.crown}
+              alt=""
+            />
+            <img
+              className="hero-earphones drifting"
               src={OBJ.earphones}
+              alt=""
+            />
+            <img
+              className="hero-disk rotating"
+              src={OBJ.disk}
               alt=""
             />
           </div>
@@ -424,13 +383,17 @@ export default function LandingPage() {
           <div className="stage-share-composition">
             <div className="share-central-card">
               <div className="share-card-top">
-                <img src={PEOPLE[0].src} alt="Lucie" className="share-avatar" />
+                <img src={PEOPLE[0].src} alt="Anna" className="share-avatar" />
                 <div>
-                  <h4>tbht.link/send/lucie</h4>
+                  <h4>tbht.link/send/anna</h4>
                   <span>Ready for honest thoughts</span>
                 </div>
               </div>
               <div className="share-channels">
+                <div className="share-channel-pill">
+                  <img src={OBJ.instagram} alt="Instagram" />
+                  <span>Instagram Story & Bio</span>
+                </div>
                 <div className="share-channel-pill">
                   <img src={OBJ.snap} alt="Snapchat" />
                   <span>Snap Story</span>
@@ -439,18 +402,14 @@ export default function LandingPage() {
                   <img src={OBJ.whatsapp} alt="WhatsApp" />
                   <span>WhatsApp Status</span>
                 </div>
-                <div className="share-channel-pill">
-                  <img src={OBJ.discord} alt="Discord" />
-                  <span>Discord Bio & DM</span>
-                </div>
               </div>
             </div>
 
             {/* Motion & Channel Decorative Badges */}
             <img className="floating-can floating" src={OBJ.can} alt="" />
-            <img className="floating-snap drifting" src={OBJ.snap} alt="" />
-            <img className="floating-whatsapp floating" src={OBJ.whatsapp} alt="" />
-            <img className="floating-discord drifting" src={OBJ.discord} alt="" />
+            <img className="floating-instagram drifting" src={OBJ.instagram} alt="" />
+            <img className="floating-snap floating" src={OBJ.snap} alt="" />
+            <img className="floating-whatsapp drifting" src={OBJ.whatsapp} alt="" />
           </div>
         </div>
       </section>
@@ -556,42 +515,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── 6. PROMPTS CAROUSEL ──────────────────────────────────────── */}
-      <section className="prompts">
-        <div className="shell">
-          <div className="prompts-intro">
-            <div>
-              <Label>GIVE THEM SOMETHING TO TALK ABOUT</Label>
-              <h2>
-                Big feelings.
-                <br />
-                Small icebreakers.
-              </h2>
-            </div>
-            <p>
-              Not sure what to post with your link? Borrow a line. See where it
-              takes you.
-            </p>
-          </div>
-          <div className="prompt-cards">
-            {prompts.map(([label, title, foot], index) => (
-              <button
-                className={`prompt-card ${
-                  selectedPrompt === index ? 'prompt-card--active' : ''
-                }`}
-                key={label}
-                onClick={() => setSelectedPrompt(index)}
-              >
-                <small>{label}</small>
-                <strong>{title}</strong>
-                <span>{foot}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── 7. KINDNESS SECTION ──────────────────────────────────────── */}
+      {/* ── 6. KINDNESS SECTION ──────────────────────────────────────── */}
       <section className="kindness">
         <div className="shell kindness-inner">
           <div>
@@ -608,43 +532,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── 8. FAQ ACCORDION ─────────────────────────────────────────── */}
-      <section className="faq" id="faq">
-        <div className="shell faq-grid">
-          <div className="faq-intro">
-            <Label>GOOD QUESTIONS</Label>
-            <h2>
-              A little
-              <br />
-              more clarity.
-            </h2>
-            <p>The basics, before you send your link into the world.</p>
-          </div>
-          <div className="faq-list">
-            {faqs.map(([question, answer], index) => {
-              const open = openFaq === index
-              return (
-                <article className="faq-item" key={question}>
-                  <button
-                    aria-expanded={open}
-                    onClick={() => setOpenFaq(open ? -1 : index)}
-                  >
-                    <span>{question}</span>
-                    <i>{open ? '−' : '+'}</i>
-                  </button>
-                  <div
-                    className={`faq-answer ${open ? 'faq-answer--open' : ''}`}
-                  >
-                    <p>{answer}</p>
-                  </div>
-                </article>
-              )
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ── 9. DOWNLOAD CTA ──────────────────────────────────────────── */}
+      {/* ── 7. DOWNLOAD CTA ──────────────────────────────────────────── */}
       <section className="cta" id="download">
         <img className="cta-plane drifting" src={OBJ.paperPlane} alt="" />
         <img className="cta-can floating" src={OBJ.can} alt="" />
@@ -655,11 +543,11 @@ export default function LandingPage() {
           Put your link out there.
         </h2>
         <p>Share your anonymous link. See what comes back.</p>
-        <DownloadButton dark />
+        <AndroidButton dark />
         <small>TO BE HONEST, WE’RE CURIOUS TOO.</small>
       </section>
 
-      {/* ── 10. FOOTER ──────────────────────────────────────────────── */}
+      {/* ── 8. FOOTER ──────────────────────────────────────────────── */}
       <footer>
         <div className="shell">
           <div className="footer-main">
@@ -672,11 +560,10 @@ export default function LandingPage() {
                 <small>EXPLORE</small>
                 <a href="#how">How it works</a>
                 <a href="#app">The app</a>
-                <a href="#download">Download TBH</a>
+                <a href="#download">Android App</a>
               </div>
               <div>
                 <small>THE DETAILS</small>
-                <a href="#faq">FAQ</a>
                 <a href="/safety">Privacy policy</a>
                 <a href="/legal">Terms of use</a>
               </div>
