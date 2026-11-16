@@ -18,11 +18,10 @@ const OBJ = {
   whatsapp: `${A}/objects/whatsapp_logo.svg`,
   instagram: `${A}/objects/instagram.svg`,
   android: `${A}/objects/android.svg`,
-  hollow: `${A}/objects/hollow_yvann.svg`,
 }
 
 // ─── Floating People Configuration ────────────────────────────────────────────
-// Anna replaces Lucie at top-left; Hollow replaces Ana at mid-right; Yvann prominently at bottom-right
+// Anna (top-left), Helton (bottom-left), Ella (top-right), Lucie (mid-right), Yvann (bottom-right)
 const PEOPLE = [
   {
     id: 'anna',
@@ -52,10 +51,10 @@ const PEOPLE = [
     maxRadius: 38,
   },
   {
-    id: 'hollow',
-    name: 'Hollow',
-    src: OBJ.hollow,
-    className: 'person-hollow',
+    id: 'lucie',
+    name: 'Lucie',
+    src: `${A}/people/Lucie.png`,
+    className: 'person-lucie',
     baseRot: -5,
     animDelay: 1.8,
     maxRadius: 35,
