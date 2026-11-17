@@ -166,14 +166,15 @@
   width: 165px; height: 228px;
   right: -15px; top: 50px;
 }
-/* 4. Lucie at middle-right */
-.person-lucie {
-  width: 175px; height: 242px;
-  right: -35px; top: 360px;
-}
-/* 5. Yvann prominently at bottom-right */
+/* 4. Yvhann at middle-right (swapped with Lucie) */
 .person-yvhann {
   width: 175px; height: 254px;
+  right: -35px; top: 360px;
+  display: block;
+}
+/* 5. Lucie at bottom-right (swapped with Yvhann) */
+.person-lucie {
+  width: 175px; height: 242px;
   right: 170px; bottom: 20px;
   display: block;
 }
@@ -235,9 +236,45 @@
   pointer-events: none;
 }
 
-.promise { height: 126px; border-top: 1px solid #47474a; display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 10; }
-.promise > p { color: #a6a6ac; font-size: 12px; letter-spacing: 1.5px; }
-.promise > div { display: flex; gap: 48px; font-family: 'Outfit:Regular', sans-serif; font-size: 20px; }
+/* ── Hero Second Title (Positioned between Helton & Lucie) ─── */
+.hero-second-title {
+  height: 140px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  z-index: 15;
+}
+
+.hero-second-title-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hero-second-title-text h2 {
+  font-family: 'Outfit:Regular', sans-serif;
+  font-size: clamp(26px, 2.8vw, 38px);
+  font-weight: 500;
+  letter-spacing: -1.2px;
+  color: #ffffff;
+  margin: 0;
+}
+
+.hero-second-steps {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  font-family: 'Outfit:Regular', sans-serif;
+  font-size: 19px;
+  color: #d9d9dd;
+}
+
+.hero-second-steps i {
+  font-style: normal;
+  color: #696a6d;
+}
 
 /* ── Section: How It Works ────────────────────────────────────────── */
 .section-dark { color: #fff; background: #232325; }
@@ -422,56 +459,92 @@
   z-index: 3;
 }
 
-.inbox-float-card {
+.inbox-chat-card {
   background: #ffffff;
   color: #111113;
-  padding: 22px 24px;
+  padding: 18px 20px;
   border-radius: 22px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
-.inbox-float-card:hover {
+.inbox-chat-card:hover {
   transform: translateY(-4px) scale(1.02);
   box-shadow: 0 24px 50px rgba(0, 0, 0, 0.25);
 }
 
-.inbox-float-card.card-top {
+.inbox-chat-card.card-top {
   transform: rotate(-2deg);
 }
 
-.inbox-float-card.card-middle {
+.inbox-chat-card.card-middle {
   transform: rotate(2deg);
   margin-left: 20px;
 }
 
-.inbox-float-card.card-bottom {
+.inbox-chat-card.card-bottom {
   transform: rotate(-1deg);
 }
 
-.inbox-tag {
-  font-size: 11px;
+.chat-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chat-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.anon-avatar {
+  font-size: 16px;
+}
+
+.anon-name {
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.8px;
+  color: #111113;
+}
+
+.chat-time {
+  font-size: 11px;
+  font-weight: 600;
   color: #8e8e93;
 }
 
-.inbox-text {
-  font-size: 16px;
-  font-weight: 600;
-  line-height: 1.4;
-  color: #0d0d0d;
+.chat-preview-bubbles {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.inbox-reply-btn {
-  font-size: 12px;
-  font-weight: 600;
-  color: #636366;
+.bubble-snippet {
+  padding: 9px 14px;
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 500;
+}
+
+.bubble-snippet.bubble-incoming {
+  align-self: flex-start;
+  background: #f2f2f7;
+  color: #1c1c1e;
+  border-bottom-left-radius: 4px;
+}
+
+.bubble-snippet.bubble-outgoing {
   align-self: flex-end;
+  background: #111113;
+  color: #ffffff;
+  border-bottom-right-radius: 4px;
 }
 
 .inbox-ball-float {
@@ -663,8 +736,8 @@ footer { padding: 56px 0; background: #bfc0c4; }
   .person-anna { width: 110px; height: 152px; left: -10px; top: 20px; }
   .person-helton { width: 115px; height: 158px; left: 10px; bottom: 20px; }
   .person-ella { width: 105px; height: 145px; right: -10px; top: 20px; }
-  .person-lucie { width: 110px; height: 152px; right: -15px; top: 230px; }
-  .person-yvhann { width: 110px; height: 155px; right: 80px; bottom: 10px; display: block !important; }
+  .person-yvhann { width: 110px; height: 155px; right: -15px; top: 230px; display: block !important; }
+  .person-lucie { width: 110px; height: 152px; right: 80px; bottom: 10px; display: block !important; }
 
   .hero-ball { width: 90px; height: 90px; right: 10px; top: 10px; }
   .hero-plane { width: 120px; height: 120px; left: -10px; bottom: 20px; }
@@ -672,8 +745,22 @@ footer { padding: 56px 0; background: #bfc0c4; }
   .hero-crown { width: 80px; height: 80px; left: 60px; top: 10px; }
   .hero-disk { width: 90px; height: 90px; }
 
-  .promise { height: auto; min-height: 150px; padding: 30px 0; align-items: flex-start; gap: 24px; flex-direction: column; }
-  .promise > div { width: 100%; justify-content: space-between; gap: 8px; font-size: 16px; }
+  .hero-second-title {
+    height: auto;
+    padding: 30px 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+  }
+  .hero-second-title-text h2 {
+    font-size: 28px;
+  }
+  .hero-second-steps {
+    width: 100%;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 16px;
+  }
   .how { padding: 76px 0; }
   .section-intro { display: flex; flex-direction: column; gap: 24px; }
   .section-intro h2, .story-copy h2, .story-grid--chat .story-copy h2 { font-size: 44px; }

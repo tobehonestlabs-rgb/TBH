@@ -6,7 +6,7 @@ import './landing.css'
 
 const A = '/assets'
 
-// ─── Motion & Decorative Assets ───────────────────────────────────────────────
+// ─── Motion & Decorative Assets (Exclusively from /assets/objects) ────────────
 const OBJ = {
   basketball: `${A}/objects/basketball.svg`,
   paperPlane: `${A}/objects/paper-plane.svg`,
@@ -20,8 +20,8 @@ const OBJ = {
   android: `${A}/objects/android.svg`,
 }
 
-// ─── Floating People Configuration ────────────────────────────────────────────
-// Anna (top-left), Helton (bottom-left), Ella (top-right), Lucie (mid-right), Yvann (bottom-right)
+// ─── Floating People Configuration (from /assets/people) ──────────────────────
+// Anna (top-left), Helton (bottom-left), Ella (top-right), Yvann (mid-right), Lucie (bottom-right)
 const PEOPLE = [
   {
     id: 'anna',
@@ -51,19 +51,19 @@ const PEOPLE = [
     maxRadius: 38,
   },
   {
-    id: 'lucie',
-    name: 'Lucie',
-    src: `${A}/people/Lucie.png`,
-    className: 'person-lucie',
+    id: 'yvhann',
+    name: 'Yvann',
+    src: `${A}/people/Yvhann.png`,
+    className: 'person-yvhann',
     baseRot: -5,
     animDelay: 1.8,
     maxRadius: 35,
   },
   {
-    id: 'yvhann',
-    name: 'Yvann',
-    src: `${A}/people/Yvhann.png`,
-    className: 'person-yvhann',
+    id: 'lucie',
+    name: 'Lucie',
+    src: `${A}/people/Lucie.png`,
+    className: 'person-lucie',
     baseRot: 4,
     animDelay: 0.9,
     maxRadius: 32,
@@ -309,12 +309,18 @@ export default function LandingPage() {
           </div>
         </div>
 
-        <div className="promise shell">
-          <p>TO BE HONEST, IT STARTS WITH A LINK.</p>
-          <div>
-            <span>01&nbsp;&nbsp; Share</span>
-            <span>02&nbsp;&nbsp; Receive</span>
-            <span>03&nbsp;&nbsp; Chat</span>
+        {/* ── Second Title (Positioned between Helton on left & Lucie on right) ── */}
+        <div className="hero-second-title shell">
+          <div className="hero-second-title-text">
+            <Label light>01 / START THE CONVERSATION</Label>
+            <h2>To be honest, it starts with a link.</h2>
+          </div>
+          <div className="hero-second-steps">
+            <span>01&nbsp;&nbsp;Share</span>
+            <i>→</i>
+            <span>02&nbsp;&nbsp;Receive</span>
+            <i>→</i>
+            <span>03&nbsp;&nbsp;Chat</span>
           </div>
         </div>
       </section>
@@ -413,27 +419,55 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── 4. STORY: INBOX ──────────────────────────────────────────── */}
+      {/* ── 4. STORY: INBOX & CHATS ──────────────────────────────────── */}
       <section className="story story--inbox">
         <div className="shell story-grid story-grid--reverse">
           <div className="stage-inbox-composition">
+            {/* Active Chat Cards Stack */}
             <div className="inbox-card-stack">
-              <div className="inbox-float-card card-top">
-                <div className="inbox-tag">2m ago • Secret</div>
-                <div className="inbox-text">"Ton rire illumine littéralement toute la pièce ✨"</div>
-                <div className="inbox-reply-btn">Chat anonymously →</div>
+              <div className="inbox-chat-card card-top">
+                <div className="chat-card-meta">
+                  <div className="chat-user">
+                    <span className="anon-avatar">🤫</span>
+                    <span className="anon-name">Anonymous</span>
+                  </div>
+                  <span className="chat-time">2m ago</span>
+                </div>
+                <div className="chat-preview-bubbles">
+                  <div className="bubble-snippet bubble-incoming">"I like you since we met"</div>
+                  <div className="bubble-snippet bubble-outgoing">"Ow really? And are we close?"</div>
+                  <div className="bubble-snippet bubble-incoming">"That's a secret 🤭"</div>
+                </div>
               </div>
 
-              <div className="inbox-float-card card-middle">
-                <div className="inbox-tag">14m ago • Flirt</div>
-                <div className="inbox-text">"J'ai un crush sur toi depuis le début de l'année 🤫"</div>
-                <div className="inbox-reply-btn">Chat anonymously →</div>
+              <div className="inbox-chat-card card-middle">
+                <div className="chat-card-meta">
+                  <div className="chat-user">
+                    <span className="anon-avatar">✨</span>
+                    <span className="anon-name">Anonymous</span>
+                  </div>
+                  <span className="chat-time">14m ago</span>
+                </div>
+                <div className="chat-preview-bubbles">
+                  <div className="bubble-snippet bubble-incoming">"You're honestly the most iconic person in class"</div>
+                  <div className="bubble-snippet bubble-outgoing">"Haha wait, do I know you well?"</div>
+                  <div className="bubble-snippet bubble-incoming">"More than you think 👀"</div>
+                </div>
               </div>
 
-              <div className="inbox-float-card card-bottom">
-                <div className="inbox-tag">1h ago • Question</div>
-                <div className="inbox-text">"Quelle est ta plus grande peur inavouée ?"</div>
-                <div className="inbox-reply-btn">Chat anonymously →</div>
+              <div className="inbox-chat-card card-bottom">
+                <div className="chat-card-meta">
+                  <div className="chat-user">
+                    <span className="anon-avatar">🎲</span>
+                    <span className="anon-name">Anonymous</span>
+                  </div>
+                  <span className="chat-time">1h ago</span>
+                </div>
+                <div className="chat-preview-bubbles">
+                  <div className="bubble-snippet bubble-incoming">"Be honest, what's your biggest guilty pleasure?"</div>
+                  <div className="bubble-snippet bubble-outgoing">"Late night matcha and bad rom-coms 🍵"</div>
+                  <div className="bubble-snippet bubble-incoming">"I knew it! 😂"</div>
+                </div>
               </div>
             </div>
 
@@ -457,14 +491,14 @@ export default function LandingPage() {
               just the beginning.
             </h2>
             <p>
-              A question. A compliment. Something they’ve been meaning to say.
-              Open your TBH inbox to see the anonymous replies to your link.
+              A compliment. A confession. Something they’ve been meaning to ask.
+              Open your TBH inbox to see the anonymous chats waiting for you.
             </p>
             <div className="feature-note">
               <span>↳</span>
               <div>
-                <h3>Read it. Then reply.</h3>
-                <p>Go from checking a message to chatting about it.</p>
+                <h3>Read it. Then chat.</h3>
+                <p>Go from receiving a reply to an active anonymous conversation.</p>
               </div>
             </div>
           </div>
@@ -498,13 +532,14 @@ export default function LandingPage() {
             <div className="chat-bubbles-card floating">
               <div className="chat-bubble chat-bubble--incoming">
                 <span className="bubble-sender">Anonymous</span>
-                <p>"J'avais trop peur de venir te parler en vrai..."</p>
+                <p>"I like you since we met"</p>
               </div>
               <div className="chat-bubble chat-bubble--outgoing">
-                <p>"Fallait pas ! Tu aurais dû venir me voir haha 😅"</p>
+                <p>"Ow really? And are we close?"</p>
               </div>
               <div className="chat-bubble chat-bubble--incoming">
-                <p>"Promis la prochaine fois je viens ! 👀"</p>
+                <span className="bubble-sender">Anonymous</span>
+                <p>"That's a secret 🤭"</p>
               </div>
             </div>
 
