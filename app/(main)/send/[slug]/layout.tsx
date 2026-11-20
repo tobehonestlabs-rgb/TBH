@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { headers } from 'next/headers'
 
 export async function generateMetadata({
   params,
@@ -7,8 +8,27 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const resolved = await Promise.resolve(params)
   const slug = resolved?.slug || 'anonyme'
-  const title = `Envoie un message anonyme à @${slug} sur TBH`
-  const description = `Écris un message anonyme à @${slug}. 100% anonyme, sans inscription requise.`
+
+  let isFr = false
+  let isEs = false
+  try {
+    const headerList = await headers()
+    const acceptLang = headerList.get('accept-language')?.toLowerCase() || ''
+    isFr = acceptLang.startsWith('fr') || acceptLang.includes(',fr')
+    isEs = acceptLang.startsWith('es') || acceptLang.includes(',es')
+  } catch {}
+
+  const title = isFr
+    ? `Envoie un message anonyme à @${slug} sur TBH`
+    : isEs
+    ? `Envía un mensaje anónimo a @${slug} en TBH`
+    : `Send an anonymous message to @${slug} on TBH`
+
+  const description = isFr
+    ? `Écris un message anonyme à @${slug}. 100% anonyme, sans inscription requise.`
+    : isEs
+    ? `Escribe un mensaje anónimo a @${slug}. 100% anónimo, sin necesidad de registro.`
+    : `Send an anonymous message to @${slug}. 100% anonymous, no signup required.`
   const url = `https://tbht.link/send/${slug}`
   const iconUrl = 'https://tbht.link/icons/icon-512.png'
 

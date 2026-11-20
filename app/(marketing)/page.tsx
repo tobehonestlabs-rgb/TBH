@@ -16,7 +16,7 @@ const OBJ = {
   earphones: `${A}/objects/earphones.svg`,
   snap: `${A}/objects/snap_logo.svg`,
   whatsapp: `${A}/objects/whatsapp_logo.svg`,
-  instagram: `${A}/objects/instagram.svg`,
+  instagram: `${A}/objects/insta_logo.svg`,
   android: `${A}/objects/android.svg`,
 }
 

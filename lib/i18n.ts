@@ -19,6 +19,8 @@ export type T = {
   sendAnother: string
   delivered: string
   deliveredTo: string
+  deliveredSuffix?: string
+  readyToSend?: string
   peopleReceiving: string
   anonymousMessaging: string
   requestTimeout: string
@@ -237,6 +239,8 @@ const en: T = {
   sendAnother: 'Send another',
   delivered: 'Sent!',
   deliveredTo: 'Your anonymous message to',
+  deliveredSuffix: 'was delivered.',
+  readyToSend: 'Ready to send',
   peopleReceiving: 'people are receiving messages right now',
   anonymousMessaging: 'send anything anonymously',
   requestTimeout: 'Request timed out. Check your connection and try again.',
@@ -453,6 +457,8 @@ const fr: T = {
   sendAnother: 'Envoyer un autre',
   delivered: 'Envoyé !',
   deliveredTo: 'Ton message anonyme à',
+  deliveredSuffix: 'a été envoyé.',
+  readyToSend: 'Prête à envoyer',
   peopleReceiving: 'personnes reçoivent des messages en ce moment',
   anonymousMessaging: 'envoie n\'importe quoi anonymement',
   requestTimeout: 'Délai dépassé. Vérifie ta connexion et réessaie.',
@@ -669,6 +675,8 @@ const es: T = {
   sendAnother: 'Enviar otro',
   delivered: '¡Enviado!',
   deliveredTo: 'Tu mensaje anónimo a',
+  deliveredSuffix: 'fue enviado.',
+  readyToSend: 'Lista para enviar',
   peopleReceiving: 'personas están recibiendo mensajes ahora mismo',
   anonymousMessaging: 'envía lo que quieras de forma anónima',
   requestTimeout: 'Tiempo de espera agotado. Comprueba tu conexión.',
@@ -827,6 +835,8 @@ const pt: T = {
   sendAnother: 'Enviar outro',
   delivered: 'Enviado!',
   deliveredTo: 'Sua mensagem anônima para',
+  deliveredSuffix: 'foi entregue.',
+  readyToSend: 'Pronta para enviar',
   peopleReceiving: 'pessoas estão recebendo mensagens agora',
   anonymousMessaging: 'envie qualquer coisa anonimamente',
   requestTimeout: 'Tempo esgotado. Verifique sua conexão e tente novamente.',
@@ -1928,7 +1938,11 @@ const ko: T = {
   changeGif: 'GIF 변경',
 }
 
-export type SupportedLocale = 'en' | 'fr' | 'es'
+export const SUPPORTED_LOCALES = [
+  'en', 'fr', 'es', 'pt', 'de', 'it', 'ar', 'tr', 'nl', 'ru', 'ja', 'zh', 'ko'
+] as const
+
+export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number]
 
 /** ISO-3166-1 alpha-2 codes of French-speaking countries and territories (including Côte d'Ivoire) */
 export const FRENCH_SPEAKING_COUNTRIES = new Set([
@@ -2022,36 +2036,45 @@ export function isFrenchSpeakingTimezone(tz?: string | null): boolean {
 export function detectUserLocale(): SupportedLocale {
   if (typeof window === 'undefined') return 'en'
 
-  // 1. Explicit user selection stored in localStorage
-  const storedLocale = window.localStorage.getItem('tbh-locale')
-  if (storedLocale === 'fr' || storedLocale === 'es' || storedLocale === 'en') {
+  // 1. Explicit user manual selection stored in localStorage
+  const isManual = window.localStorage.getItem('tbh-locale-manual') === 'true'
+  const storedLocale = window.localStorage.getItem('tbh-locale') as SupportedLocale | null
+  if (isManual && storedLocale && (SUPPORTED_LOCALES as readonly string[]).includes(storedLocale)) {
     return storedLocale
   }
 
-  // 2. Cached country from /api/geo
-  const storedCountry = window.localStorage.getItem('tbh-country')
-  if (storedCountry && isFrenchSpeakingCountry(storedCountry)) {
-    return 'fr'
-  }
-
-  // 3. Instant client-side timezone check (e.g. Africa/Abidjan for Côte d'Ivoire)
-  try {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
-    if (isFrenchSpeakingTimezone(tz)) {
-      return 'fr'
-    }
-  } catch {}
-
-  // 4. Browser language preferences (navigator.languages / navigator.language)
+  // 2. Primary source of truth: Device language preferences (navigator.languages / navigator.language)
   try {
     const langs = window.navigator.languages?.length ? window.navigator.languages : [window.navigator.language]
     for (const l of langs) {
       if (!l) continue
       const lower = l.toLowerCase().replace('_', '-')
-      if (lower.startsWith('fr')) return 'fr'
-      if (lower.startsWith('es')) return 'es'
+      for (const supported of SUPPORTED_LOCALES) {
+        if (lower === supported || lower.startsWith(`${supported}-`)) {
+          return supported
+        }
+      }
       const parts = lower.split('-')
       if (parts[1] && isFrenchSpeakingCountry(parts[1])) return 'fr'
+    }
+  } catch {}
+
+  // 3. Stored locale if set previously
+  if (storedLocale && (SUPPORTED_LOCALES as readonly string[]).includes(storedLocale)) {
+    return storedLocale
+  }
+
+  // 4. Cached country from /api/geo
+  const storedCountry = window.localStorage.getItem('tbh-country')
+  if (storedCountry && isFrenchSpeakingCountry(storedCountry)) {
+    return 'fr'
+  }
+
+  // 5. Instant client-side timezone check (e.g. Africa/Abidjan for Côte d'Ivoire)
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+    if (isFrenchSpeakingTimezone(tz)) {
+      return 'fr'
     }
   } catch {}
 
@@ -2068,6 +2091,18 @@ export function initGeoLocale(): Promise<void> {
     try {
       const userManual = window.localStorage.getItem('tbh-locale-manual')
       if (userManual) return
+
+      // Do not override if device language explicitly matches a supported locale
+      const langs = window.navigator.languages?.length ? window.navigator.languages : [window.navigator.language]
+      for (const l of langs) {
+        if (!l) continue
+        const lower = l.toLowerCase().replace('_', '-')
+        for (const supported of SUPPORTED_LOCALES) {
+          if (lower === supported || lower.startsWith(`${supported}-`)) {
+            return
+          }
+        }
+      }
 
       const res = await fetch('/api/geo').catch(() => null)
       if (!res || !res.ok) return
@@ -2094,8 +2129,9 @@ export function normalizeLocale(value?: string | null): SupportedLocale {
   if (!value) return detectUserLocale()
   const raw = value.toLowerCase().replace('_', '-')
 
-  if (raw.startsWith('fr')) return 'fr'
-  if (raw.startsWith('es')) return 'es'
+  for (const supported of SUPPORTED_LOCALES) {
+    if (raw === supported || raw.startsWith(`${supported}-`)) return supported
+  }
 
   const parts = raw.split('-')
   if (parts[1] && isFrenchSpeakingCountry(parts[1])) return 'fr'
@@ -2106,8 +2142,9 @@ export function normalizeLocale(value?: string | null): SupportedLocale {
 
 export function getStoredLocale(): SupportedLocale {
   if (typeof window === 'undefined') return 'en'
-  const stored = window.localStorage.getItem('tbh-locale')
-  if (stored === 'fr' || stored === 'es' || stored === 'en') return stored
+  const isManual = window.localStorage.getItem('tbh-locale-manual') === 'true'
+  const stored = window.localStorage.getItem('tbh-locale') as SupportedLocale | null
+  if (isManual && stored && (SUPPORTED_LOCALES as readonly string[]).includes(stored)) return stored
   return detectUserLocale()
 }
 
@@ -2120,9 +2157,21 @@ export function setStoredLocale(locale: SupportedLocale) {
 
 export function getT(locale?: string | null): T {
   const target = normalizeLocale(locale ?? getStoredLocale())
-  if (target === 'fr') return fr
-  if (target === 'es') return es
-  return en
+  switch (target) {
+    case 'fr': return fr
+    case 'es': return es
+    case 'pt': return pt
+    case 'de': return de
+    case 'it': return it
+    case 'ar': return ar
+    case 'tr': return tr
+    case 'nl': return nl
+    case 'ru': return ru
+    case 'ja': return ja
+    case 'zh': return zh
+    case 'ko': return ko
+    default:   return en
+  }
 }
 
 export function useTranslation() {

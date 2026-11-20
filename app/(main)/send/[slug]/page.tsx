@@ -7,39 +7,80 @@ import InAppBrowserBanner from '@/app/components/InAppBrowserBanner'
 import ImageEditor from '@/app/components/ImageEditor'
 import { getStoredLocale, getT, useTranslation, type T } from '@/lib/i18n'
 
-const SUGGESTIONS = [
-  "You deserve a kiss 😘",
-  "I really like you",
-  "You're someone special, you know",
-  "I love the way you speak",
-  "You make my day better just by existing ✨",
-  "There's something about you I can't get out of my head",
-  "You're way more beautiful than you think 🌹",
-  "I wish I could tell you this in person",
-  "You have no idea how much you mean to me 💫",
-  "I could talk to you forever and never get tired",
-]
-
-const SUGGESTIONS_FR = [
-  "Tu mérites un bisou 😘",
-  "Je t'aime vraiment bien",
-  "Tu es quelqu'un de spécial pour moi",
-  "J'adore ta façon de parler",
-  "Tu illumines ma journée juste en existant ✨",
-  "Impossible de te sortir de ma tête",
-  "Tu es tellement plus beau/belle que tu ne le penses 🌹",
-  "J'aimerais pouvoir te le dire en vrai",
-  "Tu n'imagines pas à quel point tu comptes pour moi 💫",
-  "Je pourrais te parler pendant des heures",
-]
-
-const SEND_PEOPLE = [
-  { id: 'lucie', src: '/assets/people/Lucie.png', size: 140, x: 3, y: 12, rot: -8, delay: 0 },
-  { id: 'ella', src: '/assets/people/Ella.png', size: 130, x: 86, y: 8, rot: 10, delay: 1.2 },
-  { id: 'helton', src: '/assets/people/Helton.png', size: 145, x: 4, y: 64, rot: 7, delay: 0.8 },
-  { id: 'annasthasie', src: '/assets/people/Annasthasie.png', size: 135, x: 84, y: 58, rot: -7, delay: 1.6 },
-  { id: 'yvhann', src: '/assets/people/Yvhann.png', size: 125, x: 48, y: 88, rot: 4, delay: 2.2 },
-]
+const SUGGESTIONS_MAP: Record<string, string[]> = {
+  fr: [
+    "Tu mérites un bisou 😘",
+    "Je t'aime vraiment bien",
+    "Tu es quelqu'un de spécial pour moi",
+    "J'adore ta façon de parler",
+    "Tu illumines ma journée juste en existant ✨",
+    "Impossible de te sortir de ma tête",
+    "Tu es tellement plus beau/belle que tu ne le penses 🌹",
+    "J'aimerais pouvoir te le dire en vrai",
+    "Tu n'imagines pas à quel point tu comptes pour moi 💫",
+    "Je pourrais te parler pendant des heures",
+  ],
+  es: [
+    "Te mereces un beso 😘",
+    "Me gustas de verdad",
+    "Eres alguien especial para mí",
+    "Me encanta tu forma de hablar",
+    "Haces que mi día sea mejor solo por existir ✨",
+    "No puedo sacarte de mi cabeza",
+    "Eres mucho más increíble de lo que crees 🌹",
+    "Ojalá pudiera decírtelo en persona",
+    "No te imaginas lo mucho que importas para mí 💫",
+    "Podría hablar contigo durante horas",
+  ],
+  pt: [
+    "Você merece um beijo 😘",
+    "Eu gosto muito de você",
+    "Você é alguém muito especial para mim",
+    "Adoro o jeito que você fala",
+    "Você melhora o meu dia só por existir ✨",
+    "Não consigo tirar você da minha cabeça",
+    "Você é muito mais incrível do que pensa 🌹",
+    "Queria poder te dizer isso pessoalmente",
+    "Você não tem ideia do quanto importa para mim 💫",
+    "Poderia conversar com você por horas",
+  ],
+  de: [
+    "Du verdienst einen Kuss 😘",
+    "Ich mag dich wirklich sehr",
+    "Du bist etwas ganz Besonderes für mich",
+    "Ich liebe die Art, wie du sprichst",
+    "Du machst meinen Tag besser, einfach indem du da bist ✨",
+    "Ich kriege dich nicht mehr aus dem Kopf",
+    "Du bist so viel schöner als du denkst 🌹",
+    "Ich wünschte, ich könnte dir das persönlich sagen",
+    "Du hast keine Ahnung, wie viel du mir bedeutest 💫",
+    "Ich könnte stundenlang mit dir reden",
+  ],
+  it: [
+    "Ti meriti un bacio 😘",
+    "Mi piaci davvero tanto",
+    "Sei una persona speciale per me",
+    "Adoro il modo in cui parli",
+    "Rendi la mia giornata migliore solo esistendo ✨",
+    "Non riesco a toglierti dalla testa",
+    "Sei molto più bello/a di quanto pensi 🌹",
+    "Vorrei potertelo dire di persona",
+    "Non hai idea di quanto vali per me 💫",
+    "Potrei parlare con te per ore",
+  ],
+  en: [
+    "You deserve a kiss 😘",
+    "I really like you",
+    "You're someone special, you know",
+    "I love the way you speak",
+    "You make my day better just by existing ✨",
+    "There's something about you I can't get out of my head",
+    "You're way more beautiful than you think 🌹",
+    "I wish I could tell you this in person",
+    "You have no idea how much you mean to me 💫",
+    "I could talk to you forever and never get tired",
+  ],
+}
 
 const GLOBAL_STYLES = `
   .ios-arc {
@@ -61,22 +102,27 @@ const GLOBAL_STYLES = `
     background-size: 200% auto !important;
     animation: send-shimmer 1.4s linear infinite !important;
   }
-  @keyframes floaty {
-    0%, 100% { transform: translateY(0px) rotate(var(--rot, 0deg));   }
-    50%       { transform: translateY(-16px) rotate(calc(var(--rot, 0deg) + 2deg)); }
-  }
-  .floating-person { animation: floaty 6s ease-in-out infinite; will-change: transform; }
   @keyframes fadeUp {
     from { opacity: 0; transform: translateY(30px); }
     to   { opacity: 1; transform: translateY(0);    }
   }
-  @keyframes liftdance {
-    0%   { transform: translateY(0px)   rotate(0deg);   }
-    8%   { transform: translateY(-10px) rotate(-2deg);  }
-    16%  { transform: translateY(-10px) rotate(2deg);   }
-    24%  { transform: translateY(-10px) rotate(-2deg);  }
-    32%  { transform: translateY(0px)   rotate(0deg);   }
-    100% { transform: translateY(0px)   rotate(0deg);   }
+  @keyframes rotationDance {
+    0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+    5%       { transform: translateY(-4px) rotate(-6deg) scale(1.04); }
+    10%      { transform: translateY(-6px) rotate(6deg) scale(1.04); }
+    15%      { transform: translateY(-4px) rotate(-5deg) scale(1.03); }
+    20%      { transform: translateY(-2px) rotate(5deg) scale(1.03); }
+    25%      { transform: translateY(0) rotate(-2deg) scale(1.01); }
+    30%      { transform: translateY(0) rotate(0deg) scale(1); }
+  }
+  .rotation-dance {
+    animation: rotationDance 2.6s ease-in-out infinite;
+    transform-origin: center center;
+    will-change: transform;
+  }
+  .rotation-dance:active {
+    animation: none;
+    transform: scale(0.96) !important;
   }
   @keyframes countpop {
     0%   { transform: scale(1);    opacity: 1; }
@@ -85,7 +131,6 @@ const GLOBAL_STYLES = `
     60%  { transform: scale(1.08); opacity: 1; }
     100% { transform: scale(1);    opacity: 1; }
   }
-  .liftdance { animation: liftdance 3s ease-in-out infinite; }
   .countpop  { animation: countpop 0.5s ease forwards; }
   textarea::placeholder { color: rgba(255,255,255,0.2); }
   * { -webkit-tap-highlight-color: transparent; }
@@ -101,7 +146,7 @@ export default function SendMessagePage() {
   const router = useRouter()
 
   const { t, locale } = useTranslation()
-  const suggestions = locale === 'fr' ? SUGGESTIONS_FR : SUGGESTIONS
+  const suggestions = SUGGESTIONS_MAP[locale] || SUGGESTIONS_MAP.en
   const [recipient, setRecipient] = useState<RecipientProfile | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -289,31 +334,6 @@ export default function SendMessagePage() {
       }}>
         <style>{GLOBAL_STYLES}</style>
 
-        {/* Floating People in Background */}
-        <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, overflow: 'hidden' }}>
-          {SEND_PEOPLE.map(p => (
-            <div
-              key={p.id}
-              className="floating-person"
-              style={{
-                position: 'absolute',
-                left: `${p.x}%`,
-                top: `${p.y}%`,
-                width: `${p.size}px`,
-                height: `${Math.round((p.size * 330) / 239)}px`,
-                borderRadius: '16px',
-                opacity: 0.32,
-                filter: 'drop-shadow(0 16px 32px rgba(0,0,0,0.5))',
-                transform: `rotate(${p.rot}deg)`,
-                animationDelay: `${p.delay}s`,
-                ['--rot' as any]: `${p.rot}deg`,
-              }}
-            >
-              <img src={p.src} alt="" style={{ width: '100%', height: '100%', borderRadius: '16px', display: 'block' }} />
-            </div>
-          ))}
-        </div>
-
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', width: '100%' }}>
 
           <img src="/assets/TBH_Title_Logo.svg" alt="TBH" style={{ height: '48px', filter: 'invert(1)' }} />
@@ -339,7 +359,7 @@ export default function SendMessagePage() {
             <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', textAlign: 'center', margin: 0 }}>
               {t.deliveredTo}{' '}
               <span style={{ color: accentColor, fontWeight: '700' }}>@{recipient?.username ?? slug}</span>{' '}
-              {locale === 'fr' ? 'a été envoyé.' : 'was delivered.'}
+              {t.deliveredSuffix || (locale === 'fr' ? 'a été envoyé.' : 'was delivered.')}
             </p>
 
             {/* Live count */}
@@ -400,14 +420,22 @@ export default function SendMessagePage() {
               onClick={() => router.push('/')}
               onMouseDown={btnPress} onMouseUp={btnRelease}
               onTouchStart={btnPress} onTouchEnd={btnRelease}
+              className="rotation-dance"
               style={{
                 width: '100%', padding: '18px', borderRadius: '99px', border: 'none',
                 background: '#FFFFFF', color: '#000000', fontSize: '16px', fontWeight: '800',
-                cursor: 'pointer', transition: 'transform 0.12s ease', fontFamily: font,
-                boxShadow: '0 8px 24px rgba(255,255,255,0.12)',
+                cursor: 'pointer', fontFamily: font,
+                boxShadow: '0 8px 30px rgba(255,255,255,0.25)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
               }}
             >
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="#000000" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="#000000" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+              {t.getMyLink}
+            </button>
+          </div>
               <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
                 <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="#000000" strokeWidth="2" strokeLinecap="round"/>
                 <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="#000000" strokeWidth="2" strokeLinecap="round"/>
@@ -440,31 +468,6 @@ export default function SendMessagePage() {
     }}>
       <InAppBrowserBanner />
       <style>{GLOBAL_STYLES}</style>
-
-      {/* Floating People in Background */}
-      <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, overflow: 'hidden' }}>
-        {SEND_PEOPLE.map(p => (
-          <div
-            key={p.id}
-            className="floating-person"
-            style={{
-              position: 'absolute',
-              left: `${p.x}%`,
-              top: `${p.y}%`,
-              width: `${p.size}px`,
-              height: `${Math.round((p.size * 330) / 239)}px`,
-              borderRadius: '16px',
-              opacity: 0.32,
-              filter: 'drop-shadow(0 16px 32px rgba(0,0,0,0.5))',
-              transform: `rotate(${p.rot}deg)`,
-              animationDelay: `${p.delay}s`,
-              ['--rot' as any]: `${p.rot}deg`,
-            }}
-          >
-            <img src={p.src} alt="" style={{ width: '100%', height: '100%', borderRadius: '16px', display: 'block' }} />
-          </div>
-        ))}
-      </div>
 
       <div style={{ position: 'relative', zIndex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
 
@@ -553,7 +556,7 @@ export default function SendMessagePage() {
               </div>
               <div style={{ flex: 1 }}>
                 <p style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>{t.photo || 'Photo'}</p>
-                <p style={{ margin: 0, fontSize: '11px', color: 'rgba(255,255,255,0.3)', marginTop: '2px' }}>{locale === 'fr' ? 'Prête à envoyer' : 'Ready to send'}</p>
+                <p style={{ margin: 0, fontSize: '11px', color: 'rgba(255,255,255,0.3)', marginTop: '2px' }}>{t.readyToSend || (locale === 'fr' ? 'Prête à envoyer' : 'Ready to send')}</p>
               </div>
               <button
                 type="button"
@@ -633,32 +636,6 @@ export default function SendMessagePage() {
                 <span style={{ fontSize: '16px', fontWeight: '700', opacity: 0.9 }}>{t.sending}</span>
               </>
             ) : t.sendAnonymously}
-          </button>
-        </div>
-
-        {/* CTA */}
-        <div style={{ marginTop: '32px', textAlign: 'center' }}>
-          <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.35)', margin: '0 0 10px' }}>
-            {t.wantLink}
-          </p>
-          <button
-            onClick={() => router.push('/')}
-            onMouseDown={btnPress} onMouseUp={btnRelease}
-            onTouchStart={btnPress} onTouchEnd={btnRelease}
-            style={{
-              padding: '12px 28px', borderRadius: '99px',
-              background: 'rgba(255,255,255,0.08)',
-              border: '1px solid rgba(255,255,255,0.12)',
-              color: 'white', fontSize: '14px', fontWeight: '700',
-              cursor: 'pointer', fontFamily: font, transition: 'transform 0.12s ease',
-              display: 'flex', alignItems: 'center', gap: '6px',
-            }}
-          >
-            <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-            {t.getMyLink}
           </button>
         </div>
 
