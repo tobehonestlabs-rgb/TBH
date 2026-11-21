@@ -9,8 +9,60 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { original_message_id, sender_ip } = await req.json()
-    if (!original_message_id) return NextResponse.json({ error: 'Missing original_message_id' }, { status: 400 })
+    const body = await req.json().catch(() => ({}))
+    const { original_message_id, sender_ip, target_user_id, target_slug } = body
+
+    // 1. Direct conversation initiation via target_user_id or target_slug
+    let resolvedTargetId = target_user_id as string | undefined
+    if (!resolvedTargetId && target_slug) {
+      const { data: targetProfile } = await supabaseAdmin
+        .from('users_table')
+        .select('user_id')
+        .eq('slug', (target_slug as string).trim())
+        .maybeSingle()
+      if (targetProfile?.user_id) {
+        resolvedTargetId = targetProfile.user_id
+      }
+    }
+
+    if (resolvedTargetId) {
+      if (resolvedTargetId === user.id) {
+        return NextResponse.json({ error: 'Cannot start conversation with yourself' }, { status: 400 })
+      }
+
+      // Check if conversation already exists between the two users
+      const { data: existing } = await supabaseAdmin
+        .from('conversations')
+        .select('*')
+        .or(`and(participant_1.eq.${resolvedTargetId},participant_2.eq.${user.id}),and(participant_1.eq.${user.id},participant_2.eq.${resolvedTargetId})`)
+        .order('last_message_at', { ascending: false, nullsFirst: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (existing) {
+        return NextResponse.json({ conversation: existing })
+      }
+
+      // Create new conversation
+      const { data: created, error: createError } = await supabaseAdmin
+        .from('conversations')
+        .insert({
+          participant_1: resolvedTargetId,
+          participant_2: user.id,
+          original_message_id: original_message_id || null,
+          last_message_at: new Date().toISOString(),
+        })
+        .select()
+        .single()
+
+      if (createError) {
+        return NextResponse.json({ error: createError.message }, { status: 500 })
+      }
+      return NextResponse.json({ conversation: created })
+    }
+
+    // 2. Legacy / Anonymous message flow via original_message_id
+    if (!original_message_id) return NextResponse.json({ error: 'Missing target_user_id, target_slug, or original_message_id' }, { status: 400 })
 
     // Look up sender's user_id via IP mapping
     let participant_2: string | null = null
@@ -89,8 +141,9 @@ export async function GET(_req: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    // If any conversation has original_message_id, fetch those messages' content
     const convs = data ?? []
+
+    // If any conversation has original_message_id, fetch those messages' content
     const origIds = Array.from(new Set(convs.map((c: any) => c.original_message_id).filter(Boolean)))
     let origMap: Record<string, string> = {}
     if (origIds.length > 0) {
@@ -100,6 +153,31 @@ export async function GET(_req: NextRequest) {
         .in('message_id', origIds)
       if (msgs) {
         for (const m of msgs) origMap[m.message_id] = m.content ?? ''
+      }
+    }
+
+    // Fetch the other participant's profile details
+    const otherUserIds = Array.from(new Set(
+      convs
+        .map((c: any) => (c.participant_1 === user.id ? c.participant_2 : c.participant_1))
+        .filter(Boolean)
+    ))
+
+    let userMap: Record<string, { username: string | null; pfp: string | null; slug: string | null }> = {}
+    if (otherUserIds.length > 0) {
+      const { data: otherProfiles } = await supabaseAdmin
+        .from('users_table')
+        .select('user_id, username, pfp, slug')
+        .in('user_id', otherUserIds)
+
+      if (otherProfiles) {
+        for (const p of otherProfiles) {
+          userMap[p.user_id] = {
+            username: p.username ?? null,
+            pfp: p.pfp ?? null,
+            slug: p.slug ?? null,
+          }
+        }
       }
     }
 
@@ -122,12 +200,16 @@ export async function GET(_req: NextRequest) {
       }
     }
 
-    // attach original_message_content and last_sender_id to each conversation
-    const enriched = convs.map((c: any) => ({
-      ...c,
-      original_message_content: origMap[c.original_message_id] ?? null,
-      last_sender_id: lastSenderMap[c.id] ?? null,
-    }))
+    // enrich each conversation
+    const enriched = convs.map((c: any) => {
+      const otherId = c.participant_1 === user.id ? c.participant_2 : c.participant_1
+      return {
+        ...c,
+        original_message_content: origMap[c.original_message_id] ?? null,
+        last_sender_id: lastSenderMap[c.id] ?? null,
+        other_user: otherId ? (userMap[otherId] ?? null) : null,
+      }
+    })
 
     return NextResponse.json({ conversations: enriched, userId: user.id })
   } catch (e: any) {

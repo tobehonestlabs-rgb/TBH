@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { createClient } from '@supabase/supabase-js'
 import { extractPhotoUrls } from '@/lib/chatImages'
+import { sendGhostNotificationEmail } from '@/lib/email'
 
 // --------------------------------------------------------------------
 // GET : Récupère les messages d'une conversation
@@ -137,6 +138,36 @@ export async function POST(
         last_message_at: new Date().toISOString(),
       })
       .eq('id', id)
+
+    // Notify ghost recipient via email if applicable
+    try {
+      const { data: conv } = await supabaseAdmin
+        .from('conversations')
+        .select('participant_1, participant_2')
+        .eq('id', id)
+        .maybeSingle()
+
+      if (conv) {
+        const otherParticipantId = conv.participant_1 === user.id ? conv.participant_2 : conv.participant_1
+        if (otherParticipantId) {
+          const { data: otherUser } = await supabaseAdmin
+            .from('users_table')
+            .select('user_id, email, is_profile_complete')
+            .eq('user_id', otherParticipantId)
+            .maybeSingle()
+
+          if (otherUser?.email && otherUser.is_profile_complete === false) {
+            sendGhostNotificationEmail({
+              toEmail: otherUser.email,
+              conversationId: id,
+              messagePreview: lastMessageText,
+            }).catch(err => console.error('[email-notify] async error:', err))
+          }
+        }
+      }
+    } catch (eNotify) {
+      console.warn('[email-notify] check error:', eNotify)
+    }
 
     const parsedPhotos = extractPhotoUrls(data?.photos, data?.image_url)
     const normalizedMessage = data ? {

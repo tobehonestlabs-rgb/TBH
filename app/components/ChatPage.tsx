@@ -21,6 +21,7 @@ type Conversation = {
   participant_1: string | null
   participant_2: string | null
   last_sender_id?: string | null
+  other_user?: { username: string | null; pfp: string | null; slug: string | null } | null
 }
 
 type ConvMsg = {
@@ -950,7 +951,10 @@ export default function ChatPage({
   }
 
   const convDisplayName = (conv: Conversation) =>
-    convNames[conv.id] || (conv.original_message_content ? truncate(conv.original_message_content, 60) : conv.last_message) || 'New conversation'
+    convNames[conv.id] ||
+    (conv.other_user?.username ? `@${conv.other_user.username}` : null) ||
+    (conv.original_message_content ? truncate(conv.original_message_content, 60) : conv.last_message) ||
+    'New conversation'
 
   function truncate(s: string, n = 60) {
     if (!s) return ''
@@ -1525,14 +1529,22 @@ export default function ChatPage({
             >
               {/* Avatar */}
               <div className="relative flex-shrink-0">
-                <div className="w-11 h-11 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden">
-                  <img
-                    src="/assets/ChatHeart.svg"
-                    alt=""
-                    width={24}
-                    height={24}
-                    className="w-6 h-6 object-contain pointer-events-none"
-                  />
+                <div className="w-11 h-11 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden border border-black/5">
+                  {conv.other_user?.pfp ? (
+                    <img
+                      src={conv.other_user.pfp}
+                      alt={conv.other_user.username || ''}
+                      className="w-full h-full object-cover pointer-events-none"
+                    />
+                  ) : (
+                    <img
+                      src="/assets/ChatHeart.svg"
+                      alt=""
+                      width={24}
+                      height={24}
+                      className="w-6 h-6 object-contain pointer-events-none"
+                    />
+                  )}
                 </div>
               </div>
 
@@ -1654,6 +1666,11 @@ export default function ChatPage({
                 <path d="M19 12H5M12 5l-7 7 7 7" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
+            {selected.other_user?.pfp && (
+              <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-black/5">
+                <img src={selected.other_user.pfp} alt="" className="w-full h-full object-cover" />
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <p className="text-[16px] font-bold text-[#0D0D0D] truncate">{convDisplayName(selected)}</p>
               <p className="text-[11px] text-[#ADADAD] truncate">{t.endToEndPrivate || 'Conversation privée de bout en bout'}</p>

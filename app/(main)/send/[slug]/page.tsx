@@ -137,6 +137,7 @@ const GLOBAL_STYLES = `
 `
 
 type RecipientProfile = {
+  user_id?: string
   username: string
   pfp: string | null
 }
@@ -148,7 +149,9 @@ export default function SendMessagePage() {
   const { t, locale } = useTranslation()
   const suggestions = SUGGESTIONS_MAP[locale] || SUGGESTIONS_MAP.en
   const [recipient, setRecipient] = useState<RecipientProfile | null>(null)
+  const [currentUser, setCurrentUser] = useState<any>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isStartingChat, setIsStartingChat] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
@@ -221,12 +224,86 @@ export default function SendMessagePage() {
   }, [])
 
   useEffect(() => {
+    supabaseClient.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) setCurrentUser(session.user)
+    })
+  }, [])
+
+  useEffect(() => {
     if (!slug) return
     const cleanSlug = decodeURIComponent(slug as string).trim()
     supabaseClient
-      .from('users_table').select('username, pfp').eq('slug', cleanSlug).single()
+      .from('users_table').select('user_id, username, pfp').eq('slug', cleanSlug).maybeSingle()
       .then(({ data }) => { if (data) setRecipient(data) })
   }, [slug])
+
+  const handleStartConversation = async () => {
+    if (isStartingChat) return
+    setIsStartingChat(true)
+    setError(null)
+
+    const cleanSlug = decodeURIComponent(slug as string).trim()
+    const targetId = recipient?.user_id
+
+    // 1. If user is already authenticated
+    const { data: { session } } = await supabaseClient.auth.getSession()
+    if (session?.user) {
+      try {
+        const res = await fetch('/api/conversations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            target_user_id: targetId || undefined,
+            target_slug: cleanSlug,
+          }),
+        })
+
+        const data = await res.json()
+        const convId = data?.conversation?.id
+
+        if (convId && message.trim()) {
+          await fetch(`/api/conversations/${convId}/messages`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ content: message.trim() }),
+          }).catch(() => {})
+        }
+
+        router.push(convId ? `/chat?c=${convId}` : '/chat')
+        return
+      } catch (e) {
+        console.error('[send-start-chat] error:', e)
+        setIsStartingChat(false)
+        setError('Could not start conversation')
+        return
+      }
+    }
+
+    // 2. Not authenticated -> store intent and trigger Google OAuth
+    try {
+      sessionStorage.setItem('tbh_is_ghost_auth', 'true')
+      sessionStorage.setItem('tbh_ghost_chat_target_slug', cleanSlug)
+      if (targetId) sessionStorage.setItem('tbh_ghost_chat_target_id', targetId)
+      if (message.trim()) sessionStorage.setItem('tbh_ghost_draft_msg', message.trim())
+
+      await supabaseClient.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      })
+    } catch (err: any) {
+      console.error('[send-start-chat] oauth error:', err)
+      setIsStartingChat(false)
+      setError('Failed to connect with Google')
+    }
+  }
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -417,6 +494,32 @@ export default function SendMessagePage() {
             </button>
 
             <button
+              onClick={handleStartConversation}
+              disabled={isStartingChat}
+              onMouseDown={btnPress} onMouseUp={btnRelease}
+              onTouchStart={btnPress} onTouchEnd={btnRelease}
+              style={{
+                width: '100%', padding: '18px', borderRadius: '99px',
+                border: '1px solid rgba(255,255,255,0.2)',
+                background: 'rgba(255,255,255,0.12)', color: '#FFFFFF', fontSize: '16px', fontWeight: '800',
+                cursor: isStartingChat ? 'not-allowed' : 'pointer', transition: 'transform 0.12s ease', fontFamily: font,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              }}
+            >
+              {isStartingChat ? (
+                <>
+                  <div className="ios-arc" />
+                  <span>{locale === 'fr' ? 'Connexion...' : 'Connecting...'}</span>
+                </>
+              ) : (
+                <>
+                  <span>💬</span>
+                  <span>{t.startConversation || (locale === 'fr' ? 'Discuter en direct' : 'Chat in direct')}</span>
+                </>
+              )}
+            </button>
+
+            <button
               onClick={() => router.push('/')}
               onMouseDown={btnPress} onMouseUp={btnRelease}
               onTouchStart={btnPress} onTouchEnd={btnRelease}
@@ -465,9 +568,37 @@ export default function SendMessagePage() {
       <div style={{ position: 'relative', zIndex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
 
         {/* Header */}
-        <div style={{ paddingTop: '56px', paddingBottom: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+        <div style={{ paddingTop: '56px', paddingBottom: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
           <img src="/assets/TBH_Simple_Logo.svg" alt="TBH" style={{ height: '44px', filter: 'invert(1)' }} />
           <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.55)', margin: 0 }}>{t.anonymousMessaging}</p>
+          {currentUser && (
+            <button
+              type="button"
+              onClick={() => router.push('/chat')}
+              onMouseDown={btnPress} onMouseUp={btnRelease}
+              onTouchStart={btnPress} onTouchEnd={btnRelease}
+              style={{
+                marginTop: '6px',
+                padding: '8px 16px',
+                borderRadius: '99px',
+                background: 'rgba(255,255,255,0.08)',
+                border: '1px solid rgba(255,255,255,0.15)',
+                color: '#FFFFFF',
+                fontSize: '13px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                backdropFilter: 'blur(10px)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'transform 0.12s ease',
+                fontFamily: font,
+              }}
+            >
+              <span>💬</span>
+              <span>{locale === 'fr' ? 'Mes conversations' : 'My conversations'}</span>
+            </button>
+          )}
         </div>
 
         {/* Message card */}
@@ -601,8 +732,8 @@ export default function SendMessagePage() {
           {error && <p style={{ color: '#F87171', fontSize: '13px', margin: 0 }}>{error}</p>}
         </form>
 
-        {/* Send button */}
-        <div style={{ width: '100%', maxWidth: '400px', marginTop: '16px' }}>
+        {/* Buttons section */}
+        <div style={{ width: '100%', maxWidth: '400px', marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <button
             type="submit" form="message-form"
             disabled={isSubmitting || !message.trim()}
@@ -629,6 +760,51 @@ export default function SendMessagePage() {
                 <span style={{ fontSize: '16px', fontWeight: '700', opacity: 0.9 }}>{t.sending}</span>
               </>
             ) : t.sendAnonymously}
+          </button>
+
+          {/* Divider */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '4px 0' }}>
+            <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
+            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.35)', fontWeight: '600', textTransform: 'uppercase' }}>
+              {locale === 'fr' ? 'ou' : 'or'}
+            </span>
+            <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
+          </div>
+
+          {/* 1-on-1 Chat button */}
+          <button
+            type="button"
+            onClick={handleStartConversation}
+            disabled={isStartingChat}
+            onMouseDown={btnPress} onMouseUp={btnRelease}
+            onTouchStart={btnPress} onTouchEnd={btnRelease}
+            style={{
+              width: '100%', padding: '16px 20px', borderRadius: '99px',
+              border: '1px solid rgba(255,255,255,0.18)',
+              background: 'rgba(255,255,255,0.06)',
+              color: '#FFFFFF', fontSize: '15px', fontWeight: '700',
+              cursor: isStartingChat ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              backdropFilter: 'blur(20px)',
+              transition: 'transform 0.12s ease, background 0.2s ease, border-color 0.2s ease',
+              fontFamily: font,
+            }}
+          >
+            {isStartingChat ? (
+              <>
+                <div className="ios-arc" />
+                <span style={{ fontSize: '14px', fontWeight: '700', opacity: 0.9 }}>
+                  {locale === 'fr' ? 'Connexion...' : 'Connecting...'}
+                </span>
+              </>
+            ) : (
+              <>
+                <span style={{ fontSize: '16px' }}>💬</span>
+                <span>
+                  {t.startConversation || (locale === 'fr' ? 'Commencer une conversation' : 'Start a conversation')}
+                </span>
+              </>
+            )}
           </button>
         </div>
 

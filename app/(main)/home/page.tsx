@@ -40,6 +40,10 @@ export default function HomePage() {
         .maybeSingle()
  
       if (!data) { router.push('/onboarding'); return }
+      if (data.is_profile_complete === false || !data.username) {
+        router.replace('/chat')
+        return
+      }
       setProfile(data)
 
       // Register user's IP for sender identification
