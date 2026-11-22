@@ -6,4 +6,5 @@ export type UserProfile = {
   birthdate: number | null;
   active_subscription: boolean;
   email: string | null;
+  is_profile_complete?: boolean;
 };
