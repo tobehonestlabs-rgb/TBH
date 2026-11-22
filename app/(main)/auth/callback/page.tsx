@@ -1,124 +1,166 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { supabaseClient } from '@/lib/supabaseClient'
 
 export default function AuthCallbackPage() {
-  const router = useRouter()
   const [statusText, setStatusText] = useState('Signing you in...')
 
   useEffect(() => {
     const handleAuth = async () => {
       try {
-        const code = new URLSearchParams(window.location.search).get('code')
+        const urlParams = new URLSearchParams(window.location.search)
+        const code = urlParams.get('code')
+        const authError = urlParams.get('error') || urlParams.get('error_description')
+
+        if (authError) {
+          console.error('[auth-callback] Provider error:', authError)
+        }
+
+        // Check ghost flags in URL params, localStorage, or sessionStorage
+        const isGhostUrl = urlParams.get('ghost') === '1'
+        const slugFromUrl = urlParams.get('slug') || urlParams.get('target_slug')
+        const targetFromUrl = urlParams.get('target') || urlParams.get('target_id')
+
+        let isGhost = isGhostUrl
+        let targetSlug = slugFromUrl
+        let targetId = targetFromUrl
+        let draftMsg: string | null = null
+
+        if (typeof window !== 'undefined') {
+          if (!isGhost) {
+            isGhost = localStorage.getItem('tbh_is_ghost_auth') === 'true' ||
+                      sessionStorage.getItem('tbh_is_ghost_auth') === 'true'
+          }
+          if (!targetSlug) {
+            targetSlug = localStorage.getItem('tbh_ghost_chat_target_slug') ||
+                         sessionStorage.getItem('tbh_ghost_chat_target_slug')
+          }
+          if (!targetId) {
+            targetId = localStorage.getItem('tbh_ghost_chat_target_id') ||
+                       sessionStorage.getItem('tbh_ghost_chat_target_id')
+          }
+          draftMsg = localStorage.getItem('tbh_ghost_draft_msg') ||
+                     sessionStorage.getItem('tbh_ghost_draft_msg')
+
+          // Clean up storage
+          localStorage.removeItem('tbh_is_ghost_auth')
+          localStorage.removeItem('tbh_ghost_chat_target_slug')
+          localStorage.removeItem('tbh_ghost_chat_target_id')
+          localStorage.removeItem('tbh_ghost_draft_msg')
+          sessionStorage.removeItem('tbh_is_ghost_auth')
+          sessionStorage.removeItem('tbh_ghost_chat_target_slug')
+          sessionStorage.removeItem('tbh_ghost_chat_target_id')
+          sessionStorage.removeItem('tbh_ghost_draft_msg')
+        }
+
+        // 1. Session exchange
+        let session = null
 
         if (code) {
-          await supabaseClient.auth.exchangeCodeForSession(code)
+          setStatusText('Verifying credentials...')
+          const { data, error } = await supabaseClient.auth.exchangeCodeForSession(code)
+          if (error) {
+            console.warn('[auth-callback] exchangeCodeForSession warning:', error.message)
+          }
+          if (data?.session) {
+            session = data.session
+          }
         }
 
-        const { data: { session } } = await supabaseClient.auth.getSession()
-
+        // 2. Fallback to getSession()
         if (!session) {
-          router.replace('/')
-          return
+          const { data } = await supabaseClient.auth.getSession()
+          session = data?.session
         }
 
-        // Check if user already has a profile in users_table
-        const { data: existingProfile } = await supabaseClient
-          .from('users_table')
-          .select('user_id, username, is_profile_complete')
-          .eq('user_id', session.user.id)
-          .maybeSingle()
-
-        // Check if user came from "Start conversation" ghost flow
-        const isGhostAuth = typeof window !== 'undefined' && sessionStorage.getItem('tbh_is_ghost_auth') === 'true'
-        const targetUserId = typeof window !== 'undefined' ? sessionStorage.getItem('tbh_ghost_chat_target_id') : null
-        const targetSlug = typeof window !== 'undefined' ? sessionStorage.getItem('tbh_ghost_chat_target_slug') : null
-        const draftMsg = typeof window !== 'undefined' ? sessionStorage.getItem('tbh_ghost_draft_msg') : null
-
-        // If user has no record in users_table at all, create a Ghost User record
-        if (!existingProfile) {
-          setStatusText('Setting up your anonymous profile...')
-          const now = new Date().toISOString()
-          await supabaseClient.from('users_table').insert({
-            user_id: session.user.id,
-            email: session.user.email,
-            is_profile_complete: false,
-            username: null,
-            slug: null,
-            pfp: null,
-            created_at: now,
-            active_subscription: false,
+        // 3. Fallback: wait for onAuthStateChange
+        if (!session) {
+          session = await new Promise<any>((resolve) => {
+            const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((_, s) => {
+              if (s) {
+                subscription.unsubscribe()
+                resolve(s)
+              }
+            })
+            setTimeout(() => {
+              subscription.unsubscribe()
+              resolve(null)
+            }, 3000)
           })
         }
 
-        // Handle Ghost conversation initiation
-        if (isGhostAuth && (targetUserId || targetSlug)) {
-          setStatusText('Connecting to conversation...')
-          // Clean up storage
-          sessionStorage.removeItem('tbh_is_ghost_auth')
-          sessionStorage.removeItem('tbh_ghost_chat_target_id')
-          sessionStorage.removeItem('tbh_ghost_chat_target_slug')
-          sessionStorage.removeItem('tbh_ghost_draft_msg')
+        // If after all attempts there is still no session
+        if (!session) {
+          console.error('[auth-callback] No active session found')
+          if (targetSlug) {
+            window.location.href = `/send/${encodeURIComponent(targetSlug)}?error=auth_failed`
+          } else {
+            window.location.href = '/'
+          }
+          return
+        }
+
+        // 4. Ghost User Flow
+        if (isGhost && (targetSlug || targetId)) {
+          setStatusText('Setting up your conversation...')
 
           try {
-            const convRes = await fetch('/api/conversations', {
+            const ghostRes = await fetch('/api/user/ghost', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${session.access_token}`,
               },
               body: JSON.stringify({
-                target_user_id: targetUserId || undefined,
                 target_slug: targetSlug || undefined,
+                target_user_id: targetId || undefined,
+                draft_message: draftMsg || undefined,
               }),
             })
 
-            const convData = await convRes.json().catch(() => ({}))
-            const convId = convData?.conversation?.id
+            const ghostData = await ghostRes.json().catch(() => ({}))
+            const convId = ghostData?.conversation_id
 
-            // If user had typed a draft message before auth, send it immediately
-            if (convId && draftMsg?.trim()) {
-              setStatusText('Sending message...')
-              await fetch(`/api/conversations/${convId}/messages`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${session.access_token}`,
-                },
-                body: JSON.stringify({ content: draftMsg.trim() }),
-              }).catch(() => {})
-            }
-
-            router.replace(convId ? `/chat?c=${convId}` : '/chat')
+            window.location.href = convId ? `/chat?c=${encodeURIComponent(convId)}` : '/chat'
             return
           } catch (e) {
-            console.error('[auth-callback] failed to initiate conversation:', e)
-            router.replace('/chat')
+            console.error('[auth-callback] ghost setup error:', e)
+            window.location.href = '/chat'
             return
           }
         }
 
-        // Standard redirect if not ghost chat initiation:
-        if (existingProfile) {
-          if (existingProfile.is_profile_complete === false || !existingProfile.username) {
-            router.replace('/chat')
+        // 5. Normal User Flow
+        setStatusText('Loading profile...')
+        const { data: profile } = await supabaseClient
+          .from('users_table')
+          .select('user_id, username, is_profile_complete')
+          .eq('user_id', session.user.id)
+          .maybeSingle()
+
+        if (profile) {
+          if (profile.is_profile_complete === false || !profile.username) {
+            window.location.href = '/chat'
           } else {
-            router.replace('/home')
+            window.location.href = '/home'
           }
         } else {
-          // If a new user signed in normally via Google without starting a chat
-          router.replace('/onboarding')
+          // In case a ghost user signs in normally without a target
+          if (isGhost) {
+            window.location.href = '/chat'
+          } else {
+            window.location.href = '/onboarding'
+          }
         }
       } catch (err) {
         console.error('[auth-callback] unexpected error:', err)
-        router.replace('/')
+        window.location.href = '/'
       }
     }
 
     handleAuth()
-  }, [router])
+  }, [])
 
   return (
     <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center gap-4">

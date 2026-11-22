@@ -1,12 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { getServerSupabase } from '@/lib/serverSupabase'
+import { createClient } from '@supabase/supabase-js'
 
+async function getAuthenticatedUser(req: NextRequest) {
+  const authHeader = req.headers.get('Authorization')
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
+
+  if (token) {
+    const tokenClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { global: { headers: { Authorization: `Bearer ${token}` } } }
+    )
+    const { data: userData } = await tokenClient.auth.getUser()
+    if (userData?.user) return userData.user
+  }
+
+  const supabase = getServerSupabase()
+  const { data: userData } = await supabase.auth.getUser()
+  return userData?.user ?? null
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = getServerSupabase()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getAuthenticatedUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await req.json().catch(() => ({}))
@@ -126,10 +144,9 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
-    const supabase = getServerSupabase()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getAuthenticatedUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     // Fetch conversations where user is participant_1 OR participant_2

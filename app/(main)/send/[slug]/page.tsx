@@ -249,31 +249,21 @@ export default function SendMessagePage() {
     const { data: { session } } = await supabaseClient.auth.getSession()
     if (session?.user) {
       try {
-        const res = await fetch('/api/conversations', {
+        const res = await fetch('/api/user/ghost', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
-            target_user_id: targetId || undefined,
             target_slug: cleanSlug,
+            target_user_id: targetId || undefined,
+            draft_message: message.trim() || undefined,
           }),
         })
 
         const data = await res.json()
-        const convId = data?.conversation?.id
-
-        if (convId && message.trim()) {
-          await fetch(`/api/conversations/${convId}/messages`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({ content: message.trim() }),
-          }).catch(() => {})
-        }
+        const convId = data?.conversation_id
 
         router.push(convId ? `/chat?c=${convId}` : '/chat')
         return
@@ -285,17 +275,29 @@ export default function SendMessagePage() {
       }
     }
 
-    // 2. Not authenticated -> store intent and trigger Google OAuth
+    // 2. Not authenticated -> store intent in localStorage, sessionStorage AND URL query params!
     try {
-      sessionStorage.setItem('tbh_is_ghost_auth', 'true')
-      sessionStorage.setItem('tbh_ghost_chat_target_slug', cleanSlug)
-      if (targetId) sessionStorage.setItem('tbh_ghost_chat_target_id', targetId)
-      if (message.trim()) sessionStorage.setItem('tbh_ghost_draft_msg', message.trim())
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('tbh_is_ghost_auth', 'true')
+        localStorage.setItem('tbh_ghost_chat_target_slug', cleanSlug)
+        if (targetId) localStorage.setItem('tbh_ghost_chat_target_id', targetId)
+        if (message.trim()) localStorage.setItem('tbh_ghost_draft_msg', message.trim())
+
+        sessionStorage.setItem('tbh_is_ghost_auth', 'true')
+        sessionStorage.setItem('tbh_ghost_chat_target_slug', cleanSlug)
+        if (targetId) sessionStorage.setItem('tbh_ghost_chat_target_id', targetId)
+        if (message.trim()) sessionStorage.setItem('tbh_ghost_draft_msg', message.trim())
+      }
+
+      const callbackUrl = new URL(`${window.location.origin}/auth/callback`)
+      callbackUrl.searchParams.set('ghost', '1')
+      callbackUrl.searchParams.set('slug', cleanSlug)
+      if (targetId) callbackUrl.searchParams.set('target', targetId)
 
       await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: callbackUrl.toString(),
         },
       })
     } catch (err: any) {

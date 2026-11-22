@@ -22,7 +22,23 @@ function ChatContent() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session } } = await supabaseClient.auth.getSession()
+      let session = (await supabaseClient.auth.getSession()).data.session
+
+      if (!session) {
+        session = await new Promise<any>((resolve) => {
+          const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((_, s) => {
+            if (s) {
+              subscription.unsubscribe()
+              resolve(s)
+            }
+          })
+          setTimeout(() => {
+            subscription.unsubscribe()
+            resolve(null)
+          }, 3000)
+        })
+      }
+
       if (!session) {
         router.replace('/')
         return
