@@ -1,0 +1,82 @@
+[33mcommit accf58d457b09d0d3faadad58ded42f5bb8ba248[m
+Author: calvin <calvinunsafe@gmail.com>
+Date:   Thu Jul 16 21:51:09 2026 +0000
+
+    commit new changes
+
+[33mcommit fb45f68f5d924c89e40d16b0c340c358522d1cc2[m
+Author: calvin <calvinunsafe@gmail.com>
+Date:   Thu Jul 16 21:07:48 2026 +0000
+
+    commit new changes
+
+[33mcommit 92464251fca4bb8d1d1ddb11bcab0733a6e86140[m
+Author: calvin <calvinunsafe@gmail.com>
+Date:   Thu Jul 16 19:13:44 2026 +0000
+
+    commit new changes
+
+[33mcommit abfb2fe3ab50f9cf2c409bee0b2779c82dedc5fb[m
+Author: calvin <calvinunsafe@gmail.com>
+Date:   Wed Jul 15 16:35:11 2026 +0000
+
+     you can now use paystack
+
+[33mcommit b9d763157a18db02b257ab1e584e6fd2cccdc0de[m
+Author: calvin <calvinunsafe@gmail.com>
+Date:   Thu Jun 25 02:30:44 2026 +0000
+
+    fixing notification
+
+[33mcommit 5d58332c054df910403fbde5d26b8a942fd59e9a[m[33m ([m[1;31morigin/claude/count-page-tsx-files-kaDVB[m[33m)[m
+Author: Claude <noreply@anthropic.com>
+Date:   Mon Jun 1 00:05:19 2026 +0000
+
+    Add GIF sending, TBH Pro paywall, and Pro-gated features
+    
+    - Gate 'Who sent this?' and 'Start a conversation' behind active_subscription check; show TBHProScreen on tap if not Pro
+    - Add GIF reply mode to message reply view: text/gif toggle, GifPicker overlay, generateGifReplyCard canvas function
+    - Add GIF sending to conversation threads (MessagesPages + ChatPage): 🎬 button opens GifPicker, GIF bubbles render inline
+    - Add TBHProScreen component (Paystack inline popup, $2.99/mo)
+    - Add GifPicker component (Tenor API, trending + search)
+    - Add /api/paystack/initialize, /api/paystack/verify, /api/paystack/webhook routes
+    - Add /api/gif-proxy route for CORS-safe canvas image loading
+    - Add gif_url support to conversation_messages API route
+    
+    https://claude.ai/code/session_018echndsWa7PMg8dURqswto
+
+[33mcommit d492cc581ffd41a705d0b3c15e078f1d73e0ccdf[m
+Author: Claude <noreply@anthropic.com>
+Date:   Sun May 10 15:49:14 2026 +0000
+
+    Fix env vars: remove spaces around = signs
+    
+    Leading/trailing spaces in .env values are included literally by dotenv,
+    causing the Supabase API key to be sent as " eyJ..." instead of "eyJ...",
+    which Supabase rejects with "No API key found in request".
+    
+    https://claude.ai/code/session_018echndsWa7PMg8dURqswto
+
+[33mcommit ccc20316092b5cf779a57c49346dbd8bc57cc65f[m
+Author: calvin <calvinunsafe@gmail.com>
+Date:   Fri May 1 21:31:35 2026 +0000
+
+    me and the boys
+
+[33mcommit 1873cc6286534cc42d599739d598a9dbe1f0781a[m
+Author: calvin <calvinunsafe@gmail.com>
+Date:   Sun Apr 26 00:11:31 2026 +0000
+
+    the actual website
+
+[33mcommit 6e6d0af1e0634ff24295ecf18d3bfc555c34a51f[m
+Author: calvin <calvinunsafe@gmail.com>
+Date:   Mon Jan 12 12:59:02 2026 +0100
+
+    new fix
+
+[33mcommit 920aa004cd7a6e5615fe7c461b940d0dcc861709[m
+Author: calvin <calvinunsafe@gmail.com>
+Date:   Mon Jan 12 11:53:08 2026 +0100
+
+    new sending message system
