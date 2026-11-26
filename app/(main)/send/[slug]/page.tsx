@@ -148,6 +148,17 @@ export default function SendMessagePage() {
 
   const { t, locale } = useTranslation()
   const suggestions = SUGGESTIONS_MAP[locale] || SUGGESTIONS_MAP.en
+
+  // Recover from OAuth redirects that land on send page
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const search = window.location.search
+      const hash = window.location.hash
+      if (search.includes('code=') || hash.includes('access_token=')) {
+        window.location.href = `/auth/callback${search}${hash}`
+      }
+    }
+  }, [])
   const [recipient, setRecipient] = useState<RecipientProfile | null>(null)
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -289,7 +300,10 @@ export default function SendMessagePage() {
         if (message.trim()) sessionStorage.setItem('tbh_ghost_draft_msg', message.trim())
       }
 
-      const callbackUrl = new URL(`${window.location.origin}/auth/callback`)
+      const baseOrigin = typeof window !== 'undefined' && window.location.origin.includes('localhost')
+        ? window.location.origin
+        : 'https://tbht.link'
+      const callbackUrl = new URL(`${baseOrigin}/auth/callback`)
       callbackUrl.searchParams.set('ghost', '1')
       callbackUrl.searchParams.set('slug', cleanSlug)
       if (targetId) callbackUrl.searchParams.set('target', targetId)

@@ -10,17 +10,18 @@ export default function AuthCallbackPage() {
     const handleAuth = async () => {
       try {
         const urlParams = new URLSearchParams(window.location.search)
-        const code = urlParams.get('code')
-        const authError = urlParams.get('error') || urlParams.get('error_description')
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+        const code = urlParams.get('code') || hashParams.get('code')
+        const authError = urlParams.get('error') || urlParams.get('error_description') || hashParams.get('error') || hashParams.get('error_description')
 
         if (authError) {
           console.error('[auth-callback] Provider error:', authError)
         }
 
-        // Check ghost flags in URL params, localStorage, or sessionStorage
-        const isGhostUrl = urlParams.get('ghost') === '1'
-        const slugFromUrl = urlParams.get('slug') || urlParams.get('target_slug')
-        const targetFromUrl = urlParams.get('target') || urlParams.get('target_id')
+        // Check ghost flags in URL params, hash params, localStorage, or sessionStorage
+        const isGhostUrl = urlParams.get('ghost') === '1' || hashParams.get('ghost') === '1'
+        const slugFromUrl = urlParams.get('slug') || urlParams.get('target_slug') || hashParams.get('slug') || hashParams.get('target_slug')
+        const targetFromUrl = urlParams.get('target') || urlParams.get('target_id') || hashParams.get('target') || hashParams.get('target_id')
 
         let isGhost = isGhostUrl
         let targetSlug = slugFromUrl

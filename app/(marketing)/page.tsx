@@ -207,6 +207,17 @@ export default function LandingPage() {
   const [copied, setCopied] = useState(false)
   const [scrolled, setScrolled] = useState(false)
 
+  // Recover from OAuth redirects that land on root
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const search = window.location.search
+      const hash = window.location.hash
+      if (search.includes('code=') || hash.includes('access_token=') || search.includes('error=')) {
+        window.location.href = `/auth/callback${search}${hash}`
+      }
+    }
+  }, [])
+
   // Track scroll position to drop the navbar down gracefully
   useEffect(() => {
     const handleScroll = () => {

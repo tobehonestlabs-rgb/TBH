@@ -2,6 +2,25 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+  const host = request.headers.get('host') || ''
+  const path = request.nextUrl.pathname
+  const hasAuthCode = request.nextUrl.searchParams.has('code') || request.nextUrl.searchParams.has('error')
+
+  // 1. Domain normalization: Redirect any tbhonest.net traffic to tbht.link
+  if (host.includes('tbhonest.net')) {
+    const targetPath = (hasAuthCode && (path === '/' || path === '')) ? '/auth/callback' : path
+    const redirectUrl = new URL(targetPath, 'https://tbht.link')
+    redirectUrl.search = request.nextUrl.search
+    return NextResponse.redirect(redirectUrl, 307)
+  }
+
+  // 2. OAuth Callback recovery: If user lands on root with auth code or error, route to /auth/callback
+  if (path === '/' && hasAuthCode) {
+    const callbackUrl = new URL('/auth/callback', request.url)
+    callbackUrl.search = request.nextUrl.search
+    return NextResponse.redirect(callbackUrl, 307)
+  }
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
